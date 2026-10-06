@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -345,6 +346,18 @@ fun MonthView(date: LocalDate, events: List<PalmEvent>, onDay: (LocalDate) -> Un
 
 /* ======================= Год ======================= */
 
+/** Мелкий шрифт дней без внутренних отступов шрифта — иначе цифры съезжают и обрезаются. */
+private val MiniDay = androidx.compose.ui.text.TextStyle(
+    fontSize = 10.sp,
+    lineHeight = 10.sp,
+    textAlign = TextAlign.Center,
+    platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+    lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+        alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+        trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
+    ),
+)
+
 /** Двенадцать маленьких месяцев. Дни с событиями выделены. Тап по дню — день, по названию — месяц. */
 @Composable
 fun YearView(
@@ -390,38 +403,33 @@ private fun MiniMonth(
         val weeks = ((java.time.temporal.ChronoUnit.DAYS.between(start, last)) / 7 + 1).toInt()
         for (week in 0 until weeks) {
             val weekStartDay = start.plusDays(week * 7L)
-            Row(Modifier.fillMaxWidth()) {
+            Row(Modifier.fillMaxWidth().height(18.dp)) {
                 for (i in 0 until 7) {
                     val d = weekStartDay.plusDays(i.toLong())
                     val inMonth = d.month == first.month
                     val has = inMonth && d in marked
+                    val isToday = inMonth && d == today
                     Box(
                         Modifier
                             .weight(1f)
-                            .aspectRatio(1f)
-                            .clip(CircleShape)
-                            .background(
-                                when {
-                                    inMonth && d == today -> Palm.navy
-                                    has -> Palm.navyLight
-                                    else -> Color.Transparent
-                                },
-                            )
+                            .fillMaxHeight()
                             .then(if (inMonth) Modifier.clickable { onDay(d) } else Modifier),
                         contentAlignment = Alignment.Center,
                     ) {
+                        // Кружок только у сегодняшнего дня; дни с событиями — жирные синие
+                        if (isToday) Box(Modifier.size(17.dp).clip(CircleShape).background(Palm.navy))
                         if (inMonth) {
                             Text(
                                 "${d.dayOfMonth}",
-                                fontSize = 9.sp,
-                                fontWeight = if (has) FontWeight.Bold else FontWeight.Normal,
+                                style = MiniDay.copy(fontWeight = if (has || isToday) FontWeight.Bold else FontWeight.Normal),
                                 color = when {
-                                    d == today -> Color.White
+                                    isToday -> Color.White
                                     has -> Palm.navy
-                                    d.dayOfWeek.value >= 6 -> Palm.nowLine
-                                    else -> Palm.inkSoft
+                                    d.dayOfWeek.value >= 6 -> Palm.nowLine.copy(alpha = 0.7f)
+                                    else -> Palm.inkSoft.copy(alpha = 0.7f)
                                 },
                                 maxLines = 1,
+                                softWrap = false,
                             )
                         }
                     }

@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -180,7 +182,7 @@ fun NewEventSheet(
                     step = Step.WHEN
                 }
 
-                Step.WHEN -> WhenPicker(
+                Step.WHEN -> Column(Modifier.verticalScroll(rememberScrollState())) { WhenPicker(
                     type = type!!,
                     phone = contact?.phone?.takeIf { type == EventType.CALL },
                     onChangePhone = if (type == EventType.CALL && contact != null) {
@@ -203,7 +205,7 @@ fun NewEventSheet(
                         if (cal == null) step = Step.CALENDAR
                         else onCreate(NewEvent(type!!, contact, title, start, minutes, note, cal, reminders))
                     },
-                )
+                ) }
             }
         }
     }
@@ -416,6 +418,20 @@ private fun WhenPicker(
 ) {
     val allDay = minutes == 0
 
+    // Куда записать и какой номер — сверху, чтобы было видно сразу
+    SettingRow(
+        "Календарь",
+        calendar?.name ?: "выбрать…",
+        sub = calendar?.accountName?.takeIf { showAccount && it != calendar.name },
+        dot = calendar?.let { Color(it.color) },
+        onClick = onChangeCalendar,
+    )
+    if (onChangePhone != null) {
+        SettingRow("Номер", phone ?: "выбрать…", onClick = onChangePhone)
+    }
+    Box(Modifier.fillMaxWidth().height(1.dp).background(Palm.rule))
+    Spacer(Modifier.height(10.dp))
+
     // Дата
     Row(verticalAlignment = Alignment.CenterVertically) {
         StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowLeft) { onStart(start.minusDays(1)) }
@@ -467,20 +483,7 @@ private fun WhenPicker(
         label = { Text(if (type == EventType.CALL) "О чём (необязательно)" else "Заметка (необязательно)") },
         modifier = Modifier.fillMaxWidth(), maxLines = 3,
     )
-    Spacer(Modifier.height(6.dp))
-
-    if (onChangePhone != null) {
-        SettingRow("Номер", phone ?: "выбрать…", onClick = onChangePhone)
-    }
-    SettingRow(
-        "Календарь",
-        calendar?.name ?: "выбрать…",
-        sub = calendar?.accountName?.takeIf { showAccount && it != calendar.name },
-        dot = calendar?.let { Color(it.color) },
-        onClick = onChangeCalendar,
-    )
-
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(14.dp))
     Row { Spacer(Modifier.weight(1f)); PalmButton("Готово", filled = true, onClick = onDone) }
 }
 
@@ -577,10 +580,17 @@ fun EventDetailsSheet(
                     mode = DetailMode.VIEW
                 }
 
-                DetailMode.VIEW -> {
+                DetailMode.VIEW -> Column(Modifier.verticalScroll(rememberScrollState())) {
                     val whenText = if (event.allDay) event.start.toLocalDate().pretty() + ", весь день"
                     else event.start.toLocalDate().pretty() + ", " + event.start.format(HM) + "–" + event.end.format(HM)
                     DetailLine("Когда", whenText)
+                    if (event.calendarName.isNotEmpty()) {
+                        SettingRow(
+                            "Календарь", event.calendarName,
+                            sub = event.accountName.takeIf { it.isNotEmpty() && it != event.calendarName },
+                            dot = Color(event.color), onClick = null,
+                        )
+                    }
                     if (event.type == null) DetailLine("Событие", event.title)
                     event.contact?.let { c ->
                         // Номер можно сменить из списка номеров контакта

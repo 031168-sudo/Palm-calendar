@@ -50,6 +50,7 @@ class CalendarRepository(
         data class Raw(
             val id: Long, val title: String, val begin: Long, val end: Long,
             val allDay: Boolean, val desc: String?, val color: Int,
+            val calName: String, val account: String,
         )
 
         val raws = ArrayList<Raw>()
@@ -58,6 +59,7 @@ class CalendarRepository(
             arrayOf(
                 Instances.EVENT_ID, Instances.TITLE, Instances.BEGIN, Instances.END,
                 Instances.ALL_DAY, Instances.DESCRIPTION, Instances.DISPLAY_COLOR,
+                Instances.CALENDAR_DISPLAY_NAME, Instances.ACCOUNT_NAME,
             ),
             "${Instances.VISIBLE} = 1", null,
             "${Instances.BEGIN} ASC, ${Instances.ALL_DAY} DESC",
@@ -66,6 +68,7 @@ class CalendarRepository(
                 raws += Raw(
                     c.getLong(0), c.getString(1) ?: "", c.getLong(2), c.getLong(3),
                     c.getInt(4) == 1, c.getString(5), c.getInt(6),
+                    c.getString(7) ?: "", c.getString(8) ?: "",
                 )
             }
         }
@@ -92,6 +95,8 @@ class CalendarRepository(
                 contact = contact,
                 note = Marker.strip(r.desc)?.takeIf { it.isNotBlank() },
                 color = r.color,
+                calendarName = r.calName,
+                accountName = r.account,
             )
         }
     }

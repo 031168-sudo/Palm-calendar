@@ -177,6 +177,8 @@ fun DayScreen(vm: DayViewModel) {
                 val hour = if (state.date == LocalDate.now()) (now.hour + 1).coerceAtMost(23) else 9
                 newAt = state.date.atTime(hour, 0)
             },
+            onToday = vm::today,
+            onGoTo = { pickDate = true },
             onMode = { vm.setMode(it) },
         )
     }
@@ -521,28 +523,43 @@ private val ViewMode.icon: ImageVector
     }
 
 @Composable
-private fun ButtonBar(mode: ViewMode, onNew: () -> Unit, onMode: (ViewMode) -> Unit) {
+private fun ButtonBar(
+    mode: ViewMode,
+    onNew: () -> Unit,
+    onToday: () -> Unit,
+    onGoTo: () -> Unit,
+    onMode: (ViewMode) -> Unit,
+) {
     Column(Modifier.fillMaxWidth().background(Palm.paper).navigationBarsPadding()) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Palm.rule))
+        // Виды: иконка + подпись, на всю ширину
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+            ViewMode.entries.forEach { m ->
+                val sel = m == mode
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (sel) Palm.navy else Color.Transparent)
+                        .clickable { onMode(m) }
+                        .padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(m.icon, null, tint = if (sel) Color.White else Palm.navy, modifier = Modifier.size(20.dp))
+                    Text(m.label, style = Palm.small.copy(fontSize = Palm.small.fontSize * 0.85f),
+                        color = if (sel) Color.White else Palm.navy, maxLines = 1)
+                }
+            }
+        }
+        // Кнопки, как на Palm
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp, top = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PalmButton("Новое", filled = true, onClick = onNew)
-            Spacer(Modifier.weight(1f))
-            ViewMode.entries.forEach { m ->
-                val sel = m == mode
-                Box(
-                    Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (sel) Palm.navy else Color.Transparent)
-                        .clickable { onMode(m) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(m.icon, m.label, tint = if (sel) Color.White else Palm.navy, modifier = Modifier.size(22.dp))
-                }
-            }
+            PalmButton("Сегодня", onClick = onToday)
+            PalmButton("Перейти", onClick = onGoTo)
         }
     }
 }
