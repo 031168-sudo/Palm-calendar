@@ -262,9 +262,12 @@ private fun DayBody(
                     if (row.events.isEmpty()) {
                         EmptyLine(label, hl) { onSlot(row.hour) }
                     } else {
+                        // Если первое событие не ровно в начале часа — сам час остаётся отдельной строкой, как на Palm
+                        val startsOnHour = row.events.first().start.minute == 0
+                        if (!startsOnHour) EmptyLine(label, hl) { onSlot(row.hour) }
                         row.events.forEachIndexed { i, e ->
                             val t = if (e.start.minute == 0 && i == 0) label else e.start.format(HM)
-                            EventLine(e, t, hl && i == 0, onIcon, onEvent)
+                            EventLine(e, t, hl && i == 0 && startsOnHour, onIcon, onEvent)
                         }
                     }
                 }

@@ -7,6 +7,7 @@ import android.os.Looper
 import android.provider.CalendarContract
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,9 +66,14 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             val date = _state.value.date
-            runCatching { withContext(Dispatchers.IO) { repo.eventsFor(date) } }
-                .onSuccess { ev -> _state.update { if (it.date == date) it.copy(events = ev) else it } }
-                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+            try {
+                val ev = withContext(Dispatchers.IO) { repo.eventsFor(date) }
+                _state.update { if (it.date == date) it.copy(events = ev) else it }
+            } catch (e: CancellationException) {
+                throw e // отмена старой загрузки — это не ошибка, не показываем
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message) }
+            }
         }
     }
 
@@ -75,11 +81,14 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
         withContext(Dispatchers.IO) { contacts.search(q) }
 
     fun create(e: NewEvent) = viewModelScope.launch {
-        runCatching { withContext(Dispatchers.IO) { repo.create(e) } }
-            .onSuccess {
-                if (e.start.toLocalDate() != _state.value.date) select(e.start.toLocalDate()) else reload()
-            }
-            .onFailure { err -> _state.update { it.copy(error = err.message) } }
+        try {
+            withContext(Dispatchers.IO) { repo.create(e) }
+            if (e.start.toLocalDate() != _state.value.date) select(e.start.toLocalDate()) else reload()
+        } catch (c: CancellationException) {
+            throw c
+        } catch (err: Exception) {
+            _state.update { it.copy(error = err.message) }
+        }
     }
 
     fun delete(e: PalmEvent) = viewModelScope.launch {
