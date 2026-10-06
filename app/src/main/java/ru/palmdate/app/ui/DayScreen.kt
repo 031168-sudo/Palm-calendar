@@ -188,6 +188,8 @@ fun DayScreen(vm: DayViewModel) {
             Snackbar(
                 action = { TextButton(onClick = vm::dismissError) { Text("OK") } },
                 containerColor = Palm.ink,
+                contentColor = Palm.paper,
+                actionContentColor = Palm.navyLight,
             ) { Text(msg) }
         }
     }
@@ -441,7 +443,7 @@ private fun EmptyLine(label: String, highlight: Boolean, onClick: () -> Unit) {
 }
 
 /** Бледная подсветка цветом календаря — как пастельные категории на Palm. */
-internal fun calTint(color: Int) = Color(color).copy(alpha = 0.11f)
+internal fun calTint(color: Int) = Color(color).copy(alpha = Palm.tintAlpha)
 
 /**
  * Строка события: время · [полоска календаря | иконка типа | имя и подпись].

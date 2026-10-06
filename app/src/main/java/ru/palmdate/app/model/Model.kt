@@ -19,7 +19,7 @@ import java.time.LocalDateTime
 enum class EventType(
     val label: String,
     val icon: ImageVector,
-    val color: Color,
+    private val baseColor: Color,
     val defaultMinutes: Int,
     val needsContact: Boolean,
     val defaultReminders: List<Int>,
@@ -30,6 +30,9 @@ enum class EventType(
     TRIP("Поездка", Icons.Outlined.Flight, Color(0xFF6A4C93), 120, false, listOf(60)),
     BIRTHDAY("День рождения", Icons.Outlined.Cake, Color(0xFFD35400), 0, true, listOf(0)),
     OTHER("Событие", Icons.Outlined.Event, Color(0xFF546E7A), 60, false, listOf(15));
+
+    /** Цвет типа с поправкой на тему (в тёмной — светлее). */
+    val color: Color get() = ru.palmdate.app.ui.theme.Palm.typeColor(baseColor)
 
     companion object {
         fun parse(s: String?): EventType? = entries.firstOrNull { it.name == s }

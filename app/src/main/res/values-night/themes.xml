@@ -1,0 +1,9 @@
+<resources>
+    <!-- Тёмная тема окна: фон и строка состояния без белой вспышки при запуске -->
+    <style name="Theme.PalmDate" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:statusBarColor">@color/paper</item>
+        <item name="android:navigationBarColor">@color/paper</item>
+    </style>
+    <color name="paper">#FF17191E</color>
+</resources>
