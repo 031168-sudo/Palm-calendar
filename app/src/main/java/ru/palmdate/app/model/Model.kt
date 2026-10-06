@@ -89,6 +89,8 @@ data class PalmEvent(
     val color: Int,            // цвет, который показывает Google (цвет события или календаря)
     val calendarName: String = "",
     val accountName: String = "",
+    val calendarId: Long = -1,
+    val recurring: Boolean = false,
 ) {
     /** Дни, которые занимает событие (для недели, месяца, года). */
     fun days(): List<LocalDate> {

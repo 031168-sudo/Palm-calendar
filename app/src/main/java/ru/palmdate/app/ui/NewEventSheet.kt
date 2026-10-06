@@ -30,7 +30,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -182,7 +184,7 @@ fun NewEventSheet(
                     step = Step.WHEN
                 }
 
-                Step.WHEN -> Column(Modifier.verticalScroll(rememberScrollState())) { WhenPicker(
+                Step.WHEN -> WhenPicker(
                     type = type!!,
                     phone = contact?.phone?.takeIf { type == EventType.CALL },
                     onChangePhone = if (type == EventType.CALL && contact != null) {
@@ -205,7 +207,7 @@ fun NewEventSheet(
                         if (cal == null) step = Step.CALENDAR
                         else onCreate(NewEvent(type!!, contact, title, start, minutes, note, cal, reminders))
                     },
-                ) }
+                )
             }
         }
     }
@@ -418,20 +420,6 @@ private fun WhenPicker(
 ) {
     val allDay = minutes == 0
 
-    // Куда записать и какой номер — сверху, чтобы было видно сразу
-    SettingRow(
-        "Календарь",
-        calendar?.name ?: "выбрать…",
-        sub = calendar?.accountName?.takeIf { showAccount && it != calendar.name },
-        dot = calendar?.let { Color(it.color) },
-        onClick = onChangeCalendar,
-    )
-    if (onChangePhone != null) {
-        SettingRow("Номер", phone ?: "выбрать…", onClick = onChangePhone)
-    }
-    Box(Modifier.fillMaxWidth().height(1.dp).background(Palm.rule))
-    Spacer(Modifier.height(10.dp))
-
     // Дата
     Row(verticalAlignment = Alignment.CenterVertically) {
         StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowLeft) { onStart(start.minusDays(1)) }
@@ -483,7 +471,20 @@ private fun WhenPicker(
         label = { Text(if (type == EventType.CALL) "О чём (необязательно)" else "Заметка (необязательно)") },
         modifier = Modifier.fillMaxWidth(), maxLines = 3,
     )
-    Spacer(Modifier.height(14.dp))
+    Spacer(Modifier.height(6.dp))
+
+    if (onChangePhone != null) {
+        SettingRow("Номер", phone ?: "выбрать…", onClick = onChangePhone)
+    }
+    SettingRow(
+        "Календарь",
+        calendar?.name ?: "выбрать…",
+        sub = calendar?.accountName?.takeIf { showAccount && it != calendar.name },
+        dot = calendar?.let { Color(it.color) },
+        onClick = onChangeCalendar,
+    )
+
+    Spacer(Modifier.height(10.dp))
     Row { Spacer(Modifier.weight(1f)); PalmButton("Готово", filled = true, onClick = onDone) }
 }
 
@@ -510,7 +511,7 @@ private fun Chip(text: String, selected: Boolean = false, onClick: () -> Unit) {
 
 /* ---------- Подробности события ---------- */
 
-private enum class DetailMode { VIEW, TYPE, CONTACT, PHONE }
+private enum class DetailMode { VIEW, TYPE, CONTACT, PHONE, CALENDAR }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -519,6 +520,8 @@ fun EventDetailsSheet(
     searchContacts: suspend (String) -> List<ContactRef>,
     phonesFor: PhonesFor,
     loadReminders: suspend (Long) -> List<Int>,
+    loadCalendars: suspend () -> List<CalendarInfo>,
+    onMove: (Long) -> Unit,
     onSetReminders: (List<Int>) -> Unit,
     onSetLink: (EventType?, ContactRef?) -> Unit,
     onDismiss: () -> Unit,
@@ -532,7 +535,29 @@ fun EventDetailsSheet(
     var pendingContact by remember { mutableStateOf<ContactRef?>(null) }
     var phones by remember { mutableStateOf<List<PhoneNumber>>(emptyList()) }
     var reminders by remember { mutableStateOf<List<Int>?>(null) }
-    LaunchedEffect(event.eventId) { reminders = loadReminders(event.eventId) }
+    var calendars by remember { mutableStateOf<List<CalendarInfo>>(emptyList()) }
+    var moveTo by remember { mutableStateOf<CalendarInfo?>(null) }
+    LaunchedEffect(event.eventId) {
+        reminders = loadReminders(event.eventId)
+        calendars = loadCalendars()
+    }
+    // Перенести можно, только если календарь события доступен для записи и есть куда переносить
+    val canMove = calendars.size > 1 && calendars.any { it.id == event.calendarId }
+
+    moveTo?.let { target ->
+        AlertDialog(
+            onDismissRequest = { moveTo = null },
+            title = { Text("Перенести в «${target.name}»?") },
+            text = {
+                Text(
+                    if (event.recurring) "Повторяющееся событие будет перенесено всей серией."
+                    else "Событие будет создано в новом календаре, а из старого удалено.",
+                )
+            },
+            confirmButton = { TextButton(onClick = { onMove(target.id); moveTo = null }) { Text("Перенести") } },
+            dismissButton = { TextButton(onClick = { moveTo = null }) { Text("Отмена") } },
+        )
+    }
 
     /** Контакт выбран (при назначении типа): для звонка — разобраться с номером. */
     fun applyContact(type: EventType, c: ContactRef?) {
@@ -580,6 +605,11 @@ fun EventDetailsSheet(
                     mode = DetailMode.VIEW
                 }
 
+                DetailMode.CALENDAR -> CalendarPicker(calendars, selected = event.calendarId) { id ->
+                    mode = DetailMode.VIEW
+                    if (id != event.calendarId) moveTo = calendars.firstOrNull { it.id == id }
+                }
+
                 DetailMode.VIEW -> Column(Modifier.verticalScroll(rememberScrollState())) {
                     val whenText = if (event.allDay) event.start.toLocalDate().pretty() + ", весь день"
                     else event.start.toLocalDate().pretty() + ", " + event.start.format(HM) + "–" + event.end.format(HM)
@@ -588,7 +618,8 @@ fun EventDetailsSheet(
                         SettingRow(
                             "Календарь", event.calendarName,
                             sub = event.accountName.takeIf { it.isNotEmpty() && it != event.calendarName },
-                            dot = Color(event.color), onClick = null,
+                            dot = Color(event.color),
+                            onClick = if (canMove) ({ mode = DetailMode.CALENDAR }) else null,
                         )
                     }
                     if (event.type == null) DetailLine("Событие", event.title)

@@ -50,7 +50,7 @@ class CalendarRepository(
         data class Raw(
             val id: Long, val title: String, val begin: Long, val end: Long,
             val allDay: Boolean, val desc: String?, val color: Int,
-            val calName: String, val account: String,
+            val calName: String, val calId: Long, val recurring: Boolean,
         )
 
         val raws = ArrayList<Raw>()
@@ -59,7 +59,7 @@ class CalendarRepository(
             arrayOf(
                 Instances.EVENT_ID, Instances.TITLE, Instances.BEGIN, Instances.END,
                 Instances.ALL_DAY, Instances.DESCRIPTION, Instances.DISPLAY_COLOR,
-                Instances.CALENDAR_DISPLAY_NAME, Instances.ACCOUNT_NAME,
+                Instances.CALENDAR_DISPLAY_NAME, Instances.CALENDAR_ID, Instances.RRULE,
             ),
             "${Instances.VISIBLE} = 1", null,
             "${Instances.BEGIN} ASC, ${Instances.ALL_DAY} DESC",
@@ -68,12 +68,13 @@ class CalendarRepository(
                 raws += Raw(
                     c.getLong(0), c.getString(1) ?: "", c.getLong(2), c.getLong(3),
                     c.getInt(4) == 1, c.getString(5), c.getInt(6),
-                    c.getString(7) ?: "", c.getString(8) ?: "",
+                    c.getString(7) ?: "", c.getLong(8), !c.getString(9).isNullOrEmpty(),
                 )
             }
         }
 
         val linkById = links.byIds(raws.map { it.id }.distinct()).associateBy { it.eventId }.toMutableMap()
+        val accountByCal = calendarAccounts()
 
         return raws.map { r ->
             val link = linkById[r.id] ?: Marker.parse(r.desc)?.let {
@@ -96,9 +97,82 @@ class CalendarRepository(
                 note = Marker.strip(r.desc)?.takeIf { it.isNotBlank() },
                 color = r.color,
                 calendarName = r.calName,
-                accountName = r.account,
+                accountName = accountByCal[r.calId] ?: "",
+                calendarId = r.calId,
+                recurring = r.recurring,
             )
         }
+    }
+
+    /** id календаря → аккаунт (для подписи в подробностях). */
+    private fun calendarAccounts(): Map<Long, String> {
+        val map = HashMap<Long, String>()
+        resolver.query(Calendars.CONTENT_URI, arrayOf(Calendars._ID, Calendars.ACCOUNT_NAME), null, null, null)
+            ?.use { c -> while (c.moveToNext()) map[c.getLong(0)] = c.getString(1) ?: "" }
+        return map
+    }
+
+    /**
+     * Перенести событие в другой календарь. Android не умеет "перемещать", поэтому:
+     * копия в новом календаре (время, текст, повтор, место, напоминания, тип и контакт) + удаление оригинала.
+     * Повторяющееся событие переносится всей серией. Нельзя: одно повторение из серии и встречи с гостями.
+     * Возвращает id нового события.
+     */
+    suspend fun move(eventId: Long, targetCalendarId: Long): Long {
+        val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
+        val cols = arrayOf(
+            Events.TITLE, Events.DESCRIPTION, Events.DTSTART, Events.DTEND, Events.DURATION,
+            Events.ALL_DAY, Events.EVENT_TIMEZONE, Events.EVENT_END_TIMEZONE, Events.RRULE, Events.RDATE,
+            Events.EXRULE, Events.EXDATE, Events.EVENT_LOCATION, Events.AVAILABILITY, Events.ACCESS_LEVEL,
+            Events.ORIGINAL_ID, Events.CALENDAR_ID,
+        )
+        val values = ContentValues()
+        var sourceCal = -1L
+        resolver.query(uri, cols, null, null, null)?.use { c ->
+            if (!c.moveToFirst()) error("Событие не найдено")
+            if (!c.isNull(15)) error("Одно повторение из серии перенести нельзя — откройте всю серию")
+            sourceCal = c.getLong(16)
+            for (i in 0 until 15) {
+                if (c.isNull(i)) continue
+                when (c.getType(i)) {
+                    android.database.Cursor.FIELD_TYPE_INTEGER -> values.put(cols[i], c.getLong(i))
+                    else -> values.put(cols[i], c.getString(i))
+                }
+            }
+        } ?: error("Событие не найдено")
+        if (sourceCal == targetCalendarId) return eventId
+
+        // Встречи с гостями: при удалении оригинала гости получат отмену — так не переносим
+        val guests = resolver.query(
+            CalendarContract.Attendees.CONTENT_URI, arrayOf(CalendarContract.Attendees.ATTENDEE_EMAIL),
+            "${CalendarContract.Attendees.EVENT_ID} = ?", arrayOf(eventId.toString()), null,
+        )?.use { it.count } ?: 0
+        if (guests > 1) error("Встречи с гостями переносить нельзя — гости получат отмену")
+
+        // У повторяющихся событий вместо DTEND должна быть DURATION
+        if (values.containsKey(Events.RRULE)) {
+            if (!values.containsKey(Events.DURATION)) {
+                val start = values.getAsLong(Events.DTSTART)
+                val end = values.getAsLong(Events.DTEND)
+                if (start != null && end != null) values.put(Events.DURATION, "P${(end - start) / 1000}S")
+            }
+            values.remove(Events.DTEND)
+        } else {
+            values.remove(Events.DURATION)
+        }
+        values.put(Events.CALENDAR_ID, targetCalendarId)
+
+        val reminders = reminders(eventId)
+        val newId = resolver.insert(Events.CONTENT_URI, values)?.let { ContentUris.parseId(it) }
+            ?: error("Не удалось создать событие в новом календаре")
+        insertReminders(newId, reminders)
+
+        // Тип, контакт и номер переезжают вместе с событием
+        links.byIds(listOf(eventId)).firstOrNull()?.let { links.upsert(it.copy(eventId = newId)) }
+
+        resolver.delete(uri, null, null)
+        links.delete(eventId)
+        return newId
     }
 
     /** Дни года, в которые есть хоть одно событие — для вида "Год". Лёгкий запрос без контактов. */

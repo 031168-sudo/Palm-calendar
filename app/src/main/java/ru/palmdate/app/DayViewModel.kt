@@ -182,6 +182,9 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
 
     fun delete(e: PalmEvent) = launchSafe { repo.delete(e.eventId) }
 
+    /** Перенести событие в другой календарь (копия + удаление оригинала). */
+    fun move(e: PalmEvent, calendarId: Long) = launchSafe { repo.move(e.eventId, calendarId) }
+
     /** Выполнить изменение в фоне, показать ошибку, если что-то пошло не так, и перечитать. */
     private fun launchSafe(block: suspend () -> Unit) = viewModelScope.launch {
         try {

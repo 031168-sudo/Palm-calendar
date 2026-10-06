@@ -210,6 +210,8 @@ fun DayScreen(vm: DayViewModel) {
             searchContacts = vm::searchContacts,
             phonesFor = vm::phonesFor,
             loadReminders = vm::reminders,
+            loadCalendars = vm::writableCalendars,
+            onMove = { calId -> vm.move(e, calId); details = null },
             onSetReminders = { vm.setReminders(e.eventId, it) },
             onSetLink = { type, contact ->
                 vm.setLink(e, type, contact)
