@@ -57,6 +57,7 @@ import ru.palmdate.app.model.NewEvent
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.model.PhoneNumber
 import ru.palmdate.app.model.REMINDER_OPTIONS
+import ru.palmdate.app.ui.theme.Palm
 import java.time.LocalDateTime
 
 typealias PhonesFor = suspend (String) -> Pair<List<PhoneNumber>, String?>
