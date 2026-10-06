@@ -8,15 +8,15 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,6 +35,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.CalendarViewMonth
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.ViewAgenda
+import androidx.compose.material.icons.outlined.ViewDay
+import androidx.compose.material.icons.outlined.ViewWeek
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -53,16 +58,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ru.palmdate.app.CalState
 import ru.palmdate.app.DayViewModel
+import ru.palmdate.app.ViewMode
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.ui.theme.Palm
-import java.time.DayOfWeek
+import ru.palmdate.app.weekStart
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -70,11 +80,18 @@ import java.time.LocalTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
-private val RU = Locale.forLanguageTag("ru")
-private val HM = DateTimeFormatter.ofPattern("H:mm")
+internal val RU: Locale = Locale.forLanguageTag("ru")
+internal val HM: DateTimeFormatter = DateTimeFormatter.ofPattern("H:mm")
+
+internal fun LocalDate.shortMonth() = month.getDisplayName(TextStyle.SHORT, RU).trimEnd('.')
+internal fun LocalDate.pretty(): String {
+    val dow = dayOfWeek.getDisplayName(TextStyle.SHORT, RU).replaceFirstChar { it.uppercase() }
+    return "$dow, $dayOfMonth ${shortMonth()}"
+}
+internal fun LocalDate.monthTitle() =
+    month.getDisplayName(TextStyle.FULL_STANDALONE, RU).replaceFirstChar { it.uppercase() }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,23 +103,32 @@ fun DayScreen(vm: DayViewModel) {
     var details by remember { mutableStateOf<PalmEvent?>(null) }
     var pickDate by remember { mutableStateOf(false) }
 
+    val openDay: (LocalDate) -> Unit = { vm.setMode(ViewMode.DAY, it) }
+
     Column(Modifier.fillMaxSize().background(Palm.paper)) {
-        DateHeader(
-            date = state.date,
+        Header(
+            state = state,
             onSelect = vm::select,
-            onShift = vm::shift,
+            onShiftWeek = { vm.shift(7L * it) },
+            onShiftPeriod = vm::shiftPeriod,
+            onTitle = { pickDate = true },
         )
-        // Свайп влево — следующий день, вправо — предыдущий. Страница уезжает в сторону свайпа.
+
+        // Свайп влево — следующий период, вправо — предыдущий. Страница уезжает в сторону свайпа.
         val swipeThreshold = with(LocalDensity.current) { 64.dp.toPx() }
         AnimatedContent(
             targetState = state,
-            contentKey = { it.date },
+            contentKey = { it.pageKey },
             transitionSpec = {
-                val forward = targetState.date > initialState.date
-                (slideInHorizontally(tween(220)) { w -> if (forward) w else -w } + fadeIn(tween(220))) togetherWith
-                    (slideOutHorizontally(tween(220)) { w -> if (forward) -w / 3 else w / 3 } + fadeOut(tween(160)))
+                if (targetState.mode != initialState.mode) {
+                    fadeIn(tween(180)) togetherWith fadeOut(tween(120))
+                } else {
+                    val forward = targetState.range.first > initialState.range.first
+                    (slideInHorizontally(tween(220)) { w -> if (forward) w else -w } + fadeIn(tween(220))) togetherWith
+                        (slideOutHorizontally(tween(220)) { w -> if (forward) -w / 3 else w / 3 } + fadeOut(tween(160)))
+                }
             },
-            label = "day",
+            label = "page",
             modifier = Modifier
                 .weight(1f)
                 .pointerInput(Unit) {
@@ -111,8 +137,8 @@ fun DayScreen(vm: DayViewModel) {
                         onDragStart = { dx = 0f },
                         onDragEnd = {
                             when {
-                                dx < -swipeThreshold -> vm.shift(1)
-                                dx > swipeThreshold -> vm.shift(-1)
+                                dx < -swipeThreshold -> vm.shiftPeriod(1)
+                                dx > swipeThreshold -> vm.shiftPeriod(-1)
                             }
                         },
                         onHorizontalDrag = { change, amount ->
@@ -122,23 +148,36 @@ fun DayScreen(vm: DayViewModel) {
                     )
                 },
         ) { page ->
-            DayBody(
-                date = page.date,
-                events = page.events,
-                modifier = Modifier.fillMaxSize(),
-                onSlot = { hour -> newAt = page.date.atTime(hour, 0) },
-                onIcon = { ctx.runPrimaryAction(it) },
-                onEvent = { details = it },
-            )
+            val onIcon: (PalmEvent) -> Unit = { ctx.runPrimaryAction(it) }
+            val onEvent: (PalmEvent) -> Unit = { details = it }
+            when (page.mode) {
+                ViewMode.DAY -> DayBody(
+                    date = page.date,
+                    events = page.events,
+                    modifier = Modifier.fillMaxSize(),
+                    onSlot = { hour -> newAt = page.date.atTime(hour, 0) },
+                    onIcon = onIcon,
+                    onEvent = onEvent,
+                )
+                ViewMode.AGENDA -> AgendaView(page.date, page.events, onDay = openDay, onIcon = onIcon, onEvent = onEvent)
+                ViewMode.WEEK -> WeekView(page.date, page.events, onDay = openDay, onEvent = onEvent)
+                ViewMode.MONTH -> MonthView(page.date, page.events, onDay = openDay)
+                ViewMode.YEAR -> YearView(
+                    page.date, page.yearDays,
+                    onDay = openDay,
+                    onMonth = { vm.setMode(ViewMode.MONTH, it) },
+                )
+            }
         }
+
         ButtonBar(
+            mode = state.mode,
             onNew = {
                 val now = LocalTime.now()
                 val hour = if (state.date == LocalDate.now()) (now.hour + 1).coerceAtMost(23) else 9
                 newAt = state.date.atTime(hour, 0)
             },
-            onToday = vm::today,
-            onGoTo = { pickDate = true },
+            onMode = { vm.setMode(it) },
         )
     }
 
@@ -155,6 +194,7 @@ fun DayScreen(vm: DayViewModel) {
         NewEventSheet(
             initialStart = start,
             searchContacts = vm::searchContacts,
+            phonesFor = vm::phonesFor,
             loadCalendars = vm::writableCalendars,
             lastCalendarId = vm.lastCalendarId(),
             onDismiss = { newAt = null },
@@ -165,6 +205,14 @@ fun DayScreen(vm: DayViewModel) {
     details?.let { e ->
         EventDetailsSheet(
             event = e,
+            searchContacts = vm::searchContacts,
+            phonesFor = vm::phonesFor,
+            loadReminders = vm::reminders,
+            onSetReminders = { vm.setReminders(e.eventId, it) },
+            onSetLink = { type, contact ->
+                vm.setLink(e, type, contact)
+                details = e.copy(type = type, contact = contact)
+            },
             onDismiss = { details = null },
             onAction = { ctx.runPrimaryAction(e) },
             onOpen = { ctx.openInCalendar(e) },
@@ -186,12 +234,17 @@ fun DayScreen(vm: DayViewModel) {
                     pickDate = false
                 }) { Text("Перейти") }
             },
-            dismissButton = { TextButton(onClick = { pickDate = false }) { Text("Отмена") } },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { vm.today(); pickDate = false }) { Text("Сегодня") }
+                    TextButton(onClick = { pickDate = false }) { Text("Отмена") }
+                }
+            },
         ) { DatePicker(pickerState) }
     }
 }
 
-/* ---------- Заголовок: вкладка с датой + полоса дней недели, как в Date Book ---------- */
+/* ---------- Заголовок: вкладка + полоса дней недели или стрелки периода ---------- */
 
 /** Вкладка с косым правым краем — фирменный заголовок приложений Palm. */
 private val TabShape = GenericShape { size, _ ->
@@ -203,59 +256,90 @@ private val TabShape = GenericShape { size, _ ->
     close()
 }
 
+private fun tabTitle(s: CalState): String {
+    val d = s.date
+    return when (s.mode) {
+        ViewMode.DAY -> d.pretty()
+        ViewMode.AGENDA -> "с ${d.dayOfMonth} ${d.shortMonth()}"
+        ViewMode.WEEK -> {
+            val a = weekStart(d)
+            val b = a.plusDays(6)
+            if (a.month == b.month) "${a.dayOfMonth}–${b.dayOfMonth} ${b.shortMonth()}"
+            else "${a.dayOfMonth} ${a.shortMonth()} – ${b.dayOfMonth} ${b.shortMonth()}"
+        }
+        ViewMode.MONTH -> "${d.monthTitle()} ${d.year}"
+        ViewMode.YEAR -> "${d.year}"
+    }
+}
+
 @Composable
-private fun DateHeader(date: LocalDate, onSelect: (LocalDate) -> Unit, onShift: (Long) -> Unit) {
+private fun Header(
+    state: CalState,
+    onSelect: (LocalDate) -> Unit,
+    onShiftWeek: (Int) -> Unit,
+    onShiftPeriod: (Int) -> Unit,
+    onTitle: () -> Unit,
+) {
+    val date = state.date
     val today = LocalDate.now()
-    val monday = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    val dow = date.dayOfWeek.getDisplayName(TextStyle.SHORT, RU).replaceFirstChar { it.uppercase() }
-    val month = date.month.getDisplayName(TextStyle.SHORT, RU).trimEnd('.')
+    val showStrip = state.mode == ViewMode.DAY || state.mode == ViewMode.WEEK || state.mode == ViewMode.AGENDA
 
     Column(Modifier.fillMaxWidth().background(Palm.paper).statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.Bottom) {
+            // Тап по вкладке — "Перейти" к дате (там же кнопка "Сегодня")
             Box(
                 Modifier
                     .clip(TabShape)
                     .background(Palm.navy)
+                    .clickable(onClick = onTitle)
                     .padding(start = 12.dp, end = 26.dp, top = 6.dp, bottom = 5.dp),
             ) {
-                Text("$dow, ${date.dayOfMonth} $month", style = Palm.title, color = Color.White)
+                Text(tabTitle(state), style = Palm.title, color = Color.White, maxLines = 1)
             }
             Spacer(Modifier.weight(1f))
-            Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Неделя назад", tint = Palm.navy,
-                modifier = Modifier.size(28.dp).clip(CircleShape).clickable { onShift(-7) }.padding(2.dp),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                for (i in 0L..6L) {
-                    val d = monday.plusDays(i)
-                    val selected = d == date
-                    val letter = d.dayOfWeek.getDisplayName(TextStyle.NARROW, RU).uppercase()
-                    Box(
-                        Modifier
-                            .size(width = 24.dp, height = 28.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(if (selected) Palm.navy else Color.Transparent)
-                            .clickable { onSelect(d) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            letter,
-                            style = Palm.time.copy(
-                                textDecoration = if (d == today && !selected) TextDecoration.Underline else null,
-                            ),
-                            color = when {
-                                selected -> Color.White
-                                d.dayOfWeek.value >= 6 -> Palm.nowLine
-                                else -> Palm.ink
-                            },
-                        )
+            Arrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Назад") {
+                if (showStrip) onShiftWeek(-1) else onShiftPeriod(-1)
+            }
+            if (showStrip) {
+                val monday = weekStart(date)
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    for (i in 0L..6L) {
+                        val d = monday.plusDays(i)
+                        // В виде "Неделя" подсвечена вся неделя, в остальных — выбранный день
+                        val selected = if (state.mode == ViewMode.WEEK) false else d == date
+                        val letter = d.dayOfWeek.getDisplayName(TextStyle.NARROW, RU).uppercase()
+                        Box(
+                            Modifier
+                                .size(width = 24.dp, height = 28.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(
+                                    when {
+                                        selected -> Palm.navy
+                                        state.mode == ViewMode.WEEK -> Palm.navyLight
+                                        else -> Color.Transparent
+                                    },
+                                )
+                                .clickable { onSelect(d) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                letter,
+                                style = Palm.time.copy(
+                                    textDecoration = if (d == today && !selected) TextDecoration.Underline else null,
+                                ),
+                                color = when {
+                                    selected -> Color.White
+                                    d.dayOfWeek.value >= 6 -> Palm.nowLine
+                                    else -> Palm.ink
+                                },
+                            )
+                        }
                     }
                 }
             }
-            Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight, "Неделя вперёд", tint = Palm.navy,
-                modifier = Modifier.size(28.dp).clip(CircleShape).clickable { onShift(7) }.padding(2.dp),
-            )
+            Arrow(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Вперёд") {
+                if (showStrip) onShiftWeek(1) else onShiftPeriod(1)
+            }
             Spacer(Modifier.width(4.dp))
         }
         // Синяя линия под вкладкой — как граница заголовка в Palm OS
@@ -263,11 +347,19 @@ private fun DateHeader(date: LocalDate, onSelect: (LocalDate) -> Unit, onShift: 
     }
 }
 
-/* ---------- Тело дня: часовые строки с пунктиром ---------- */
+@Composable
+private fun Arrow(icon: ImageVector, desc: String, onClick: () -> Unit) {
+    Icon(
+        icon, desc, tint = Palm.navy,
+        modifier = Modifier.size(32.dp).clip(CircleShape).clickable(onClick = onClick).padding(4.dp),
+    )
+}
 
-private sealed interface Row_ {
-    data class AllDay(val e: PalmEvent) : Row_
-    data class Slot(val hour: Int, val events: List<PalmEvent>) : Row_
+/* ---------- Вид "День": часовые строки с пунктиром ---------- */
+
+private sealed interface DayRow {
+    data class AllDay(val e: PalmEvent) : DayRow
+    data class Slot(val hour: Int, val events: List<PalmEvent>) : DayRow
 }
 
 @Composable
@@ -283,23 +375,23 @@ private fun DayBody(
     val byHour = timed.groupBy { if (it.start.toLocalDate() < date) 0 else it.start.hour }
     val first = (byHour.keys.minOrNull() ?: 8).coerceAtMost(8)
     val last = (byHour.keys.maxOrNull() ?: 18).coerceAtLeast(18)
-    val rows: List<Row_> =
-        events.filter { it.allDay }.map { Row_.AllDay(it) } +
-            (first..last).map { Row_.Slot(it, byHour[it].orEmpty()) }
+    val rows: List<DayRow> =
+        events.filter { it.allDay }.map { DayRow.AllDay(it) } +
+            (first..last).map { DayRow.Slot(it, byHour[it].orEmpty()) }
 
     val isToday = date == LocalDate.now()
     val nowHour = LocalTime.now().hour
     val listState = rememberLazyListState()
     LaunchedEffect(date) {
-        val target = rows.indexOfFirst { it is Row_.Slot && it.hour == (if (isToday) nowHour else 8) }
+        val target = rows.indexOfFirst { it is DayRow.Slot && it.hour == (if (isToday) nowHour else 8) }
         if (target > 0) listState.scrollToItem((target - 1).coerceAtLeast(0))
     }
 
     LazyColumn(modifier.fillMaxWidth(), state = listState) {
         items(rows) { row ->
             when (row) {
-                is Row_.AllDay -> EventLine(row.e, timeLabel = "•", highlight = false, onIcon, onEvent)
-                is Row_.Slot -> {
+                is DayRow.AllDay -> EventLine(row.e, timeLabel = "•", highlight = false, onIcon, onEvent)
+                is DayRow.Slot -> {
                     val label = LocalTime.of(row.hour, 0).format(HM)
                     val hl = isToday && row.hour == nowHour
                     if (row.events.isEmpty()) {
@@ -320,7 +412,7 @@ private fun DayBody(
 }
 
 @Composable
-private fun TimeLabel(text: String, highlight: Boolean) {
+internal fun TimeLabel(text: String, highlight: Boolean) {
     Text(
         text,
         style = Palm.time,
@@ -344,8 +436,15 @@ private fun EmptyLine(label: String, highlight: Boolean, onClick: () -> Unit) {
     }
 }
 
+/** Бледная подсветка цветом календаря — как пастельные категории на Palm. */
+internal fun calTint(color: Int) = Color(color).copy(alpha = 0.11f)
+
+/**
+ * Строка события: время · [полоска календаря | иконка типа | имя и подпись].
+ * Иконка — в цвете типа, полоска и подсветка — в цвете календаря Google.
+ */
 @Composable
-private fun EventLine(
+internal fun EventLine(
     e: PalmEvent,
     timeLabel: String,
     highlight: Boolean,
@@ -365,53 +464,85 @@ private fun EventLine(
                 .dottedRule(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Иконка типа — тап по ней сразу выполняет действие (позвонить / маршрут)
-            Box(
-                Modifier.size(32.dp).clip(CircleShape).clickable { onIcon(e) },
-                contentAlignment = Alignment.Center,
+            Row(
+                Modifier
+                    .weight(1f)
+                    .padding(vertical = 3.dp)
+                    .height(IntrinsicSize.Min)
+                    .clip(RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp))
+                    .background(calTint(e.color)),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                val type = e.type
-                if (type != null) {
-                    Icon(type.icon, type.label, tint = type.color, modifier = Modifier.size(20.dp))
-                } else {
-                    Box(Modifier.size(7.dp).clip(CircleShape).background(Palm.inkSoft))
+                // Полоска календаря
+                Box(Modifier.width(3.dp).fillMaxHeight().background(Color(e.color)))
+                // Иконка типа — тап по ней сразу выполняет действие (позвонить / маршрут)
+                Box(
+                    Modifier.size(34.dp).clip(CircleShape).clickable { onIcon(e) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val type = e.type
+                    if (type != null) {
+                        Icon(type.icon, type.label, tint = type.color, modifier = Modifier.size(20.dp))
+                    } else {
+                        Box(Modifier.size(9.dp).clip(CircleShape).background(Color(e.color)))
+                    }
                 }
-            }
-            Column(
-                Modifier.weight(1f).clickable { onEvent(e) }.padding(vertical = 6.dp, horizontal = 4.dp),
-            ) {
-                Text(
-                    e.contact?.name ?: e.title,
-                    style = Palm.body, color = Palm.ink,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-                val sub = buildList {
-                    e.type?.let { add(it.label) }
-                    if (!e.allDay && e.end.isAfter(e.start)) add("до " + e.end.format(HM))
-                    e.note?.let { add(it.lineSequence().first()) }
-                }.joinToString(" · ")
-                if (sub.isNotEmpty()) {
-                    Text(sub, style = Palm.small, color = Palm.inkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Column(
+                    Modifier.weight(1f).clickable { onEvent(e) }.padding(vertical = 5.dp).padding(end = 6.dp),
+                ) {
+                    Text(
+                        e.contact?.name ?: e.title,
+                        style = Palm.body, color = Palm.ink,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                    val sub = buildList {
+                        e.type?.let { add(it.label) }
+                        if (!e.allDay && e.end.isAfter(e.start)) add("до " + e.end.format(HM))
+                        e.note?.let { add(it.lineSequence().first()) }
+                    }.joinToString(" · ")
+                    if (sub.isNotEmpty()) {
+                        Text(sub, style = Palm.small, color = Palm.inkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         }
     }
 }
 
-/* ---------- Нижняя панель кнопок: Новое · Сегодня · Перейти ---------- */
+/* ---------- Нижняя панель: Новое · иконки видов ---------- */
+
+private val ViewMode.icon: ImageVector
+    get() = when (this) {
+        ViewMode.AGENDA -> Icons.Outlined.ViewAgenda
+        ViewMode.DAY -> Icons.Outlined.ViewDay
+        ViewMode.WEEK -> Icons.Outlined.ViewWeek
+        ViewMode.MONTH -> Icons.Outlined.CalendarViewMonth
+        ViewMode.YEAR -> Icons.Outlined.GridView
+    }
 
 @Composable
-private fun ButtonBar(onNew: () -> Unit, onToday: () -> Unit, onGoTo: () -> Unit) {
+private fun ButtonBar(mode: ViewMode, onNew: () -> Unit, onMode: (ViewMode) -> Unit) {
     Column(Modifier.fillMaxWidth().background(Palm.paper).navigationBarsPadding()) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Palm.rule))
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PalmButton("Новое", filled = true, onClick = onNew)
-            PalmButton("Сегодня", onClick = onToday)
-            PalmButton("Перейти", onClick = onGoTo)
+            Spacer(Modifier.weight(1f))
+            ViewMode.entries.forEach { m ->
+                val sel = m == mode
+                Box(
+                    Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (sel) Palm.navy else Color.Transparent)
+                        .clickable { onMode(m) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(m.icon, m.label, tint = if (sel) Color.White else Palm.navy, modifier = Modifier.size(22.dp))
+                }
+            }
         }
     }
 }

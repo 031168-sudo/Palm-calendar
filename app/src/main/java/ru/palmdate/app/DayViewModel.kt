@@ -1,6 +1,7 @@
 package ru.palmdate.app
 
 import android.app.Application
+import android.content.Context
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
@@ -20,21 +21,52 @@ import ru.palmdate.app.data.CalendarRepository
 import ru.palmdate.app.data.ContactsRepository
 import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
+import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.NewEvent
 import ru.palmdate.app.model.PalmEvent
+import ru.palmdate.app.model.PhoneNumber
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 
-data class DayState(
+/** Виды, как на Palm: переключаются иконками в нижней панели. */
+enum class ViewMode(val label: String) {
+    AGENDA("Повестка"), DAY("День"), WEEK("Неделя"), MONTH("Месяц"), YEAR("Год")
+}
+
+data class CalState(
+    val mode: ViewMode = ViewMode.DAY,
     val date: LocalDate = LocalDate.now(),
     val events: List<PalmEvent> = emptyList(),
+    val yearDays: Set<LocalDate> = emptySet(),
     val error: String? = null,
-)
+) {
+    /** Начало и конец (не включительно) загружаемого диапазона. */
+    val range: Pair<LocalDate, LocalDate>
+        get() = when (mode) {
+            ViewMode.DAY -> date to date.plusDays(1)
+            ViewMode.AGENDA -> date to date.plusDays(7)
+            ViewMode.WEEK -> weekStart(date).let { it to it.plusDays(7) }
+            ViewMode.MONTH -> monthGridStart(date).let { it to it.plusDays(42) }
+            ViewMode.YEAR -> date.withDayOfYear(1).let { it to it.plusYears(1) }
+        }
+
+    /** Ключ "страницы": меняется — экран уезжает свайпом. */
+    val pageKey: String get() = "$mode:${range.first}"
+}
+
+fun weekStart(d: LocalDate): LocalDate = d.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+fun monthGridStart(d: LocalDate): LocalDate = weekStart(d.withDayOfMonth(1))
 
 class DayViewModel(app: Application) : AndroidViewModel(app) {
     private val contacts = ContactsRepository(app)
-    private val repo = CalendarRepository(app, AppDb.get(app).links(), contacts)
+    private val db = AppDb.get(app)
+    private val repo = CalendarRepository(app, db.links(), contacts)
+    private val prefs = app.getSharedPreferences("palmdate", Context.MODE_PRIVATE)
 
-    private val _state = MutableStateFlow(DayState())
+    private val _state = MutableStateFlow(
+        CalState(mode = runCatching { ViewMode.valueOf(prefs.getString(KEY_MODE, null)!!) }.getOrDefault(ViewMode.DAY)),
+    )
     val state = _state.asStateFlow()
 
     private var started = false
@@ -54,24 +86,55 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
         reload()
     }
 
-    fun select(date: LocalDate) {
-        if (date == _state.value.date) return
-        // Сразу очищаем события, чтобы на новой странице не мелькнули события прошлого дня
-        _state.update { it.copy(date = date, events = emptyList()) }
-        reload()
+    /* ---- Навигация ---- */
+
+    fun select(date: LocalDate) = go(_state.value.mode, date)
+
+    fun setMode(mode: ViewMode, date: LocalDate = _state.value.date) {
+        prefs.edit().putString(KEY_MODE, mode.name).apply()
+        go(mode, date)
+    }
+
+    /** Свайп: следующий/предыдущий период текущего вида. */
+    fun shiftPeriod(dir: Int) {
+        val s = _state.value
+        val d = s.date
+        select(
+            when (s.mode) {
+                ViewMode.DAY -> d.plusDays(dir.toLong())
+                ViewMode.AGENDA, ViewMode.WEEK -> d.plusWeeks(dir.toLong())
+                ViewMode.MONTH -> d.plusMonths(dir.toLong())
+                ViewMode.YEAR -> d.plusYears(dir.toLong())
+            },
+        )
     }
 
     fun shift(days: Long) = select(_state.value.date.plusDays(days))
     fun today() = select(LocalDate.now())
     fun dismissError() = _state.update { it.copy(error = null) }
 
+    private fun go(mode: ViewMode, date: LocalDate) {
+        val old = _state.value
+        if (old.mode == mode && old.date == date) return
+        val next = old.copy(mode = mode, date = date)
+        // Сменилась страница — сразу очищаем события, чтобы не мелькнули чужие
+        _state.value = if (next.pageKey != old.pageKey) next.copy(events = emptyList(), yearDays = emptySet()) else next
+        if (next.pageKey != old.pageKey) reload()
+    }
+
     fun reload() {
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            val date = _state.value.date
+            val s = _state.value
+            val (from, to) = s.range
             try {
-                val ev = withContext(Dispatchers.IO) { repo.eventsFor(date) }
-                _state.update { if (it.date == date) it.copy(events = ev) else it }
+                if (s.mode == ViewMode.YEAR) {
+                    val days = withContext(Dispatchers.IO) { repo.daysWithEvents(from, to) }
+                    _state.update { if (it.pageKey == s.pageKey) it.copy(yearDays = days) else it }
+                } else {
+                    val ev = withContext(Dispatchers.IO) { repo.eventsBetween(from, to) }
+                    _state.update { if (it.pageKey == s.pageKey) it.copy(events = ev) else it }
+                }
             } catch (e: CancellationException) {
                 throw e // отмена старой загрузки — это не ошибка, не показываем
             } catch (e: Exception) {
@@ -80,12 +143,17 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /* ---- Контакты и номера ---- */
+
     suspend fun searchContacts(q: String): List<ContactRef> =
         withContext(Dispatchers.IO) { contacts.search(q) }
 
-    /* ---- Календарь для записи: последний использованный запоминается ---- */
+    /** Номера контакта и номер, выбранный для него в прошлый раз (если был). */
+    suspend fun phonesFor(lookupKey: String): Pair<List<PhoneNumber>, String?> = withContext(Dispatchers.IO) {
+        contacts.phones(lookupKey) to db.links().rememberedPhone(lookupKey)
+    }
 
-    private val prefs = app.getSharedPreferences("palmdate", android.content.Context.MODE_PRIVATE)
+    /* ---- Календарь для записи: последний использованный запоминается ---- */
 
     suspend fun writableCalendars(): List<CalendarInfo> =
         withContext(Dispatchers.IO) { repo.writableCalendars() }
@@ -93,25 +161,42 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     /** Последний календарь, в который создавали событие, или null — тогда спросим. */
     fun lastCalendarId(): Long? = prefs.getLong(KEY_LAST_CAL, -1L).takeIf { it >= 0 }
 
-    fun create(e: NewEvent) = viewModelScope.launch {
+    /* ---- Изменения ---- */
+
+    fun create(e: NewEvent) = launchSafe {
         prefs.edit().putLong(KEY_LAST_CAL, e.calendarId).apply()
+        repo.create(e)
+        val d = e.start.toLocalDate()
+        val (from, to) = _state.value.range
+        if (d < from || d >= to) select(d)
+    }
+
+    fun setLink(e: PalmEvent, type: EventType?, contact: ContactRef?) = launchSafe {
+        repo.setLink(e.eventId, type, contact)
+        contacts.invalidate()
+    }
+
+    suspend fun reminders(eventId: Long): List<Int> = withContext(Dispatchers.IO) { repo.reminders(eventId) }
+
+    fun setReminders(eventId: Long, minutes: List<Int>) = launchSafe { repo.setReminders(eventId, minutes) }
+
+    fun delete(e: PalmEvent) = launchSafe { repo.delete(e.eventId) }
+
+    /** Выполнить изменение в фоне, показать ошибку, если что-то пошло не так, и перечитать. */
+    private fun launchSafe(block: suspend () -> Unit) = viewModelScope.launch {
         try {
-            withContext(Dispatchers.IO) { repo.create(e) }
-            if (e.start.toLocalDate() != _state.value.date) select(e.start.toLocalDate()) else reload()
+            withContext(Dispatchers.IO) { block() }
         } catch (c: CancellationException) {
             throw c
         } catch (err: Exception) {
             _state.update { it.copy(error = err.message) }
         }
-    }
-
-    fun delete(e: PalmEvent) = viewModelScope.launch {
-        withContext(Dispatchers.IO) { repo.delete(e.eventId) }
         reload()
     }
 
     private companion object {
         const val KEY_LAST_CAL = "last_calendar_id"
+        const val KEY_MODE = "view_mode"
     }
 
     override fun onCleared() {

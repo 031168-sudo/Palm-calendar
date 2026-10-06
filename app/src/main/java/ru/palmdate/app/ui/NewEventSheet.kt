@@ -37,39 +37,48 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.NewEvent
 import ru.palmdate.app.model.PalmEvent
-import ru.palmdate.app.ui.theme.Palm
-import java.time.LocalDate
+import ru.palmdate.app.model.PhoneNumber
+import ru.palmdate.app.model.REMINDER_OPTIONS
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
 
-private val RU = Locale.forLanguageTag("ru")
-private val HM = DateTimeFormatter.ofPattern("H:mm")
-
-private fun LocalDate.pretty(): String {
-    val dow = dayOfWeek.getDisplayName(TextStyle.SHORT, RU).replaceFirstChar { it.uppercase() }
-    return "$dow, $dayOfMonth ${month.getDisplayName(TextStyle.SHORT, RU).trimEnd('.')}"
-}
+typealias PhonesFor = suspend (String) -> Pair<List<PhoneNumber>, String?>
 
 /**
- * "Новое" в три тапа: тип → кто → когда.
+ * Какой номер взять для контакта: если номер один — его; если для контакта уже выбирали — тот же;
+ * иначе null — тогда надо спросить. Возвращает список номеров и выбранный номер.
+ */
+private suspend fun pickPhone(contact: ContactRef, phonesFor: PhonesFor): Pair<List<PhoneNumber>, String?> {
+    val (phones, remembered) = phonesFor(contact.lookupKey)
+    val chosen = when {
+        phones.size == 1 -> phones.first().number
+        remembered != null && phones.any { it.number == remembered } -> remembered
+        else -> null
+    }
+    return phones to chosen
+}
+
+private enum class Step { TYPE, WHO, PHONE, CALENDAR, WHEN }
+
+/**
+ * "Новое": тип → кто → (номер) → (календарь) → когда.
  * Писать текст не обязательно — заголовок соберётся сам: "Звонок: Сергей".
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,13 +86,23 @@ private fun LocalDate.pretty(): String {
 fun NewEventSheet(
     initialStart: LocalDateTime,
     searchContacts: suspend (String) -> List<ContactRef>,
+    phonesFor: PhonesFor,
     loadCalendars: suspend () -> List<CalendarInfo>,
     lastCalendarId: Long?,
     onDismiss: () -> Unit,
     onCreate: (NewEvent) -> Unit,
 ) {
-    // Шаги: 0 — тип, 1 — кто, 2 — календарь, 3 — когда
-    var step by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
+    var step by remember { mutableStateOf(Step.TYPE) }
+    var type by remember { mutableStateOf<EventType?>(null) }
+    var contact by remember { mutableStateOf<ContactRef?>(null) }
+    var phones by remember { mutableStateOf<List<PhoneNumber>>(emptyList()) }
+    var title by remember { mutableStateOf("") }
+    var start by remember { mutableStateOf(initialStart) }
+    var minutes by remember { mutableStateOf(60) }
+    var note by remember { mutableStateOf("") }
+    var reminders by remember { mutableStateOf<List<Int>>(emptyList()) }
+
     var calendars by remember { mutableStateOf<List<CalendarInfo>>(emptyList()) }
     var calendarId by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(Unit) {
@@ -94,14 +113,28 @@ fun NewEventSheet(
             else -> null                                               // первый раз — спросим
         }
     }
-    // После "кто": если календарь ещё не выбран — сначала спрашиваем его
-    val afterWho = { step = if (calendarId == null) 2 else 3 }
-    var type by remember { mutableStateOf<EventType?>(null) }
-    var contact by remember { mutableStateOf<ContactRef?>(null) }
-    var title by remember { mutableStateOf("") }
-    var start by remember { mutableStateOf(initialStart) }
-    var minutes by remember { mutableIntStateOf(60) }
-    var note by remember { mutableStateOf("") }
+
+    // После "кто"/"номер": если календарь ещё не выбран — сначала спрашиваем его
+    val toCalendarOrWhen = { step = if (calendarId == null) Step.CALENDAR else Step.WHEN }
+
+    // Контакт выбран: для звонка разбираемся с номером
+    val onContact: (ContactRef) -> Unit = { c ->
+        contact = c
+        if (type == EventType.CALL) {
+            scope.launch {
+                val (list, chosen) = pickPhone(c, phonesFor)
+                phones = list
+                if (chosen != null || list.isEmpty()) {
+                    contact = c.copy(phone = chosen)
+                    toCalendarOrWhen()
+                } else {
+                    step = Step.PHONE
+                }
+            }
+        } else {
+            toCalendarOrWhen()
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -114,20 +147,17 @@ fun NewEventSheet(
             Spacer(Modifier.height(12.dp))
 
             when (step) {
-                0 -> TypeGrid { t ->
+                Step.TYPE -> TypeGrid { t ->
                     type = t
                     minutes = t.defaultMinutes
-                    step = 1
+                    reminders = t.defaultReminders
+                    step = Step.WHO
                 }
 
-                1 -> {
+                Step.WHO -> {
                     val t = type!!
                     if (t.needsContact) {
-                        ContactPicker(
-                            search = searchContacts,
-                            onPick = { contact = it; afterWho() },
-                            onSkip = afterWho,
-                        )
+                        ContactPicker(search = searchContacts, onPick = onContact, onSkip = toCalendarOrWhen)
                     } else {
                         OutlinedTextField(
                             value = title, onValueChange = { title = it },
@@ -135,27 +165,42 @@ fun NewEventSheet(
                             singleLine = true, modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(Modifier.height(12.dp))
-                        Row { Spacer(Modifier.weight(1f)); PalmButton("Далее", filled = true, onClick = afterWho) }
+                        Row { Spacer(Modifier.weight(1f)); PalmButton("Далее", filled = true, onClick = toCalendarOrWhen) }
                     }
                 }
 
-                2 -> CalendarPicker(calendars, selected = calendarId) {
-                    calendarId = it
-                    step = 3
+                Step.PHONE -> PhonePicker(phones, selected = contact?.phone) { number ->
+                    contact = contact?.copy(phone = number)
+                    toCalendarOrWhen()
                 }
 
-                else -> WhenPicker(
+                Step.CALENDAR -> CalendarPicker(calendars, selected = calendarId) {
+                    calendarId = it
+                    step = Step.WHEN
+                }
+
+                Step.WHEN -> WhenPicker(
                     type = type!!,
+                    phone = contact?.phone?.takeIf { type == EventType.CALL },
+                    onChangePhone = if (type == EventType.CALL && contact != null) {
+                        {
+                            scope.launch {
+                                phones = phonesFor(contact!!.lookupKey).first
+                                step = Step.PHONE
+                            }
+                        }
+                    } else null,
                     calendar = calendars.firstOrNull { it.id == calendarId },
                     showAccount = calendars.map { it.accountName }.distinct().size > 1,
-                    onChangeCalendar = { step = 2 },
+                    onChangeCalendar = { step = Step.CALENDAR },
                     start = start, onStart = { start = it },
                     minutes = minutes, onMinutes = { minutes = it },
+                    reminders = reminders, onReminders = { reminders = it },
                     note = note, onNote = { note = it },
                     onDone = {
                         val cal = calendarId
-                        if (cal == null) step = 2
-                        else onCreate(NewEvent(type!!, contact, title, start, minutes, note, cal))
+                        if (cal == null) step = Step.CALENDAR
+                        else onCreate(NewEvent(type!!, contact, title, start, minutes, note, cal, reminders))
                     },
                 )
             }
@@ -182,7 +227,7 @@ private fun SheetTitle(type: EventType?, who: String?) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TypeGrid(onPick: (EventType) -> Unit) {
+private fun TypeGrid(onNone: (() -> Unit)? = null, onPick: (EventType) -> Unit) {
     FlowRow(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -204,6 +249,10 @@ private fun TypeGrid(onPick: (EventType) -> Unit) {
                 Text(t.label, style = Palm.small, color = Palm.ink, textAlign = TextAlign.Center)
             }
         }
+    }
+    if (onNone != null) {
+        Spacer(Modifier.height(10.dp))
+        Row { Spacer(Modifier.weight(1f)); PalmButton("Без типа", onClick = onNone) }
     }
 }
 
@@ -242,94 +291,27 @@ private fun ContactPicker(
     Row { Spacer(Modifier.weight(1f)); PalmButton("Без контакта", onClick = onSkip) }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/** Выбор номера из всех номеров контакта. Выбор запоминается для этого контакта. */
 @Composable
-private fun WhenPicker(
-    type: EventType,
-    calendar: CalendarInfo?,
-    showAccount: Boolean,
-    onChangeCalendar: () -> Unit,
-    start: LocalDateTime, onStart: (LocalDateTime) -> Unit,
-    minutes: Int, onMinutes: (Int) -> Unit,
-    note: String, onNote: (String) -> Unit,
-    onDone: () -> Unit,
-) {
-    val allDay = minutes == 0
-
-    // Дата
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowLeft) { onStart(start.minusDays(1)) }
-        Text(start.toLocalDate().pretty(), style = Palm.title, color = Palm.ink,
-            modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-        StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowRight) { onStart(start.plusDays(1)) }
+private fun PhonePicker(phones: List<PhoneNumber>, selected: String?, onPick: (String) -> Unit) {
+    Text("Какой номер?", style = Palm.body, color = Palm.ink)
+    Spacer(Modifier.height(8.dp))
+    if (phones.isEmpty()) {
+        Text("У контакта нет номеров", style = Palm.small, color = Palm.inkSoft)
+        return
     }
-    Spacer(Modifier.height(6.dp))
-
-    // Время с шагом 15 минут
-    if (!allDay) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            StepIcon(Icons.Filled.Remove) { onStart(start.minusMinutes(15)) }
-            Text(start.format(HM), style = Palm.title.copy(fontSize = Palm.title.fontSize * 1.6f),
-                color = Palm.navy, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-            StepIcon(Icons.Filled.Add) { onStart(start.plusMinutes(15)) }
-        }
-        Spacer(Modifier.height(10.dp))
-    }
-
-    // Быстрый выбор
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        val now = LocalDateTime.now().withSecond(0).withNano(0)
-        Chip("Через час") { onStart(now.plusHours(1).withMinute((now.minute / 15) * 15)) }
-        Chip("Завтра 10:00") { onStart(now.toLocalDate().plusDays(1).atTime(10, 0)) }
-        Chip("Пн 10:00") {
-            var d = now.toLocalDate().plusDays(1)
-            while (d.dayOfWeek.value != 1) d = d.plusDays(1)
-            onStart(d.atTime(10, 0))
-        }
-    }
-    Spacer(Modifier.height(12.dp))
-
-    // Длительность
-    Text("Длительность", style = Palm.small, color = Palm.inkSoft)
-    Spacer(Modifier.height(6.dp))
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf(15 to "15 мин", 30 to "30 мин", 60 to "1 ч", 120 to "2 ч", 0 to "Весь день").forEach { (m, label) ->
-            Chip(label, selected = minutes == m) { onMinutes(m) }
-        }
-    }
-    Spacer(Modifier.height(12.dp))
-
-    OutlinedTextField(
-        value = note, onValueChange = onNote,
-        label = { Text(if (type == EventType.CALL) "О чём (необязательно)" else "Заметка (необязательно)") },
-        modifier = Modifier.fillMaxWidth(), maxLines = 3,
-    )
-    Spacer(Modifier.height(10.dp))
-
-    // Куда запишется событие — тап меняет календарь
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(onClick = onChangeCalendar)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("Календарь", style = Palm.small, color = Palm.inkSoft, modifier = Modifier.width(80.dp))
-        if (calendar != null) {
-            Box(Modifier.size(10.dp).clip(CircleShape).background(Color(calendar.color)))
-            Spacer(Modifier.width(8.dp))
+    phones.forEach { p ->
+        Row(
+            Modifier.fillMaxWidth().height(50.dp).clickable { onPick(p.number) }.dottedRule(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Column(Modifier.weight(1f)) {
-                Text(calendar.name, style = Palm.body, color = Palm.ink, maxLines = 1)
-                if (showAccount && calendar.name != calendar.accountName) {
-                    Text(calendar.accountName, style = Palm.small, color = Palm.inkSoft, maxLines = 1)
-                }
+                Text(p.number, style = Palm.body, color = Palm.ink)
+                Text(p.label, style = Palm.small, color = Palm.inkSoft)
             }
-        } else {
-            Text("выбрать…", style = Palm.body, color = Palm.navy, modifier = Modifier.weight(1f))
+            if (p.number == selected) Text("✓", style = Palm.title, color = Palm.navy)
         }
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Palm.inkSoft)
     }
-
-    Spacer(Modifier.height(10.dp))
-    Row { Spacer(Modifier.weight(1f)); PalmButton("Готово", filled = true, onClick = onDone) }
 }
 
 /**
@@ -378,8 +360,131 @@ private fun CalendarPicker(calendars: List<CalendarInfo>, selected: Long?, onPic
     }
 }
 
+/** Напоминания: можно выбрать несколько, "Без" — снять все. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StepIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+private fun ReminderChips(selected: List<Int>, onChange: (List<Int>) -> Unit) {
+    Text("Напоминание", style = Palm.small, color = Palm.inkSoft)
+    Spacer(Modifier.height(6.dp))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip("Без", selected = selected.isEmpty()) { onChange(emptyList()) }
+        REMINDER_OPTIONS.forEach { (m, label) ->
+            val on = m in selected
+            Chip(label, selected = on) {
+                onChange(if (on) selected - m else (selected + m).sorted().take(5))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingRow(label: String, value: String, sub: String? = null, dot: Color? = null, onClick: (() -> Unit)?) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = Palm.small, color = Palm.inkSoft, modifier = Modifier.width(80.dp))
+        if (dot != null) {
+            Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
+            Spacer(Modifier.width(8.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(value, style = Palm.body, color = if (onClick != null && value.endsWith("…")) Palm.navy else Palm.ink, maxLines = 1)
+            if (sub != null) Text(sub, style = Palm.small, color = Palm.inkSoft, maxLines = 1)
+        }
+        if (onClick != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Palm.inkSoft)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WhenPicker(
+    type: EventType,
+    phone: String?,
+    onChangePhone: (() -> Unit)?,
+    calendar: CalendarInfo?,
+    showAccount: Boolean,
+    onChangeCalendar: () -> Unit,
+    start: LocalDateTime, onStart: (LocalDateTime) -> Unit,
+    minutes: Int, onMinutes: (Int) -> Unit,
+    reminders: List<Int>, onReminders: (List<Int>) -> Unit,
+    note: String, onNote: (String) -> Unit,
+    onDone: () -> Unit,
+) {
+    val allDay = minutes == 0
+
+    // Дата
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowLeft) { onStart(start.minusDays(1)) }
+        Text(start.toLocalDate().pretty(), style = Palm.title, color = Palm.ink,
+            modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+        StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowRight) { onStart(start.plusDays(1)) }
+    }
+    Spacer(Modifier.height(6.dp))
+
+    // Время с шагом 15 минут
+    if (!allDay) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StepIcon(Icons.Filled.Remove) { onStart(start.minusMinutes(15)) }
+            Text(start.format(HM), style = Palm.title.copy(fontSize = Palm.title.fontSize * 1.6f),
+                color = Palm.navy, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+            StepIcon(Icons.Filled.Add) { onStart(start.plusMinutes(15)) }
+        }
+        Spacer(Modifier.height(10.dp))
+    }
+
+    // Быстрый выбор
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        val now = LocalDateTime.now().withSecond(0).withNano(0)
+        Chip("Через час") { onStart(now.plusHours(1).withMinute((now.minute / 15) * 15)) }
+        Chip("Завтра 10:00") { onStart(now.toLocalDate().plusDays(1).atTime(10, 0)) }
+        Chip("Пн 10:00") {
+            var d = now.toLocalDate().plusDays(1)
+            while (d.dayOfWeek.value != 1) d = d.plusDays(1)
+            onStart(d.atTime(10, 0))
+        }
+    }
+    Spacer(Modifier.height(12.dp))
+
+    // Длительность
+    Text("Длительность", style = Palm.small, color = Palm.inkSoft)
+    Spacer(Modifier.height(6.dp))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(15 to "15 мин", 30 to "30 мин", 60 to "1 ч", 120 to "2 ч", 0 to "Весь день").forEach { (m, label) ->
+            Chip(label, selected = minutes == m) { onMinutes(m) }
+        }
+    }
+    Spacer(Modifier.height(12.dp))
+
+    ReminderChips(reminders, onReminders)
+    Spacer(Modifier.height(12.dp))
+
+    OutlinedTextField(
+        value = note, onValueChange = onNote,
+        label = { Text(if (type == EventType.CALL) "О чём (необязательно)" else "Заметка (необязательно)") },
+        modifier = Modifier.fillMaxWidth(), maxLines = 3,
+    )
+    Spacer(Modifier.height(6.dp))
+
+    if (onChangePhone != null) {
+        SettingRow("Номер", phone ?: "выбрать…", onClick = onChangePhone)
+    }
+    SettingRow(
+        "Календарь",
+        calendar?.name ?: "выбрать…",
+        sub = calendar?.accountName?.takeIf { showAccount && it != calendar.name },
+        dot = calendar?.let { Color(it.color) },
+        onClick = onChangeCalendar,
+    )
+
+    Spacer(Modifier.height(10.dp))
+    Row { Spacer(Modifier.weight(1f)); PalmButton("Готово", filled = true, onClick = onDone) }
+}
+
+@Composable
+private fun StepIcon(icon: ImageVector, onClick: () -> Unit) {
     Box(
         Modifier.size(40.dp).clip(CircleShape).border(1.dp, Palm.navy, CircleShape).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -401,39 +506,113 @@ private fun Chip(text: String, selected: Boolean = false, onClick: () -> Unit) {
 
 /* ---------- Подробности события ---------- */
 
+private enum class DetailMode { VIEW, TYPE, CONTACT, PHONE }
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EventDetailsSheet(
     event: PalmEvent,
+    searchContacts: suspend (String) -> List<ContactRef>,
+    phonesFor: PhonesFor,
+    loadReminders: suspend (Long) -> List<Int>,
+    onSetReminders: (List<Int>) -> Unit,
+    onSetLink: (EventType?, ContactRef?) -> Unit,
     onDismiss: () -> Unit,
     onAction: () -> Unit,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
+    var mode by remember { mutableStateOf(DetailMode.VIEW) }
+    var pendingType by remember { mutableStateOf<EventType?>(null) }
+    var pendingContact by remember { mutableStateOf<ContactRef?>(null) }
+    var phones by remember { mutableStateOf<List<PhoneNumber>>(emptyList()) }
+    var reminders by remember { mutableStateOf<List<Int>?>(null) }
+    LaunchedEffect(event.eventId) { reminders = loadReminders(event.eventId) }
+
+    /** Контакт выбран (при назначении типа): для звонка — разобраться с номером. */
+    fun applyContact(type: EventType, c: ContactRef?) {
+        if (c == null || type != EventType.CALL) {
+            onSetLink(type, c); mode = DetailMode.VIEW; return
+        }
+        scope.launch {
+            val (list, chosen) = pickPhone(c, phonesFor)
+            phones = list
+            if (chosen != null || list.isEmpty()) {
+                onSetLink(type, c.copy(phone = chosen)); mode = DetailMode.VIEW
+            } else {
+                pendingType = type; pendingContact = c; mode = DetailMode.PHONE
+            }
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Palm.paper,
         shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp),
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 20.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 20.dp).imePadding()) {
             SheetTitle(event.type, event.contact?.name ?: event.title.takeIf { event.type == null })
             Spacer(Modifier.height(12.dp))
 
-            val whenText = if (event.allDay) event.start.toLocalDate().pretty() + ", весь день"
-            else event.start.toLocalDate().pretty() + ", " + event.start.format(HM) + "–" + event.end.format(HM)
-            DetailLine("Когда", whenText)
-            event.contact?.phone?.let { DetailLine("Телефон", it) }
-            event.contact?.address?.let { DetailLine("Адрес", it) }
-            event.note?.let { DetailLine("Заметка", it) }
+            when (mode) {
+                DetailMode.TYPE -> TypeGrid(
+                    onNone = { onSetLink(null, null); mode = DetailMode.VIEW },
+                ) { t ->
+                    pendingType = t
+                    if (t.needsContact) mode = DetailMode.CONTACT else applyContact(t, null)
+                }
 
-            Spacer(Modifier.height(16.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                primaryActionLabel(event)?.let { PalmButton(it, filled = true, onClick = onAction) }
-                PalmButton("В календаре", onClick = onOpen)
-                Box(
-                    Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onDelete),
-                    contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Outlined.Delete, "Удалить", tint = Palm.nowLine) }
+                DetailMode.CONTACT -> ContactPicker(
+                    search = searchContacts,
+                    onPick = { applyContact(pendingType!!, it) },
+                    onSkip = { applyContact(pendingType!!, null) },
+                )
+
+                DetailMode.PHONE -> PhonePicker(phones, selected = (pendingContact ?: event.contact)?.phone) { number ->
+                    val c = (pendingContact ?: event.contact)!!.copy(phone = number)
+                    onSetLink(pendingType ?: event.type, c)
+                    pendingContact = null; pendingType = null
+                    mode = DetailMode.VIEW
+                }
+
+                DetailMode.VIEW -> {
+                    val whenText = if (event.allDay) event.start.toLocalDate().pretty() + ", весь день"
+                    else event.start.toLocalDate().pretty() + ", " + event.start.format(HM) + "–" + event.end.format(HM)
+                    DetailLine("Когда", whenText)
+                    if (event.type == null) DetailLine("Событие", event.title)
+                    event.contact?.let { c ->
+                        // Номер можно сменить из списка номеров контакта
+                        SettingRow("Телефон", c.phone ?: "нет номера", onClick = {
+                            scope.launch {
+                                phones = phonesFor(c.lookupKey).first
+                                pendingType = event.type; pendingContact = null
+                                mode = DetailMode.PHONE
+                            }
+                        })
+                        c.address?.let { DetailLine("Адрес", it) }
+                    }
+                    event.note?.let { DetailLine("Заметка", it) }
+
+                    Spacer(Modifier.height(10.dp))
+                    reminders?.let { r ->
+                        ReminderChips(r) { new ->
+                            reminders = new
+                            onSetReminders(new)
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        primaryActionLabel(event)?.let { PalmButton(it, filled = true, onClick = onAction) }
+                        PalmButton(if (event.type == null) "Назначить тип" else "Тип и контакт") { mode = DetailMode.TYPE }
+                        PalmButton("В календаре", onClick = onOpen)
+                        Box(
+                            Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onDelete),
+                            contentAlignment = Alignment.Center,
+                        ) { Icon(Icons.Outlined.Delete, "Удалить", tint = Palm.nowLine) }
+                    }
+                }
             }
         }
     }
