@@ -1,6 +1,16 @@
 package ru.palmdate.app.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -82,14 +92,45 @@ fun DayScreen(vm: DayViewModel) {
             onSelect = vm::select,
             onShift = vm::shift,
         )
-        DayBody(
-            date = state.date,
-            events = state.events,
-            modifier = Modifier.weight(1f),
-            onSlot = { hour -> newAt = state.date.atTime(hour, 0) },
-            onIcon = { ctx.runPrimaryAction(it) },
-            onEvent = { details = it },
-        )
+        // Свайп влево — следующий день, вправо — предыдущий. Страница уезжает в сторону свайпа.
+        val swipeThreshold = with(LocalDensity.current) { 64.dp.toPx() }
+        AnimatedContent(
+            targetState = state,
+            contentKey = { it.date },
+            transitionSpec = {
+                val forward = targetState.date > initialState.date
+                (slideInHorizontally(tween(220)) { w -> if (forward) w else -w } + fadeIn(tween(220))) togetherWith
+                    (slideOutHorizontally(tween(220)) { w -> if (forward) -w / 3 else w / 3 } + fadeOut(tween(160)))
+            },
+            label = "day",
+            modifier = Modifier
+                .weight(1f)
+                .pointerInput(Unit) {
+                    var dx = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { dx = 0f },
+                        onDragEnd = {
+                            when {
+                                dx < -swipeThreshold -> vm.shift(1)
+                                dx > swipeThreshold -> vm.shift(-1)
+                            }
+                        },
+                        onHorizontalDrag = { change, amount ->
+                            dx += amount
+                            change.consume()
+                        },
+                    )
+                },
+        ) { page ->
+            DayBody(
+                date = page.date,
+                events = page.events,
+                modifier = Modifier.fillMaxSize(),
+                onSlot = { hour -> newAt = page.date.atTime(hour, 0) },
+                onIcon = { ctx.runPrimaryAction(it) },
+                onEvent = { details = it },
+            )
+        }
         ButtonBar(
             onNew = {
                 val now = LocalTime.now()

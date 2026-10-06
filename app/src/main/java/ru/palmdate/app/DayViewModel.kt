@@ -54,7 +54,9 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun select(date: LocalDate) {
-        _state.update { it.copy(date = date) }
+        if (date == _state.value.date) return
+        // Сразу очищаем события, чтобы на новой странице не мелькнули события прошлого дня
+        _state.update { it.copy(date = date, events = emptyList()) }
         reload()
     }
 
