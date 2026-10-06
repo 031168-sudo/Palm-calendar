@@ -38,6 +38,9 @@ interface LinkDao {
     @Upsert
     suspend fun upsert(link: EventLink)
 
+    @Query("SELECT * FROM links WHERE lookupKey = :lookupKey")
+    suspend fun byContact(lookupKey: String): List<EventLink>
+
     @Query("DELETE FROM links WHERE eventId = :eventId")
     suspend fun delete(eventId: Long)
 

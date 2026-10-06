@@ -45,8 +45,25 @@ class CalendarRepository(
 
     suspend fun eventsFor(day: LocalDate) = eventsBetween(day, day.plusDays(1))
 
+    /**
+     * История контакта: все разы всех событий, привязанных к нему, за 3 года назад и год вперёд.
+     * Повторяющиеся события разворачиваются в отдельные разы.
+     */
+    suspend fun historyFor(lookupKey: String): List<PalmEvent> {
+        val ids = links.byContact(lookupKey).map { it.eventId }
+        if (ids.isEmpty()) return emptyList()
+        val today = LocalDate.now()
+        return ids.chunked(500).flatMap { chunk ->
+            eventsBetween(today.minusYears(3), today.plusYears(1), onlyIds = chunk)
+        }.sortedBy { it.start }
+    }
+
     /** Все события в диапазоне дней [from, toExclusive), с типом, контактом и цветом. */
-    suspend fun eventsBetween(from: LocalDate, toExclusive: LocalDate): List<PalmEvent> {
+    suspend fun eventsBetween(
+        from: LocalDate,
+        toExclusive: LocalDate,
+        onlyIds: List<Long>? = null,
+    ): List<PalmEvent> {
         data class Raw(
             val id: Long, val title: String, val begin: Long, val end: Long,
             val allDay: Boolean, val desc: String?, val color: Int,
@@ -61,7 +78,9 @@ class CalendarRepository(
                 Instances.ALL_DAY, Instances.DESCRIPTION, Instances.DISPLAY_COLOR,
                 Instances.CALENDAR_DISPLAY_NAME, Instances.CALENDAR_ID, Instances.RRULE,
             ),
-            "${Instances.VISIBLE} = 1", null,
+            "${Instances.VISIBLE} = 1" +
+                (onlyIds?.let { " AND ${Instances.EVENT_ID} IN (${it.joinToString(",")})" } ?: ""),
+            null,
             "${Instances.BEGIN} ASC, ${Instances.ALL_DAY} DESC",
         )?.use { c ->
             while (c.moveToNext()) {

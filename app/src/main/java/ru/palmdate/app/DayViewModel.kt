@@ -176,6 +176,10 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
         contacts.invalidate()
     }
 
+    /** История контакта: все события с ним, прошлые и будущие. */
+    suspend fun history(lookupKey: String): List<PalmEvent> =
+        withContext(Dispatchers.IO) { repo.historyFor(lookupKey) }
+
     suspend fun reminders(eventId: Long): List<Int> = withContext(Dispatchers.IO) { repo.reminders(eventId) }
 
     fun setReminders(eventId: Long, minutes: List<Int>) = launchSafe { repo.setReminders(eventId, minutes) }

@@ -27,6 +27,9 @@ fun Context.runPrimaryAction(e: PalmEvent) {
     }
 }
 
+fun Context.dial(number: String) =
+    launch(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(number))))
+
 fun Context.openInCalendar(e: PalmEvent) =
     launch(Intent(Intent.ACTION_VIEW, CalendarRepository.eventUri(e.eventId)))
 

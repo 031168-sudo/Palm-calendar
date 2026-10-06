@@ -101,6 +101,7 @@ fun DayScreen(vm: DayViewModel) {
 
     var newAt by remember { mutableStateOf<LocalDateTime?>(null) }
     var details by remember { mutableStateOf<PalmEvent?>(null) }
+    var history by remember { mutableStateOf<ru.palmdate.app.model.ContactRef?>(null) }
     var pickDate by remember { mutableStateOf(false) }
 
     val openDay: (LocalDate) -> Unit = { vm.setMode(ViewMode.DAY, it) }
@@ -223,6 +224,16 @@ fun DayScreen(vm: DayViewModel) {
             onAction = { ctx.runPrimaryAction(e) },
             onOpen = { ctx.openInCalendar(e) },
             onDelete = { vm.delete(e); details = null },
+            onHistory = e.contact?.let { c -> { details = null; history = c } },
+        )
+    }
+
+    history?.let { c ->
+        ContactHistorySheet(
+            contact = c,
+            load = vm::history,
+            onEvent = { history = null; details = it },
+            onDismiss = { history = null },
         )
     }
 
@@ -456,6 +467,7 @@ internal fun EventLine(
     highlight: Boolean,
     onIcon: (PalmEvent) -> Unit,
     onEvent: (PalmEvent) -> Unit,
+    primary: String? = null, // свой заголовок строки (в истории контакта имя не нужно)
 ) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 44.dp),
@@ -497,12 +509,12 @@ internal fun EventLine(
                     Modifier.weight(1f).clickable { onEvent(e) }.padding(vertical = 5.dp).padding(end = 6.dp),
                 ) {
                     Text(
-                        e.contact?.name ?: e.title,
+                        primary ?: e.contact?.name ?: e.title,
                         style = Palm.body, color = Palm.ink,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                     val sub = buildList {
-                        e.type?.let { add(it.label) }
+                        if (primary == null) e.type?.let { add(it.label) }
                         if (!e.allDay && e.end.isAfter(e.start)) add("до " + e.end.format(HM))
                         e.note?.let { add(it.lineSequence().first()) }
                     }.joinToString(" · ")

@@ -528,6 +528,7 @@ fun EventDetailsSheet(
     onAction: () -> Unit,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
+    onHistory: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     var mode by remember { mutableStateOf(DetailMode.VIEW) }
@@ -647,6 +648,7 @@ fun EventDetailsSheet(
                     Spacer(Modifier.height(16.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         primaryActionLabel(event)?.let { PalmButton(it, filled = true, onClick = onAction) }
+                        onHistory?.let { PalmButton("История", onClick = it) }
                         PalmButton(if (event.type == null) "Назначить тип" else "Тип и контакт") { mode = DetailMode.TYPE }
                         PalmButton("В календаре", onClick = onOpen)
                         Box(
