@@ -72,7 +72,7 @@ private fun PermissionScreen(onRequest: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Ежедневник", style = Palm.title, color = Palm.navy)
+        Text("DateBook", style = Palm.title, color = Palm.navy)
         Spacer(Modifier.height(12.dp))
         Text(
             "Нужен доступ к календарю — события хранятся в вашем Google-календаре — " +
