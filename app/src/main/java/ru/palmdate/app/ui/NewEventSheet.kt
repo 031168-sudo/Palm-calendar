@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.NewEvent
@@ -76,10 +77,25 @@ private fun LocalDate.pretty(): String {
 fun NewEventSheet(
     initialStart: LocalDateTime,
     searchContacts: suspend (String) -> List<ContactRef>,
+    loadCalendars: suspend () -> List<CalendarInfo>,
+    lastCalendarId: Long?,
     onDismiss: () -> Unit,
     onCreate: (NewEvent) -> Unit,
 ) {
+    // Шаги: 0 — тип, 1 — кто, 2 — календарь, 3 — когда
     var step by remember { mutableIntStateOf(0) }
+    var calendars by remember { mutableStateOf<List<CalendarInfo>>(emptyList()) }
+    var calendarId by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(Unit) {
+        calendars = loadCalendars()
+        calendarId = when {
+            calendars.any { it.id == lastCalendarId } -> lastCalendarId // последний использованный
+            calendars.size == 1 -> calendars.first().id                // выбирать не из чего
+            else -> null                                               // первый раз — спросим
+        }
+    }
+    // После "кто": если календарь ещё не выбран — сначала спрашиваем его
+    val afterWho = { step = if (calendarId == null) 2 else 3 }
     var type by remember { mutableStateOf<EventType?>(null) }
     var contact by remember { mutableStateOf<ContactRef?>(null) }
     var title by remember { mutableStateOf("") }
@@ -109,8 +125,8 @@ fun NewEventSheet(
                     if (t.needsContact) {
                         ContactPicker(
                             search = searchContacts,
-                            onPick = { contact = it; step = 2 },
-                            onSkip = { step = 2 },
+                            onPick = { contact = it; afterWho() },
+                            onSkip = afterWho,
                         )
                     } else {
                         OutlinedTextField(
@@ -119,17 +135,27 @@ fun NewEventSheet(
                             singleLine = true, modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(Modifier.height(12.dp))
-                        Row { Spacer(Modifier.weight(1f)); PalmButton("Далее", filled = true) { step = 2 } }
+                        Row { Spacer(Modifier.weight(1f)); PalmButton("Далее", filled = true, onClick = afterWho) }
                     }
+                }
+
+                2 -> CalendarPicker(calendars, selected = calendarId) {
+                    calendarId = it
+                    step = 3
                 }
 
                 else -> WhenPicker(
                     type = type!!,
+                    calendar = calendars.firstOrNull { it.id == calendarId },
+                    showAccount = calendars.map { it.accountName }.distinct().size > 1,
+                    onChangeCalendar = { step = 2 },
                     start = start, onStart = { start = it },
                     minutes = minutes, onMinutes = { minutes = it },
                     note = note, onNote = { note = it },
                     onDone = {
-                        onCreate(NewEvent(type!!, contact, title, start, minutes, note))
+                        val cal = calendarId
+                        if (cal == null) step = 2
+                        else onCreate(NewEvent(type!!, contact, title, start, minutes, note, cal))
                     },
                 )
             }
@@ -220,6 +246,9 @@ private fun ContactPicker(
 @Composable
 private fun WhenPicker(
     type: EventType,
+    calendar: CalendarInfo?,
+    showAccount: Boolean,
+    onChangeCalendar: () -> Unit,
     start: LocalDateTime, onStart: (LocalDateTime) -> Unit,
     minutes: Int, onMinutes: (Int) -> Unit,
     note: String, onNote: (String) -> Unit,
@@ -275,8 +304,78 @@ private fun WhenPicker(
         label = { Text(if (type == EventType.CALL) "О чём (необязательно)" else "Заметка (необязательно)") },
         modifier = Modifier.fillMaxWidth(), maxLines = 3,
     )
-    Spacer(Modifier.height(14.dp))
+    Spacer(Modifier.height(10.dp))
+
+    // Куда запишется событие — тап меняет календарь
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(onClick = onChangeCalendar)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Календарь", style = Palm.small, color = Palm.inkSoft, modifier = Modifier.width(80.dp))
+        if (calendar != null) {
+            Box(Modifier.size(10.dp).clip(CircleShape).background(Color(calendar.color)))
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(calendar.name, style = Palm.body, color = Palm.ink, maxLines = 1)
+                if (showAccount && calendar.name != calendar.accountName) {
+                    Text(calendar.accountName, style = Palm.small, color = Palm.inkSoft, maxLines = 1)
+                }
+            }
+        } else {
+            Text("выбрать…", style = Palm.body, color = Palm.navy, modifier = Modifier.weight(1f))
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Palm.inkSoft)
+    }
+
+    Spacer(Modifier.height(10.dp))
     Row { Spacer(Modifier.weight(1f)); PalmButton("Готово", filled = true, onClick = onDone) }
+}
+
+/**
+ * Выбор календаря. Если Google-аккаунтов несколько — календари сгруппированы по аккаунтам,
+ * если аккаунт один — просто список календарей без упоминания аккаунта.
+ */
+@Composable
+private fun CalendarPicker(calendars: List<CalendarInfo>, selected: Long?, onPick: (Long) -> Unit) {
+    Text("Куда записать?", style = Palm.body, color = Palm.ink)
+    Spacer(Modifier.height(8.dp))
+    if (calendars.isEmpty()) {
+        Text(
+            "Нет календарей для записи. Добавьте Google-аккаунт в настройках телефона.",
+            style = Palm.small, color = Palm.inkSoft,
+        )
+        return
+    }
+    val byAccount = calendars.groupBy { it.accountName }
+    val multi = byAccount.size > 1
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+        byAccount.forEach { (account, cals) ->
+            if (multi) {
+                item(key = "acc:$account") {
+                    Text(
+                        account, style = Palm.button, color = Palm.navy,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
+                    )
+                }
+            }
+            items(cals, key = { it.id }) { c ->
+                Row(
+                    Modifier.fillMaxWidth().height(46.dp).clickable { onPick(c.id) }.dottedRule()
+                        .padding(start = if (multi) 8.dp else 0.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(12.dp).clip(CircleShape).background(Color(c.color)))
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        if (c.isPrimary && c.name == c.accountName) "Основной" else c.name,
+                        style = Palm.body, color = Palm.ink, modifier = Modifier.weight(1f),
+                    )
+                    if (c.id == selected) Text("✓", style = Palm.title, color = Palm.navy)
+                }
+            }
+        }
+    }
 }
 
 @Composable

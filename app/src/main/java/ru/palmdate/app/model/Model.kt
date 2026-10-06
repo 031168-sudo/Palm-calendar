@@ -54,6 +54,16 @@ data class PalmEvent(
     val note: String?,
 )
 
+/** Календарь, в который можно записывать (Google-аккаунт + конкретный календарь в нём). */
+data class CalendarInfo(
+    val id: Long,
+    val name: String,
+    val accountName: String,
+    val accountType: String,
+    val color: Int,
+    val isPrimary: Boolean,
+)
+
 /** То, что собирает окно "Новое". */
 data class NewEvent(
     val type: EventType,
@@ -62,4 +72,5 @@ data class NewEvent(
     val start: LocalDateTime,
     val minutes: Int,
     val note: String?,
+    val calendarId: Long,
 )

@@ -155,6 +155,8 @@ fun DayScreen(vm: DayViewModel) {
         NewEventSheet(
             initialStart = start,
             searchContacts = vm::searchContacts,
+            loadCalendars = vm::writableCalendars,
+            lastCalendarId = vm.lastCalendarId(),
             onDismiss = { newAt = null },
             onCreate = { vm.create(it); newAt = null },
         )

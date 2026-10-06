@@ -18,6 +18,7 @@ import kotlinx.coroutines.withContext
 import ru.palmdate.app.data.AppDb
 import ru.palmdate.app.data.CalendarRepository
 import ru.palmdate.app.data.ContactsRepository
+import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.NewEvent
 import ru.palmdate.app.model.PalmEvent
@@ -82,7 +83,18 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun searchContacts(q: String): List<ContactRef> =
         withContext(Dispatchers.IO) { contacts.search(q) }
 
+    /* ---- Календарь для записи: последний использованный запоминается ---- */
+
+    private val prefs = app.getSharedPreferences("palmdate", android.content.Context.MODE_PRIVATE)
+
+    suspend fun writableCalendars(): List<CalendarInfo> =
+        withContext(Dispatchers.IO) { repo.writableCalendars() }
+
+    /** Последний календарь, в который создавали событие, или null — тогда спросим. */
+    fun lastCalendarId(): Long? = prefs.getLong(KEY_LAST_CAL, -1L).takeIf { it >= 0 }
+
     fun create(e: NewEvent) = viewModelScope.launch {
+        prefs.edit().putLong(KEY_LAST_CAL, e.calendarId).apply()
         try {
             withContext(Dispatchers.IO) { repo.create(e) }
             if (e.start.toLocalDate() != _state.value.date) select(e.start.toLocalDate()) else reload()
@@ -96,6 +108,10 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     fun delete(e: PalmEvent) = viewModelScope.launch {
         withContext(Dispatchers.IO) { repo.delete(e.eventId) }
         reload()
+    }
+
+    private companion object {
+        const val KEY_LAST_CAL = "last_calendar_id"
     }
 
     override fun onCleared() {

@@ -9,6 +9,7 @@ import android.provider.CalendarContract.Calendars
 import android.provider.CalendarContract.Events
 import android.provider.CalendarContract.Instances
 import android.provider.CalendarContract.Reminders
+import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.NewEvent
 import ru.palmdate.app.model.PalmEvent
@@ -78,8 +79,7 @@ class CalendarRepository(
     }
 
     suspend fun create(e: NewEvent): Long {
-        val calId = writableCalendarId()
-            ?: error("Не найден календарь для записи. Добавьте Google-аккаунт в настройках телефона.")
+        val calId = e.calendarId
 
         val name = e.contact?.name ?: e.title?.takeIf { it.isNotBlank() }
         val title = if (name != null) "${e.type.label}: $name" else e.type.label
@@ -123,22 +123,30 @@ class CalendarRepository(
         links.delete(eventId)
     }
 
-    /** Основной календарь с правом записи: сначала основной Google, потом любой доступный. */
-    private fun writableCalendarId(): Long? {
-        var best: Long? = null
-        var bestScore = -1
+    /** Все календари с правом записи: по аккаунтам, внутри аккаунта основной первым. */
+    fun writableCalendars(): List<CalendarInfo> {
+        val list = ArrayList<CalendarInfo>()
         resolver.query(
             Calendars.CONTENT_URI,
-            arrayOf(Calendars._ID, Calendars.IS_PRIMARY, Calendars.ACCOUNT_TYPE),
+            arrayOf(
+                Calendars._ID, Calendars.CALENDAR_DISPLAY_NAME, Calendars.ACCOUNT_NAME,
+                Calendars.ACCOUNT_TYPE, Calendars.CALENDAR_COLOR, Calendars.IS_PRIMARY,
+            ),
             "${Calendars.VISIBLE} = 1 AND ${Calendars.CALENDAR_ACCESS_LEVEL} >= ${Calendars.CAL_ACCESS_CONTRIBUTOR}",
             null, null,
         )?.use { c ->
             while (c.moveToNext()) {
-                val score = (if (c.getInt(1) == 1) 2 else 0) + (if (c.getString(2) == "com.google") 1 else 0)
-                if (score > bestScore) { bestScore = score; best = c.getLong(0) }
+                list += CalendarInfo(
+                    id = c.getLong(0),
+                    name = c.getString(1) ?: c.getString(2) ?: "Календарь",
+                    accountName = c.getString(2) ?: "",
+                    accountType = c.getString(3) ?: "",
+                    color = c.getInt(4),
+                    isPrimary = c.getInt(5) == 1,
+                )
             }
         }
-        return best
+        return list.sortedWith(compareBy({ it.accountName.lowercase() }, { !it.isPrimary }, { it.name.lowercase() }))
     }
 
     /**
