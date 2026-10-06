@@ -13,8 +13,21 @@ android {
         applicationId = "ru.palmdate.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1"
+        // Номер сборки из GitHub Actions — чтобы каждая новая версия ставилась поверх старой
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = build
+        versionName = "0.1.$build"
+    }
+
+    // Постоянный ключ подписи: без него каждая сборка в CI подписывалась бы новым ключом,
+    // и обновление не вставало бы поверх установленного приложения
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
