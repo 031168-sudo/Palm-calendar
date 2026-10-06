@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Листок ежедневника с "вкладкой" даты, как заголовок в Palm Date Book -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- лист -->
+    <path
+        android:fillColor="#F8F7F2"
+        android:pathData="M32,34h44a4,4 0,0 1,4 4v34a4,4 0,0 1,-4 4h-44a4,4 0,0 1,-4 -4v-34a4,4 0,0 1,4 -4z" />
+    <!-- вкладка даты -->
+    <path
+        android:fillColor="#1E3A6E"
+        android:pathData="M32,38h20l4,6h-24z" />
+    <!-- пунктирные строки -->
+    <path
+        android:strokeColor="#9AA3B5"
+        android:strokeWidth="1.5"
+        android:pathData="M34,52h40M34,60h40M34,68h40" />
+    <!-- трубка "звонок" -->
+    <path
+        android:fillColor="#C0392B"
+        android:pathData="M36,55.5c0,-1 0.8,-1.8 1.8,-1.8h1.2l1,2.4 -1,1c0.5,1 1.3,1.8 2.3,2.3l1,-1 2.4,1v1.2c0,1 -0.8,1.8 -1.8,1.8c-4,0 -6.9,-2.9 -6.9,-6.9z" />
+</vector>

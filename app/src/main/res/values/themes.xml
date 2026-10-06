@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.PalmDate" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:statusBarColor">@color/palm_navy</item>
+    </style>
+    <color name="paper">#FFF8F7F2</color>
+    <color name="palm_navy">#FF1E3A6E</color>
+</resources>
