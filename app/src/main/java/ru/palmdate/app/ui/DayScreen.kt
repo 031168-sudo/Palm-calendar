@@ -8,6 +8,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -62,6 +63,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.DisabledByDefault
 import ru.palmdate.app.model.EventType
@@ -113,6 +116,7 @@ fun DayScreen(vm: DayViewModel) {
     var details by remember { mutableStateOf<PalmEvent?>(null) }
     var history by remember { mutableStateOf<ru.palmdate.app.model.ContactRef?>(null) }
     var pickDate by remember { mutableStateOf(false) }
+    var showCalendars by remember { mutableStateOf(false) }
 
     val openDay: (LocalDate) -> Unit = { vm.setMode(ViewMode.DAY, it) }
 
@@ -191,7 +195,18 @@ fun DayScreen(vm: DayViewModel) {
             },
             onToday = vm::today,
             onGoTo = { pickDate = true },
+            onCalendars = { showCalendars = true },
             onMode = { vm.setMode(it) },
+        )
+    }
+
+    if (showCalendars) {
+        val hidden by vm.hiddenCalendars.collectAsStateWithLifecycle()
+        CalendarsSheet(
+            load = vm::allCalendars,
+            hidden = hidden,
+            onToggle = vm::setCalendarShown,
+            onDismiss = { showCalendars = false },
         )
     }
 
@@ -211,7 +226,7 @@ fun DayScreen(vm: DayViewModel) {
             initialStart = start,
             searchContacts = vm::searchContacts,
             phonesFor = vm::phonesFor,
-            loadCalendars = vm::writableCalendars,
+            loadCalendars = vm::allCalendars,
             lastCalendarId = vm.lastCalendarId(),
             onDismiss = { newAt = null },
             onCreate = { vm.create(it); newAt = null },
@@ -224,7 +239,7 @@ fun DayScreen(vm: DayViewModel) {
             searchContacts = vm::searchContacts,
             phonesFor = vm::phonesFor,
             loadReminders = vm::reminders,
-            loadCalendars = vm::writableCalendars,
+            loadCalendars = vm::allCalendars,
             onMove = { calId -> vm.move(e, calId); details = null },
             onSetReminders = { vm.setReminders(e.eventId, it) },
             onSetLink = { type, contact ->
@@ -527,6 +542,7 @@ internal fun EventLine(
                             },
                             type.label, tint = type.color, modifier = Modifier.size(22.dp),
                         )
+                        e.fromContacts -> Icon(Icons.Outlined.Cake, "День рождения", tint = EventType.BIRTHDAY.color, modifier = Modifier.size(20.dp))
                         type != null -> Icon(type.icon, type.label, tint = type.color, modifier = Modifier.size(20.dp))
                         else -> Box(Modifier.size(9.dp).clip(CircleShape).background(Color(e.color)))
                     }
@@ -575,6 +591,7 @@ private fun ButtonBar(
     onNew: () -> Unit,
     onToday: () -> Unit,
     onGoTo: () -> Unit,
+    onCalendars: () -> Unit,
     onMode: (ViewMode) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().background(Palm.paper).navigationBarsPadding()) {
@@ -607,6 +624,13 @@ private fun ButtonBar(
             PalmButton("Новое", filled = true, onClick = onNew)
             PalmButton("Сегодня", onClick = onToday)
             PalmButton("Перейти", onClick = onGoTo)
+            Spacer(Modifier.weight(1f))
+            // Какие календари показывать
+            Box(
+                Modifier.size(38.dp).clip(RoundedCornerShape(10.dp))
+                    .border(1.dp, Palm.navy, RoundedCornerShape(10.dp)).clickable(onClick = onCalendars),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Outlined.Layers, "Календари", tint = Palm.navy, modifier = Modifier.size(20.dp)) }
         }
     }
 }

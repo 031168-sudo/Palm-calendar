@@ -38,6 +38,13 @@ class CalendarRepository(
 
     private fun LocalDate.millis() = atStartOfDay(zone).toInstant().toEpochMilli()
 
+    /** Календари, которые пользователь скрыл галочками. "Невидимость" по мнению Android не учитываем. */
+    @Volatile var hiddenCalendars: Set<Long> = emptySet()
+
+    private fun shownFilter(): String =
+        hiddenCalendars.takeIf { it.isNotEmpty() }
+            ?.let { "${Instances.CALENDAR_ID} NOT IN (${it.joinToString(",")})" } ?: "1"
+
     private fun instancesUri(from: Long, to: Long): Uri =
         Instances.CONTENT_URI.buildUpon().also {
             ContentUris.appendId(it, from)
@@ -52,11 +59,12 @@ class CalendarRepository(
      */
     suspend fun historyFor(lookupKey: String): List<PalmEvent> {
         val ids = links.byContact(lookupKey).map { it.eventId }
-        if (ids.isEmpty()) return emptyList()
         val today = LocalDate.now()
-        return ids.chunked(500).flatMap { chunk ->
-            eventsBetween(today.minusYears(3), today.plusYears(1), onlyIds = chunk)
-        }.sortedBy { it.start }
+        val from = today.minusYears(3)
+        val to = today.plusYears(1)
+        val events = ids.chunked(500).flatMap { chunk -> eventsBetween(from, to, onlyIds = chunk) }
+        val bdays = birthdayEvents(from, to, onlyKey = lookupKey)
+        return (events + bdays).sortedBy { it.start }
     }
 
     /** Все события в диапазоне дней [from, toExclusive), с типом, контактом и цветом. */
@@ -79,7 +87,7 @@ class CalendarRepository(
                 Instances.ALL_DAY, Instances.DESCRIPTION, Instances.DISPLAY_COLOR,
                 Instances.CALENDAR_DISPLAY_NAME, Instances.CALENDAR_ID, Instances.RRULE,
             ),
-            "${Instances.VISIBLE} = 1" +
+            shownFilter() +
                 (onlyIds?.let { " AND ${Instances.EVENT_ID} IN (${it.joinToString(",")})" } ?: ""),
             null,
             "${Instances.BEGIN} ASC, ${Instances.ALL_DAY} DESC",
@@ -98,7 +106,7 @@ class CalendarRepository(
         val outcomeByKey = links.outcomes(ids).associateBy { it.eventId to it.instanceStart }
         val accountByCal = calendarAccounts()
 
-        return raws.map { r ->
+        val calendarEvents = raws.map { r ->
             // Итог: из базы, а для обычных (не повторяющихся) событий — восстанавливаем из строки в описании
             var outcome = outcomeByKey[r.id to r.begin]
             if (outcome == null && !r.recurring) {
@@ -134,7 +142,60 @@ class CalendarRepository(
                 outcomeNote = outcome?.note,
             )
         }
+        if (onlyIds != null) return calendarEvents
+
+        // Дни рождения из контактов — без дублей с календарём "Дни рождения"
+        val bdays = birthdayEvents(from, toExclusive).filterNot { b ->
+            val name = b.contact?.name?.lowercase() ?: return@filterNot false
+            calendarEvents.any { it.allDay && it.start.toLocalDate() == b.start.toLocalDate() && it.title.lowercase().contains(name) }
+        }
+        return (calendarEvents + bdays).sortedWith(compareBy({ it.start }, { !it.allDay }))
     }
+
+    /**
+     * Дни рождения из карточек контактов как события на весь день.
+     * У каждого свой постоянный отрицательный id, чтобы не путать с событиями календаря.
+     */
+    private suspend fun birthdayEvents(from: LocalDate, toExclusive: LocalDate, onlyKey: String? = null): List<PalmEvent> {
+        val list = contacts.birthdays().filter { onlyKey == null || it.lookupKey == onlyKey }
+        if (list.isEmpty()) return emptyList()
+        val ids = list.map { birthdayId(it.lookupKey) }
+        val outcomeByKey = links.outcomes(ids).associateBy { it.eventId to it.instanceStart }
+        val result = ArrayList<PalmEvent>()
+        for (b in list) {
+            for (year in from.year..toExclusive.year) {
+                val date = runCatching {
+                    // 29 февраля в невисокосный год — 28-го
+                    java.time.LocalDate.of(year, b.month, minOf(b.day, java.time.YearMonth.of(year, b.month).lengthOfMonth()))
+                }.getOrNull() ?: continue
+                if (date < from || date >= toExclusive) continue
+                val id = birthdayId(b.lookupKey)
+                val instance = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                val age = b.year?.let { year - it }?.takeIf { it in 1..129 }
+                val o = outcomeByKey[id to instance]
+                result += PalmEvent(
+                    eventId = id,
+                    title = "День рождения",
+                    start = date.atStartOfDay(),
+                    end = date.plusDays(1).atStartOfDay(),
+                    allDay = true,
+                    type = EventType.BIRTHDAY,
+                    contact = contacts.byLookupKey(b.lookupKey, links.rememberedPhone(b.lookupKey)),
+                    note = age?.let { "исполняется $it" },
+                    color = 0xFFD35400.toInt(),
+                    calendarName = "Контакты",
+                    recurring = true,          // итог хранится только в приложении
+                    instanceStart = instance,
+                    outcome = Outcome.parse(o?.status),
+                    outcomeNote = o?.note,
+                    fromContacts = true,
+                )
+            }
+        }
+        return result
+    }
+
+    private fun birthdayId(lookupKey: String): Long = -(1L + (lookupKey.hashCode().toLong() and 0x7fffffffL))
 
     /**
      * Поставить или снять итог (outcome == null) у конкретного раза события.
@@ -256,13 +317,20 @@ class CalendarRepository(
         resolver.query(
             instancesUri(from.millis(), toExclusive.millis()),
             arrayOf(Instances.BEGIN, Instances.END, Instances.ALL_DAY),
-            "${Instances.VISIBLE} = 1", null, null,
+            shownFilter(), null, null,
         )?.use { c ->
             while (c.moveToNext()) {
                 val tz = if (c.getInt(2) == 1) ZoneOffset.UTC else zone
                 var d = Instant.ofEpochMilli(c.getLong(0)).atZone(tz).toLocalDate()
                 val last = Instant.ofEpochMilli(maxOf(c.getLong(0), c.getLong(1) - 1)).atZone(tz).toLocalDate()
                 while (!d.isAfter(last) && d.isBefore(toExclusive)) { days += d; d = d.plusDays(1) }
+            }
+        }
+        contacts.birthdays().forEach { b ->
+            for (year in from.year..toExclusive.year) {
+                runCatching {
+                    java.time.LocalDate.of(year, b.month, minOf(b.day, java.time.YearMonth.of(year, b.month).lengthOfMonth()))
+                }.getOrNull()?.takeIf { it >= from && it < toExclusive }?.let { days += it }
             }
         }
         return days
@@ -357,30 +425,43 @@ class CalendarRepository(
         links.clearOutcomes(eventId)
     }
 
-    /** Все календари с правом записи: по аккаунтам, внутри аккаунта основной первым. */
-    fun writableCalendars(): List<CalendarInfo> {
+    /**
+     * Все календари телефона с пометками: можно ли записывать, синхронизируется ли, локальный ли.
+     * По аккаунтам; внутри аккаунта — пригодные первыми, основной впереди.
+     */
+    fun allCalendars(): List<CalendarInfo> {
         val list = ArrayList<CalendarInfo>()
         resolver.query(
             Calendars.CONTENT_URI,
             arrayOf(
                 Calendars._ID, Calendars.CALENDAR_DISPLAY_NAME, Calendars.ACCOUNT_NAME,
                 Calendars.ACCOUNT_TYPE, Calendars.CALENDAR_COLOR, Calendars.IS_PRIMARY,
+                Calendars.CALENDAR_ACCESS_LEVEL, Calendars.SYNC_EVENTS,
             ),
-            "${Calendars.VISIBLE} = 1 AND ${Calendars.CALENDAR_ACCESS_LEVEL} >= ${Calendars.CAL_ACCESS_CONTRIBUTOR}",
-            null, null,
+            null, null, null,
         )?.use { c ->
             while (c.moveToNext()) {
+                val accountType = c.getString(3) ?: ""
+                val accountName = c.getString(2) ?: ""
+                val local = accountType == CalendarContract.ACCOUNT_TYPE_LOCAL ||
+                    accountType.contains("local", ignoreCase = true) ||
+                    accountName.contains("local", ignoreCase = true)
                 list += CalendarInfo(
                     id = c.getLong(0),
-                    name = c.getString(1) ?: c.getString(2) ?: "Календарь",
-                    accountName = c.getString(2) ?: "",
-                    accountType = c.getString(3) ?: "",
+                    name = c.getString(1) ?: accountName.ifEmpty { "Календарь" },
+                    accountName = accountName,
+                    accountType = accountType,
                     color = c.getInt(4),
                     isPrimary = c.getInt(5) == 1,
+                    writable = c.getInt(6) >= Calendars.CAL_ACCESS_CONTRIBUTOR,
+                    synced = local || c.getInt(7) == 1,
+                    local = local,
                 )
             }
         }
-        return list.sortedWith(compareBy({ it.accountName.lowercase() }, { !it.isPrimary }, { it.name.lowercase() }))
+        return list.sortedWith(
+            compareBy<CalendarInfo>({ it.local }, { it.accountName.lowercase() }, { !it.usable }, { !it.isPrimary }, { it.name.lowercase() }),
+        )
     }
 
     private fun withMarker(note: String?, type: EventType, lookupKey: String?, phone: String?) =

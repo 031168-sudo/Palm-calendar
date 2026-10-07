@@ -11,6 +11,7 @@ import ru.palmdate.app.model.PalmEvent
 
 /** Что делает тап по иконке события — как на Palm: звонок набирает номер, встреча ведёт на карту. */
 fun primaryActionLabel(e: PalmEvent): String? = when {
+    e.fromContacts && e.contact?.phone != null -> "Поздравить"
     e.type == EventType.CALL && e.contact?.phone != null -> "Позвонить"
     e.type == EventType.MEETING && e.contact?.address != null -> "Маршрут"
     else -> null
@@ -19,6 +20,8 @@ fun primaryActionLabel(e: PalmEvent): String? = when {
 fun Context.runPrimaryAction(e: PalmEvent) {
     val c = e.contact
     when {
+        // День рождения из контактов — позвонить имениннику
+        e.fromContacts -> c?.phone?.let { dial(it) }
         e.type == EventType.CALL && c?.phone != null ->
             launch(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(c.phone))))
         e.type == EventType.MEETING && c?.address != null ->

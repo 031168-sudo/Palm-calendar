@@ -1,7 +1,7 @@
 package ru.palmdate.app.model
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.Celebration
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Flight
 import androidx.compose.material.icons.outlined.Groups
@@ -28,7 +28,8 @@ enum class EventType(
     MEETING("Встреча", Icons.Outlined.Groups, Color(0xFF1E3A6E), 60, true, listOf(15)),
     TASK("Задача", Icons.Outlined.TaskAlt, Color(0xFF2E7D32), 30, false, listOf(15)),
     TRIP("Поездка", Icons.Outlined.Flight, Color(0xFF6A4C93), 120, false, listOf(60)),
-    BIRTHDAY("День рождения", Icons.Outlined.Cake, Color(0xFFD35400), 0, true, listOf(0)),
+    // Имя в коде осталось BIRTHDAY — оно записано в метках уже созданных событий
+    BIRTHDAY("Праздник", Icons.Outlined.Celebration, Color(0xFFD35400), 0, true, listOf(0)),
     OTHER("Событие", Icons.Outlined.Event, Color(0xFF546E7A), 60, false, listOf(15));
 
     /** Цвет типа с поправкой на тему (в тёмной — светлее). */
@@ -69,7 +70,7 @@ data class ContactRef(
 
 data class PhoneNumber(val number: String, val label: String)
 
-/** Календарь, в который можно записывать (Google-аккаунт + конкретный календарь в нём). */
+/** Календарь телефона (Google-аккаунт + конкретный календарь в нём) и его ограничения. */
 data class CalendarInfo(
     val id: Long,
     val name: String,
@@ -77,7 +78,22 @@ data class CalendarInfo(
     val accountType: String,
     val color: Int,
     val isPrimary: Boolean,
-)
+    val writable: Boolean = true,   // можно ли туда записывать
+    val synced: Boolean = true,     // синхронизируется ли с Google
+    val local: Boolean = false,     // только на этом телефоне
+) {
+    /** Можно ли спокойно записывать: доступ есть, уходит в Google. */
+    val usable: Boolean get() = writable && synced && !local
+
+    /** Почему календарь не годится (или null, если годится). */
+    val problem: String?
+        get() = when {
+            !writable -> "только чтение"
+            local -> "только на этом телефоне"
+            !synced -> "синхронизация выключена"
+            else -> null
+        }
+}
 
 /** Событие, как его показывают экраны. */
 data class PalmEvent(
@@ -97,6 +113,7 @@ data class PalmEvent(
     val instanceStart: Long = 0,      // начало именно этого раза (для повторяющихся — у каждого своё)
     val outcome: Outcome? = null,      // итог: состоялось, не дозвонился…
     val outcomeNote: String? = null,
+    val fromContacts: Boolean = false, // день рождения из карточки контакта, а не событие календаря
 ) {
     /** Дни, которые занимает событие (для недели, месяца, года). */
     fun days(): List<LocalDate> {

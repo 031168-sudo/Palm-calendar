@@ -83,6 +83,8 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     fun start() {
         if (started) return
         started = true
+        repo.hiddenCalendars = _hidden.value
+        contacts.invalidate()
         getApplication<Application>().contentResolver
             .registerContentObserver(CalendarContract.Events.CONTENT_URI, true, observer)
         reload()
@@ -157,8 +159,24 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
 
     /* ---- Календарь для записи: последний использованный запоминается ---- */
 
-    suspend fun writableCalendars(): List<CalendarInfo> =
-        withContext(Dispatchers.IO) { repo.writableCalendars() }
+    /** Все календари телефона с пометками (только чтение, без синхронизации, локальный). */
+    suspend fun allCalendars(): List<CalendarInfo> =
+        withContext(Dispatchers.IO) { repo.allCalendars() }
+
+    /* ---- Какие календари показывать (галочки) ---- */
+
+    private val _hidden = MutableStateFlow(
+        prefs.getStringSet(KEY_HIDDEN, emptySet()).orEmpty().mapNotNull { it.toLongOrNull() }.toSet(),
+    )
+    val hiddenCalendars = _hidden.asStateFlow()
+
+    fun setCalendarShown(id: Long, shown: Boolean) {
+        val next = if (shown) _hidden.value - id else _hidden.value + id
+        _hidden.value = next
+        repo.hiddenCalendars = next
+        prefs.edit().putStringSet(KEY_HIDDEN, next.map { it.toString() }.toSet()).apply()
+        reload()
+    }
 
     /** Последний календарь, в который создавали событие, или null — тогда спросим. */
     fun lastCalendarId(): Long? = prefs.getLong(KEY_LAST_CAL, -1L).takeIf { it >= 0 }
@@ -237,6 +255,7 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     private companion object {
         const val KEY_LAST_CAL = "last_calendar_id"
         const val KEY_MODE = "view_mode"
+        const val KEY_HIDDEN = "hidden_calendars"
     }
 
     override fun onCleared() {

@@ -47,6 +47,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -114,8 +115,8 @@ fun NewEventSheet(
     LaunchedEffect(Unit) {
         calendars = loadCalendars()
         calendarId = when {
-            calendars.any { it.id == lastCalendarId } -> lastCalendarId // последний использованный
-            calendars.size == 1 -> calendars.first().id                // выбирать не из чего
+            calendars.any { it.id == lastCalendarId && it.writable } -> lastCalendarId // последний использованный
+            calendars.count { it.usable } == 1 -> calendars.first { it.usable }.id      // выбирать не из чего
             else -> null                                               // первый раз — спросим
         }
     }
@@ -185,7 +186,9 @@ fun NewEventSheet(
                     step = Step.WHEN
                 }
 
-                Step.WHEN -> WhenPicker(
+                // Прокрутка "по необходимости": без клавиатуры всё помещается и окно выглядит как раньше,
+                // с клавиатурой поле заметки уезжает над ней
+                Step.WHEN -> Column(Modifier.verticalScroll(rememberScrollState())) { WhenPicker(
                     type = type!!,
                     phone = contact?.phone?.takeIf { type == EventType.CALL },
                     onChangePhone = if (type == EventType.CALL && contact != null) {
@@ -197,7 +200,7 @@ fun NewEventSheet(
                         }
                     } else null,
                     calendar = calendars.firstOrNull { it.id == calendarId },
-                    showAccount = calendars.map { it.accountName }.distinct().size > 1,
+                    showAccount = calendars.filter { it.usable }.map { it.accountName }.distinct().size > 1,
                     onChangeCalendar = { step = Step.CALENDAR },
                     start = start, onStart = { start = it },
                     minutes = minutes, onMinutes = { minutes = it },
@@ -208,7 +211,7 @@ fun NewEventSheet(
                         if (cal == null) step = Step.CALENDAR
                         else onCreate(NewEvent(type!!, contact, title, start, minutes, note, cal, reminders))
                     },
-                )
+                ) }
             }
         }
     }
@@ -320,15 +323,23 @@ private fun PhonePicker(phones: List<PhoneNumber>, selected: String?, onPick: (S
     }
 }
 
+/** Как показывать название календаря: основной календарь аккаунта называется его адресом. */
+internal fun CalendarInfo.displayName(): String = when {
+    name == accountName && isPrimary -> "Мой календарь"
+    name == accountName && local -> "Основной"
+    else -> name
+}
+
 /**
- * Выбор календаря. Если Google-аккаунтов несколько — календари сгруппированы по аккаунтам,
- * если аккаунт один — просто список календарей без упоминания аккаунта.
+ * Выбор календаря. Если аккаунтов несколько — календари сгруппированы по аккаунтам.
+ * Показываются все календари телефона; непригодные — серым внизу группы с пометкой почему.
+ * В календари "только чтение" записать нельзя — они не нажимаются.
  */
 @Composable
 private fun CalendarPicker(calendars: List<CalendarInfo>, selected: Long?, onPick: (Long) -> Unit) {
     Text("Куда записать?", style = Palm.body, color = Palm.ink)
     Spacer(Modifier.height(8.dp))
-    if (calendars.isEmpty()) {
+    if (calendars.none { it.writable }) {
         Text(
             "Нет календарей для записи. Добавьте Google-аккаунт в настройках телефона.",
             style = Palm.small, color = Palm.inkSoft,
@@ -337,7 +348,7 @@ private fun CalendarPicker(calendars: List<CalendarInfo>, selected: Long?, onPic
     }
     val byAccount = calendars.groupBy { it.accountName }
     val multi = byAccount.size > 1
-    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 460.dp)) {
         byAccount.forEach { (account, cals) ->
             if (multi) {
                 item(key = "acc:$account") {
@@ -348,19 +359,32 @@ private fun CalendarPicker(calendars: List<CalendarInfo>, selected: Long?, onPic
                 }
             }
             items(cals, key = { it.id }) { c ->
+                val problem = c.problem
                 Row(
-                    Modifier.fillMaxWidth().height(46.dp).clickable { onPick(c.id) }.dottedRule()
-                        .padding(start = if (multi) 8.dp else 0.dp),
+                    Modifier.fillMaxWidth().heightIn(min = 46.dp)
+                        .then(if (c.writable) Modifier.clickable { onPick(c.id) } else Modifier)
+                        .dottedRule()
+                        .padding(start = if (multi) 8.dp else 0.dp, top = 4.dp, bottom = 4.dp)
+                        .alpha(if (problem == null) 1f else 0.5f),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(Modifier.size(12.dp).clip(CircleShape).background(Color(c.color)))
                     Spacer(Modifier.width(10.dp))
-                    Text(
-                        if (c.isPrimary && c.name == c.accountName) "Основной" else c.name,
-                        style = Palm.body, color = Palm.ink, modifier = Modifier.weight(1f),
-                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(c.displayName(), style = Palm.body, color = Palm.ink)
+                        if (problem != null) Text(problem, style = Palm.small, color = Palm.inkSoft)
+                    }
                     if (c.id == selected) Text("✓", style = Palm.title, color = Palm.navy)
                 }
+            }
+        }
+        if (calendars.any { it.writable && !it.synced }) {
+            item(key = "hint") {
+                Text(
+                    "Календарь с выключенной синхронизацией не уходит в Google. Включить: Google Календарь → " +
+                        "Настройки → календарь → «Синхронизация».",
+                    style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(top = 10.dp),
+                )
             }
         }
     }
@@ -470,7 +494,7 @@ private fun WhenPicker(
     OutlinedTextField(
         value = note, onValueChange = onNote,
         label = { Text(if (type == EventType.CALL) "О чём (необязательно)" else "Заметка (необязательно)") },
-        modifier = Modifier.fillMaxWidth(), maxLines = 3,
+        modifier = Modifier.fillMaxWidth().keepAboveKeyboard(), maxLines = 3,
     )
     Spacer(Modifier.height(6.dp))
 
@@ -479,8 +503,11 @@ private fun WhenPicker(
     }
     SettingRow(
         "Календарь",
-        calendar?.name ?: "выбрать…",
-        sub = calendar?.accountName?.takeIf { showAccount && it != calendar.name },
+        calendar?.displayName() ?: "выбрать…",
+        sub = listOfNotNull(
+            calendar?.accountName?.takeIf { showAccount && it != calendar.displayName() },
+            calendar?.problem,
+        ).joinToString(" · ").ifEmpty { null },
         dot = calendar?.let { Color(it.color) },
         onClick = onChangeCalendar,
     )
@@ -546,7 +573,8 @@ fun EventDetailsSheet(
         calendars = loadCalendars()
     }
     // Перенести можно, только если календарь события доступен для записи и есть куда переносить
-    val canMove = calendars.size > 1 && calendars.any { it.id == event.calendarId }
+    val canMove = !event.fromContacts && calendars.count { it.writable } > 1 &&
+        calendars.any { it.id == event.calendarId && it.writable }
 
     moveTo?.let { target ->
         AlertDialog(
@@ -581,6 +609,8 @@ fun EventDetailsSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        // Сразу на всю высоту и не сворачивается, когда внутри появляются поля итога
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = Palm.paper,
         shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp),
     ) {
@@ -620,7 +650,8 @@ fun EventDetailsSheet(
                     DetailLine("Когда", whenText)
                     if (event.calendarName.isNotEmpty()) {
                         SettingRow(
-                            "Календарь", event.calendarName,
+                            "Календарь",
+                            if (event.calendarName == event.accountName) "Мой календарь" else event.calendarName,
                             sub = event.accountName.takeIf { it.isNotEmpty() && it != event.calendarName },
                             dot = Color(event.color),
                             onClick = if (canMove) ({ mode = DetailMode.CALENDAR }) else null,
@@ -644,7 +675,7 @@ fun EventDetailsSheet(
                     OutcomeSection(event, onOutcome, onFollowUp)
 
                     Spacer(Modifier.height(10.dp))
-                    reminders?.let { r ->
+                    if (!event.fromContacts) reminders?.let { r ->
                         ReminderChips(r) { new ->
                             reminders = new
                             onSetReminders(new)
@@ -655,12 +686,15 @@ fun EventDetailsSheet(
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         primaryActionLabel(event)?.let { PalmButton(it, filled = true, onClick = onAction) }
                         onHistory?.let { PalmButton("История", onClick = it) }
-                        PalmButton(if (event.type == null) "Назначить тип" else "Тип и контакт") { mode = DetailMode.TYPE }
-                        PalmButton("В календаре", onClick = onOpen)
-                        Box(
-                            Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onDelete),
-                            contentAlignment = Alignment.Center,
-                        ) { Icon(Icons.Outlined.Delete, "Удалить", tint = Palm.nowLine) }
+                        // День рождения из карточки контакта — не событие календаря: менять и удалять нечего
+                        if (!event.fromContacts) {
+                            PalmButton(if (event.type == null) "Назначить тип" else "Тип и контакт") { mode = DetailMode.TYPE }
+                            PalmButton("В календаре", onClick = onOpen)
+                            Box(
+                                Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onDelete),
+                                contentAlignment = Alignment.Center,
+                            ) { Icon(Icons.Outlined.Delete, "Удалить", tint = Palm.nowLine) }
+                        }
                     }
                 }
             }
@@ -710,7 +744,7 @@ private fun OutcomeSection(
             OutlinedTextField(
                 value = note, onValueChange = { note = it },
                 label = { Text("Пару слов об итоге") },
-                modifier = Modifier.weight(1f), maxLines = 3,
+                modifier = Modifier.weight(1f).keepAboveKeyboard(), maxLines = 3,
             )
             if (note != (event.outcomeNote ?: "")) {
                 Spacer(Modifier.width(8.dp))

@@ -75,5 +75,70 @@ class ContactsRepository(private val context: Context) {
         return Base(name, address)
     }
 
-    fun invalidate() = cache.clear()
+    /** День рождения из карточки контакта; год может быть неизвестен. */
+    data class Birthday(val lookupKey: String, val name: String, val month: Int, val day: Int, val year: Int?)
+
+    @Volatile private var birthdayCache: Pair<Long, List<Birthday>>? = null
+
+    /** Все дни рождения из контактов. Кэш на минуту — экраны зовут это при каждой перерисовке. */
+    fun birthdays(): List<Birthday> {
+        birthdayCache?.let { (t, list) -> if (System.currentTimeMillis() - t < 60_000) return list }
+        val list = ArrayList<Birthday>()
+        val seen = HashSet<String>()
+        runCatching {
+            resolver.query(
+                ContactsContract.Data.CONTENT_URI,
+                arrayOf(
+                    ContactsContract.Data.LOOKUP_KEY,
+                    ContactsContract.Data.DISPLAY_NAME_PRIMARY,
+                    ContactsContract.CommonDataKinds.Event.START_DATE,
+                ),
+                "${ContactsContract.Data.MIMETYPE} = ? AND ${ContactsContract.CommonDataKinds.Event.TYPE} = ?",
+                arrayOf(
+                    ContactsContract.CommonDataKinds.Event.CONTENT_ITEM_TYPE,
+                    ContactsContract.CommonDataKinds.Event.TYPE_BIRTHDAY.toString(),
+                ),
+                null,
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val key = c.getString(0) ?: continue
+                    val name = c.getString(1) ?: continue
+                    val date = parseDate(c.getString(2)) ?: continue
+                    if (!seen.add(key)) continue // у слитого контакта дата может быть в нескольких источниках
+                    list += Birthday(key, name, date.first, date.second, date.third)
+                }
+            }
+        }
+        birthdayCache = System.currentTimeMillis() to list
+        return list
+    }
+
+    /** Дата из контакта → (месяц, день, год?). Год 1604 и прочие "неизвестные" отбрасываем. */
+    private fun parseDate(s: String?): Triple<Int, Int, Int?>? =
+        parseRaw(s)
+            ?.takeIf { (month, day, _) -> month in 1..12 && day in 1..31 }
+            ?.let { (month, day, year) -> Triple(month, day, year?.takeIf { it in 1901..2200 }) }
+
+    /** Форматы дат в контактах: 1980-05-17, --05-17, 19800517, 17.05.1980, 17.05. */
+    private fun parseRaw(s: String?): Triple<Int, Int, Int?>? {
+        val t = s?.trim() ?: return null
+        Regex("""^(\d{4})-(\d{1,2})-(\d{1,2})""").find(t)?.let { m ->
+            return Triple(m.groupValues[2].toInt(), m.groupValues[3].toInt(), m.groupValues[1].toInt())
+        }
+        Regex("""^--(\d{1,2})-?(\d{1,2})""").find(t)?.let { m ->
+            return Triple(m.groupValues[1].toInt(), m.groupValues[2].toInt(), null)
+        }
+        Regex("""^(\d{4})(\d{2})(\d{2})$""").find(t)?.let { m ->
+            return Triple(m.groupValues[2].toInt(), m.groupValues[3].toInt(), m.groupValues[1].toInt())
+        }
+        Regex("""^(\d{1,2})\.(\d{1,2})\.?(\d{4})?""").find(t)?.let { m ->
+            return Triple(m.groupValues[2].toInt(), m.groupValues[1].toInt(), m.groupValues[3].toIntOrNull())
+        }
+        return null
+    }
+
+    fun invalidate() {
+        cache.clear()
+        birthdayCache = null
+    }
 }
