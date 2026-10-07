@@ -94,6 +94,9 @@ data class PalmEvent(
     val accountName: String = "",
     val calendarId: Long = -1,
     val recurring: Boolean = false,
+    val instanceStart: Long = 0,      // начало именно этого раза (для повторяющихся — у каждого своё)
+    val outcome: Outcome? = null,      // итог: состоялось, не дозвонился…
+    val outcomeNote: String? = null,
 ) {
     /** Дни, которые занимает событие (для недели, месяца, года). */
     fun days(): List<LocalDate> {
@@ -101,6 +104,62 @@ data class PalmEvent(
         val endExclusive = end.minusNanos(1)
         val last = if (endExclusive.isBefore(start)) first else endExclusive.toLocalDate()
         return generateSequence(first) { it.plusDays(1) }.takeWhile { !it.isAfter(last) }.toList()
+    }
+}
+
+/** Как отображать итог: зелёная галочка, красный крестик или стрелка переноса. */
+enum class OutcomeKind { GOOD, BAD, MOVED }
+
+/** Итог события — что произошло на самом деле. */
+enum class Outcome(val kind: OutcomeKind) {
+    DONE(OutcomeKind.GOOD),
+    NO_ANSWER(OutcomeKind.BAD),
+    NO_SHOW(OutcomeKind.BAD),
+    NOT_DONE(OutcomeKind.BAD),
+    RESCHEDULED(OutcomeKind.MOVED),
+    CANCELLED(OutcomeKind.BAD);
+
+    /** Подпись с учётом типа события: звонок "состоялся", встреча "состоялась", задача "выполнена". */
+    fun label(type: EventType?): String = when (this) {
+        DONE -> when (type) {
+            EventType.CALL -> "Состоялся"
+            EventType.MEETING -> "Состоялась"
+            EventType.TASK -> "Выполнена"
+            else -> "Состоялось"
+        }
+        NO_ANSWER -> "Не дозвонился"
+        NO_SHOW -> "Не пришли"
+        NOT_DONE -> "Не выполнена"
+        RESCHEDULED -> when (type) {
+            EventType.CALL -> "Перенесён"
+            EventType.MEETING -> "Перенесена"
+            else -> "Перенесено"
+        }
+        CANCELLED -> when (type) {
+            EventType.CALL -> "Отменён"
+            EventType.MEETING, EventType.TASK -> "Отменена"
+            else -> "Отменено"
+        }
+    }
+
+    companion object {
+        /** Какие итоги предлагать для типа. */
+        fun optionsFor(type: EventType?): List<Outcome> = when (type) {
+            EventType.CALL -> listOf(DONE, NO_ANSWER, RESCHEDULED, CANCELLED)
+            EventType.MEETING -> listOf(DONE, RESCHEDULED, CANCELLED, NO_SHOW)
+            EventType.TASK -> listOf(DONE, NOT_DONE)
+            else -> listOf(DONE, CANCELLED)
+        }
+
+        fun parse(s: String?): Outcome? = entries.firstOrNull { it.name == s }
+
+        /** Восстановить итог по подписи из строки "Итог: …" в описании события. */
+        fun fromLabel(label: String): Outcome? {
+            val l = label.trim().lowercase()
+            return entries.firstOrNull { o ->
+                (EventType.entries.map { o.label(it) } + o.label(null)).any { it.lowercase() == l }
+            }
+        }
     }
 }
 

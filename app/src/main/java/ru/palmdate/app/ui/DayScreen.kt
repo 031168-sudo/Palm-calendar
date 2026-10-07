@@ -57,6 +57,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
+import androidx.compose.material.icons.outlined.DisabledByDefault
+import ru.palmdate.app.model.EventType
+import ru.palmdate.app.model.Outcome
+import ru.palmdate.app.model.OutcomeKind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -149,7 +159,8 @@ fun DayScreen(vm: DayViewModel) {
                     )
                 },
         ) { page ->
-            val onIcon: (PalmEvent) -> Unit = { ctx.runPrimaryAction(it) }
+            // Задача — отметить выполненной; остальное — позвонить / маршрут
+            val onIcon: (PalmEvent) -> Unit = { if (it.type == EventType.TASK) vm.toggleTask(it) else ctx.runPrimaryAction(it) }
             val onEvent: (PalmEvent) -> Unit = { details = it }
             when (page.mode) {
                 ViewMode.DAY -> DayBody(
@@ -225,6 +236,11 @@ fun DayScreen(vm: DayViewModel) {
             onOpen = { ctx.openInCalendar(e) },
             onDelete = { vm.delete(e); details = null },
             onHistory = e.contact?.let { c -> { details = null; history = c } },
+            onOutcome = { o, note ->
+                vm.setOutcome(e, o, note)
+                details = e.copy(outcome = o, outcomeNote = note?.takeIf { it.isNotBlank() })
+            },
+            onFollowUp = { start -> vm.followUp(e, start) },
         )
     }
 
@@ -482,41 +498,56 @@ internal fun EventLine(
                 .dottedRule(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val faded = e.outcome == Outcome.CANCELLED
             Row(
                 Modifier
                     .weight(1f)
                     .padding(vertical = 3.dp)
                     .height(IntrinsicSize.Min)
+                    .alpha(if (faded) 0.5f else 1f)
                     .clip(RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp))
                     .background(calTint(e.color)),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Полоска календаря
                 Box(Modifier.width(3.dp).fillMaxHeight().background(Color(e.color)))
-                // Иконка типа — тап по ней сразу выполняет действие (позвонить / маршрут)
+                // Иконка типа — тап по ней сразу выполняет действие (позвонить / маршрут / отметить задачу)
                 Box(
                     Modifier.size(34.dp).clip(CircleShape).clickable { onIcon(e) },
                     contentAlignment = Alignment.Center,
                 ) {
                     val type = e.type
-                    if (type != null) {
-                        Icon(type.icon, type.label, tint = type.color, modifier = Modifier.size(20.dp))
-                    } else {
-                        Box(Modifier.size(9.dp).clip(CircleShape).background(Color(e.color)))
+                    when {
+                        // Задача — чекбокс, как в Palm To Do
+                        type == EventType.TASK -> Icon(
+                            when (e.outcome) {
+                                Outcome.DONE -> Icons.Outlined.CheckBox
+                                Outcome.NOT_DONE -> Icons.Outlined.DisabledByDefault
+                                else -> Icons.Outlined.CheckBoxOutlineBlank
+                            },
+                            type.label, tint = type.color, modifier = Modifier.size(22.dp),
+                        )
+                        type != null -> Icon(type.icon, type.label, tint = type.color, modifier = Modifier.size(20.dp))
+                        else -> Box(Modifier.size(9.dp).clip(CircleShape).background(Color(e.color)))
                     }
+                    if (type != EventType.TASK) e.outcome?.let { OutcomeBadge(it, Modifier.align(Alignment.BottomEnd)) }
                 }
                 Column(
                     Modifier.weight(1f).clickable { onEvent(e) }.padding(vertical = 5.dp).padding(end = 6.dp),
                 ) {
+                    val struck = e.outcome == Outcome.CANCELLED || (e.type == EventType.TASK && e.outcome == Outcome.DONE)
                     Text(
                         primary ?: e.contact?.name ?: e.title,
-                        style = Palm.body, color = Palm.ink,
+                        style = Palm.body.copy(textDecoration = if (struck) TextDecoration.LineThrough else null),
+                        color = if (struck) Palm.inkSoft else Palm.ink,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                     val sub = buildList {
-                        if (primary == null) e.type?.let { add(it.label) }
+                        // Итог важнее типа: "Не дозвонился — перезвонить после обеда"
+                        e.outcome?.let { o -> add(o.label(e.type) + (e.outcomeNote?.let { " — $it" } ?: "")) }
+                        if (primary == null && e.outcome == null) e.type?.let { add(it.label) }
                         if (!e.allDay && e.end.isAfter(e.start)) add("до " + e.end.format(HM))
-                        e.note?.let { add(it.lineSequence().first()) }
+                        if (e.outcome == null) e.note?.let { add(it.lineSequence().first()) }
                     }.joinToString(" · ")
                     if (sub.isNotEmpty()) {
                         Text(sub, style = Palm.small, color = Palm.inkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -578,4 +609,19 @@ private fun ButtonBar(
             PalmButton("Перейти", onClick = onGoTo)
         }
     }
+}
+
+/** Значок итога на иконке события: галочка, крестик или стрелка переноса. */
+@Composable
+internal fun OutcomeBadge(o: Outcome, modifier: Modifier = Modifier) {
+    val (bg, icon) = when (o.kind) {
+        OutcomeKind.GOOD -> Color(0xFF2E7D32) to Icons.Filled.Check
+        OutcomeKind.BAD -> Color(0xFFC0392B) to Icons.Filled.Close
+        OutcomeKind.MOVED -> Palm.navy to Icons.AutoMirrored.Filled.Redo
+    }
+    Box(
+        modifier.padding(1.dp).size(14.dp).clip(CircleShape).background(Palm.paper).padding(1.5.dp)
+            .clip(CircleShape).background(bg),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(9.dp)) }
 }

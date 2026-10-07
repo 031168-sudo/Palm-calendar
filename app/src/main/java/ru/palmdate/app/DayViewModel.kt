@@ -23,6 +23,8 @@ import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.NewEvent
+import ru.palmdate.app.model.Outcome
+import java.time.LocalDateTime
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.model.PhoneNumber
 import java.time.DayOfWeek
@@ -185,6 +187,37 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     fun setReminders(eventId: Long, minutes: List<Int>) = launchSafe { repo.setReminders(eventId, minutes) }
 
     fun delete(e: PalmEvent) = launchSafe { repo.delete(e.eventId) }
+
+    /* ---- Итоги ---- */
+
+    fun setOutcome(e: PalmEvent, outcome: Outcome?, note: String?) =
+        launchSafe { repo.setOutcome(e, outcome, note) }
+
+    /** Галочка задачи по тапу на иконку: выполнена ↔ без отметки. */
+    fun toggleTask(e: PalmEvent) =
+        setOutcome(e, if (e.outcome == Outcome.DONE) null else Outcome.DONE, e.outcomeNote)
+
+    /**
+     * Создать продолжение события в другое время — для "перезвонить" и "перенести":
+     * тот же тип, контакт и номер, длительность и календарь.
+     */
+    fun followUp(e: PalmEvent, start: LocalDateTime) {
+        val type = e.type ?: EventType.OTHER
+        val minutes = if (e.allDay) 0 else java.time.Duration.between(e.start, e.end).toMinutes().toInt().coerceAtLeast(5)
+        val cal = e.calendarId.takeIf { it >= 0 } ?: lastCalendarId() ?: return
+        create(
+            NewEvent(
+                type = type,
+                contact = e.contact,
+                title = if (e.type == null) e.title else null,
+                start = start,
+                minutes = minutes,
+                note = null,
+                calendarId = cal,
+                reminders = type.defaultReminders,
+            ),
+        )
+    }
 
     /** Перенести событие в другой календарь (копия + удаление оригинала). */
     fun move(e: PalmEvent, calendarId: Long) = launchSafe { repo.move(e.eventId, calendarId) }

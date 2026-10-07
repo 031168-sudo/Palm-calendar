@@ -30,8 +30,29 @@ data class ContactPhone(
     val number: String,
 )
 
+/** Итог конкретного раза события (у повторяющихся — у каждого раза свой). */
+@Entity(tableName = "outcomes", primaryKeys = ["eventId", "instanceStart"])
+data class OutcomeRow(
+    val eventId: Long,
+    val instanceStart: Long,
+    val status: String,
+    val note: String?,
+)
+
 @Dao
 interface LinkDao {
+    @Query("SELECT * FROM outcomes WHERE eventId IN (:ids)")
+    suspend fun outcomes(ids: List<Long>): List<OutcomeRow>
+
+    @Upsert
+    suspend fun setOutcome(o: OutcomeRow)
+
+    @Query("DELETE FROM outcomes WHERE eventId = :eventId AND instanceStart = :instanceStart")
+    suspend fun clearOutcome(eventId: Long, instanceStart: Long)
+
+    @Query("DELETE FROM outcomes WHERE eventId = :eventId")
+    suspend fun clearOutcomes(eventId: Long)
+
     @Query("SELECT * FROM links WHERE eventId IN (:ids)")
     suspend fun byIds(ids: List<Long>): List<EventLink>
 
@@ -51,7 +72,17 @@ interface LinkDao {
     suspend fun rememberPhone(p: ContactPhone)
 }
 
-@Database(entities = [EventLink::class, ContactPhone::class], version = 2, exportSchema = false)
+/** 2 → 3: добавилась таблица итогов; связи и выбранные номера сохраняются. */
+private val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `outcomes` (`eventId` INTEGER NOT NULL, `instanceStart` INTEGER NOT NULL, " +
+                "`status` TEXT NOT NULL, `note` TEXT, PRIMARY KEY(`eventId`, `instanceStart`))",
+        )
+    }
+}
+
+@Database(entities = [EventLink::class, ContactPhone::class, OutcomeRow::class], version = 3, exportSchema = false)
 abstract class AppDb : RoomDatabase() {
     abstract fun links(): LinkDao
 
@@ -61,6 +92,7 @@ abstract class AppDb : RoomDatabase() {
         fun get(context: Context): AppDb = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, AppDb::class.java, "palmdate.db")
                 // Связи восстанавливаются из меток в описании событий, поэтому при смене схемы можно пересоздать
+                .addMigrations(MIGRATION_2_3)
                 .fallbackToDestructiveMigration()
                 .build().also { instance = it }
         }

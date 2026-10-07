@@ -13,6 +13,7 @@ import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.NewEvent
+import ru.palmdate.app.model.Outcome
 import ru.palmdate.app.model.PalmEvent
 import java.time.Instant
 import java.time.LocalDate
@@ -92,10 +93,19 @@ class CalendarRepository(
             }
         }
 
-        val linkById = links.byIds(raws.map { it.id }.distinct()).associateBy { it.eventId }.toMutableMap()
+        val ids = raws.map { it.id }.distinct()
+        val linkById = links.byIds(ids).associateBy { it.eventId }.toMutableMap()
+        val outcomeByKey = links.outcomes(ids).associateBy { it.eventId to it.instanceStart }
         val accountByCal = calendarAccounts()
 
         return raws.map { r ->
+            // Итог: из базы, а для обычных (не повторяющихся) событий — восстанавливаем из строки в описании
+            var outcome = outcomeByKey[r.id to r.begin]
+            if (outcome == null && !r.recurring) {
+                OutcomeLine.parse(r.desc)?.let { (o, n) ->
+                    outcome = OutcomeRow(r.id, r.begin, o.name, n).also { row -> links.setOutcome(row) }
+                }
+            }
             val link = linkById[r.id] ?: Marker.parse(r.desc)?.let {
                 // восстановили связь из метки в описании
                 EventLink(r.id, it.type.name, it.lookupKey, it.phone).also { l -> links.upsert(l); linkById[r.id] = l }
@@ -113,13 +123,57 @@ class CalendarRepository(
                 allDay = r.allDay,
                 type = EventType.parse(link?.type),
                 contact = contact,
-                note = Marker.strip(r.desc)?.takeIf { it.isNotBlank() },
+                note = OutcomeLine.strip(Marker.strip(r.desc))?.takeIf { it.isNotBlank() },
                 color = r.color,
                 calendarName = r.calName,
                 accountName = accountByCal[r.calId] ?: "",
                 calendarId = r.calId,
                 recurring = r.recurring,
+                instanceStart = r.begin,
+                outcome = Outcome.parse(outcome?.status),
+                outcomeNote = outcome?.note,
             )
+        }
+    }
+
+    /**
+     * Поставить или снять итог (outcome == null) у конкретного раза события.
+     * У обычного события итог дописывается строкой "Итог: …" в описание — его видно в Google Календаре.
+     * У повторяющегося описание общее на всю серию, поэтому итог хранится только в приложении.
+     */
+    suspend fun setOutcome(e: PalmEvent, outcome: Outcome?, note: String?) {
+        if (outcome == null) links.clearOutcome(e.eventId, e.instanceStart)
+        else links.setOutcome(OutcomeRow(e.eventId, e.instanceStart, outcome.name, note?.trim()?.takeIf { it.isNotEmpty() }))
+
+        if (e.recurring) return
+        runCatching {
+            val uri = ContentUris.withAppendedId(Events.CONTENT_URI, e.eventId)
+            val desc = resolver.query(uri, arrayOf(Events.DESCRIPTION), null, null, null)
+                ?.use { if (it.moveToFirst()) it.getString(0) else null }
+            val newDesc = OutcomeLine.replace(desc, outcome?.let { OutcomeLine.make(it, e.type, note) })
+            resolver.update(uri, ContentValues().apply { put(Events.DESCRIPTION, newDesc) }, null, null)
+        }
+    }
+
+    /** Строка итога в описании события: "Итог: Не дозвонился — перезвонить после обеда". */
+    private object OutcomeLine {
+        private val re = Regex("""(?m)^Итог: ([^\n—]+?)(?: — ([^\n]*))?\s*$""")
+
+        fun make(o: Outcome, type: EventType?, note: String?) =
+            "Итог: " + o.label(type) + (note?.trim()?.takeIf { it.isNotEmpty() }?.let { " — $it" } ?: "")
+
+        fun parse(desc: String?): Pair<Outcome, String?>? {
+            val m = desc?.let { re.find(it) } ?: return null
+            val o = Outcome.fromLabel(m.groupValues[1]) ?: return null
+            return o to m.groupValues[2].takeIf { it.isNotBlank() }
+        }
+
+        fun strip(desc: String?) = desc?.replace(re, "")?.trim()
+
+        /** Заменить строку итога (или убрать, если line == null), сохранив остальное описание и метку. */
+        fun replace(desc: String?, line: String?): String {
+            val rest = desc?.replace(re, "")?.trim()?.takeIf { it.isNotEmpty() }
+            return listOfNotNull(line, rest).joinToString("\n")
         }
     }
 
@@ -188,6 +242,8 @@ class CalendarRepository(
 
         // Тип, контакт и номер переезжают вместе с событием
         links.byIds(listOf(eventId)).firstOrNull()?.let { links.upsert(it.copy(eventId = newId)) }
+        links.outcomes(listOf(eventId)).forEach { links.setOutcome(it.copy(eventId = newId)) }
+        links.clearOutcomes(eventId)
 
         resolver.delete(uri, null, null)
         links.delete(eventId)
@@ -298,6 +354,7 @@ class CalendarRepository(
     suspend fun delete(eventId: Long) {
         resolver.delete(ContentUris.withAppendedId(Events.CONTENT_URI, eventId), null, null)
         links.delete(eventId)
+        links.clearOutcomes(eventId)
     }
 
     /** Все календари с правом записи: по аккаунтам, внутри аккаунта основной первым. */

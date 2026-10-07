@@ -34,6 +34,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.EventType
+import ru.palmdate.app.model.Outcome
+import ru.palmdate.app.model.OutcomeKind
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.ui.theme.Palm
 import java.time.LocalDate
@@ -81,6 +83,22 @@ private fun typeCount(events: List<PalmEvent>): String {
         meetings.takeIf { it > 0 }?.let { plural(it, "встреча", "встречи", "встреч") },
         other.takeIf { it > 0 }?.let { plural(it, "другое", "других", "других") },
     ).joinToString(", ").ifEmpty { "ничего" }
+}
+
+/** "состоялось 3, не дозвонился 2, без отметки 1". */
+private fun outcomeCount(events: List<PalmEvent>): String {
+    val done = events.count { it.outcome == Outcome.DONE }
+    val noAnswer = events.count { it.outcome == Outcome.NO_ANSWER }
+    val moved = events.count { it.outcome == Outcome.RESCHEDULED }
+    val failed = events.count { it.outcome?.kind == OutcomeKind.BAD } - noAnswer
+    val none = events.count { it.outcome == null }
+    return listOfNotNull(
+        done.takeIf { it > 0 }?.let { "состоялось $it" },
+        noAnswer.takeIf { it > 0 }?.let { "не дозвонился $it" },
+        moved.takeIf { it > 0 }?.let { "перенесено $it" },
+        failed.takeIf { it > 0 }?.let { "не состоялось $it" },
+        none.takeIf { it > 0 }?.let { "без отметки $it" },
+    ).joinToString(", ")
 }
 
 private sealed interface HRow {
@@ -153,13 +171,22 @@ fun ContactHistorySheet(
         // Сводка
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             past.firstOrNull()?.let { e ->
-                Summary("Последний", "${(e.type?.label ?: "Событие").lowercase()}, ${daysAgo(e.start.toLocalDate())}")
+                val res = e.outcome?.let { ", " + it.label(e.type).lowercase() } ?: ""
+                Summary("Последний", "${(e.type?.label ?: "Событие").lowercase()}, ${daysAgo(e.start.toLocalDate())}$res")
             } ?: Summary("Последний", "ещё не было")
+            // Последний состоявшийся — если последний был неудачным
+            if (past.firstOrNull()?.outcome != Outcome.DONE) {
+                past.firstOrNull { it.outcome == Outcome.DONE }?.let { e ->
+                    Summary("Состоялся", "${(e.type?.label ?: "Событие").lowercase()}, ${daysAgo(e.start.toLocalDate())}")
+                }
+            }
             future.firstOrNull()?.let { e ->
                 Summary("Следующий", "${(e.type?.label ?: "Событие").lowercase()}, ${daysAhead(e.start.toLocalDate())}")
             }
             Summary("За 30 дней", typeCount(past.filter { it.start.toLocalDate() >= today.minusDays(30) }))
-            Summary("За год", typeCount(past.filter { it.start.toLocalDate() >= today.minusYears(1) }))
+            val year = past.filter { it.start.toLocalDate() >= today.minusYears(1) }
+            Summary("За год", typeCount(year))
+            if (year.any { it.outcome != null }) Summary("Итоги за год", outcomeCount(year))
         }
         Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(Palm.rule))
 

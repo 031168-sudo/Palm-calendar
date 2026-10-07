@@ -58,6 +58,7 @@ import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.NewEvent
+import ru.palmdate.app.model.Outcome
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.model.PhoneNumber
 import ru.palmdate.app.model.REMINDER_OPTIONS
@@ -529,6 +530,8 @@ fun EventDetailsSheet(
     onOpen: () -> Unit,
     onDelete: () -> Unit,
     onHistory: (() -> Unit)? = null,
+    onOutcome: (Outcome?, String?) -> Unit = { _, _ -> },
+    onFollowUp: (LocalDateTime) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var mode by remember { mutableStateOf(DetailMode.VIEW) }
@@ -638,6 +641,9 @@ fun EventDetailsSheet(
                     event.note?.let { DetailLine("Заметка", it) }
 
                     Spacer(Modifier.height(10.dp))
+                    OutcomeSection(event, onOutcome, onFollowUp)
+
+                    Spacer(Modifier.height(10.dp))
                     reminders?.let { r ->
                         ReminderChips(r) { new ->
                             reminders = new
@@ -667,5 +673,102 @@ private fun DetailLine(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp).dottedRule().padding(bottom = 8.dp)) {
         Text(label, style = Palm.small, color = Palm.inkSoft, modifier = Modifier.width(80.dp))
         Text(value, style = Palm.body, color = Palm.ink, modifier = Modifier.weight(1f))
+    }
+}
+
+/* ---------- Итог события ---------- */
+
+/**
+ * Итог: что произошло на самом деле. Повторный тап по выбранному варианту снимает итог.
+ * После "не дозвонился" — быстрые кнопки перезвонить, после "перенесено" — выбор нового времени.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun OutcomeSection(
+    event: PalmEvent,
+    onOutcome: (Outcome?, String?) -> Unit,
+    onFollowUp: (LocalDateTime) -> Unit,
+) {
+    var note by remember(event.eventId, event.instanceStart) { mutableStateOf(event.outcomeNote ?: "") }
+    var created by remember(event.eventId, event.instanceStart) { mutableStateOf<LocalDateTime?>(null) }
+    val current = event.outcome
+
+    Text("Итог", style = Palm.small, color = Palm.inkSoft)
+    Spacer(Modifier.height(6.dp))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Outcome.optionsFor(event.type).forEach { o ->
+            Chip(o.label(event.type), selected = current == o) {
+                created = null
+                onOutcome(if (current == o) null else o, note)
+            }
+        }
+    }
+
+    if (current != null) {
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = note, onValueChange = { note = it },
+                label = { Text("Пару слов об итоге") },
+                modifier = Modifier.weight(1f), maxLines = 3,
+            )
+            if (note != (event.outcomeNote ?: "")) {
+                Spacer(Modifier.width(8.dp))
+                PalmButton("OK", filled = true) { onOutcome(current, note) }
+            }
+        }
+    }
+
+    // Следующий шаг: перезвонить / новое время
+    val now = LocalDateTime.now().withSecond(0).withNano(0)
+    val nextHour = now.plusHours(1).withMinute((now.minute / 15) * 15)
+    val tomorrow10 = now.toLocalDate().plusDays(1).atTime(10, 0)
+    when {
+        created != null -> {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Создано: " + created!!.toLocalDate().pretty() + ", " + created!!.format(HM),
+                style = Palm.small, color = Palm.navy,
+            )
+        }
+        current == Outcome.NO_ANSWER && event.type == EventType.CALL -> {
+            Spacer(Modifier.height(8.dp))
+            Text("Перезвонить", style = Palm.small, color = Palm.inkSoft)
+            Spacer(Modifier.height(6.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip("Через час") { onFollowUp(nextHour); created = nextHour }
+                Chip("Завтра 10:00") { onFollowUp(tomorrow10); created = tomorrow10 }
+            }
+        }
+        current == Outcome.RESCHEDULED -> {
+            // Новое время: по умолчанию тот же час на следующий день
+            var start by remember(event.eventId, event.instanceStart) {
+                mutableStateOf(maxOf(event.start.plusDays(1), now.plusHours(1)).withSecond(0).withNano(0))
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("Новое время", style = Palm.small, color = Palm.inkSoft)
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowLeft) { start = start.minusDays(1) }
+                Text(start.toLocalDate().pretty(), style = Palm.body, color = Palm.ink,
+                    modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowRight) { start = start.plusDays(1) }
+            }
+            if (!event.allDay) {
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StepIcon(Icons.Filled.Remove) { start = start.minusMinutes(15) }
+                    Text(start.format(HM), style = Palm.title, color = Palm.navy,
+                        modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    StepIcon(Icons.Filled.Add) { start = start.plusMinutes(15) }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip("Завтра 10:00") { start = tomorrow10 }
+                Chip("Через неделю") { start = event.start.plusWeeks(1) }
+                PalmButton("Создать на это время", filled = true) { onFollowUp(start); created = start }
+            }
+        }
     }
 }
