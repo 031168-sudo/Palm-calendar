@@ -2,8 +2,11 @@ package ru.palmdate.app
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -42,6 +45,12 @@ class MainActivity : ComponentActivity() {
     private val vm: DayViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Прозрачные системные панели с правильным цветом значков:
+        // светлая тема — тёмные значки, тёмная — светлые (как у Google Календаря).
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
         setContent {
             PalmTheme {
