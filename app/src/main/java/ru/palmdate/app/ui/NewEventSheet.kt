@@ -867,7 +867,7 @@ fun EventDetailsSheet(
                         var callVia by remember(c.lookupKey) { mutableStateOf<String?>(null) }
                         LaunchedEffect(c.lookupKey) {
                             callVia = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                callPrefs.rememberedLabel(c.lookupKey, c.phone)
+                                callPrefs.rememberedLabel(c.lookupKey)
                             }
                         }
                         callVia?.let { label ->

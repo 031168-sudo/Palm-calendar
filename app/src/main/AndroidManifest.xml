@@ -11,6 +11,12 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <queries>
+        <!-- Мессенджеры, в которых можно открыть чат с человеком -->
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+        <package android:name="org.telegram.messenger" />
+        <package android:name="com.viber.voip" />
+        <package android:name="ru.oneme.app" />
         <!-- Действия мессенджеров в карточках контактов: звонок WhatsApp, Telegram, Viber… -->
         <intent>
             <action android:name="android.intent.action.VIEW" />

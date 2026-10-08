@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -95,7 +96,9 @@ private fun CallChooser(contact: ContactRef, onDone: () -> Unit) {
                 Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
                     list.forEach { o ->
                         Row(
-                            Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable {
+                            Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                                .alpha(if (o.available) 1f else 0.5f) // человека в мессенджере не видно — серым
+                                .clickable {
                                 if (always) calls.remember(contact.lookupKey, o.key)
                                 start(o); onDone()
                             }.dottedRule().padding(vertical = 6.dp),
