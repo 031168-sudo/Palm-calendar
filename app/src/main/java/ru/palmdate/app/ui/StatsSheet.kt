@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.ContactStat
 import ru.palmdate.app.model.EventType
@@ -106,10 +107,10 @@ fun StatsSheet(
 
             // Заголовки столбцов — по ним сортировка
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Header("Человек", sort == StatSort.TOTAL, Modifier.weight(1f), TextAlign.Start) { sort = StatSort.TOTAL }
-                Header("Звонки", sort == StatSort.CALLS, Modifier.width(64.dp)) { sort = StatSort.CALLS }
-                Header("Встречи", sort == StatSort.MEETINGS, Modifier.width(64.dp)) { sort = StatSort.MEETINGS }
-                Header("Всего", sort == StatSort.TOTAL, Modifier.width(52.dp)) { sort = StatSort.TOTAL }
+                Text("Человек", style = HeaderStyle, color = Palm.inkSoft, modifier = Modifier.weight(1f).padding(vertical = 6.dp))
+                Header("Звонки", sort == StatSort.CALLS, Modifier.width(COL_W)) { sort = StatSort.CALLS }
+                Header("Встречи", sort == StatSort.MEETINGS, Modifier.width(COL_W)) { sort = StatSort.MEETINGS }
+                Header("Всего", sort == StatSort.TOTAL, Modifier.width(COL_W)) { sort = StatSort.TOTAL }
             }
             Box(Modifier.fillMaxWidth().height(2.dp).background(Palm.navy))
         }
@@ -149,14 +150,21 @@ fun StatsSheet(
     }
 }
 
+/** Ширина столбцов с числами. */
+private val COL_W = 64.dp
+private val HeaderStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold)
+private val NumStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
+
+/** Заголовок столбца: нажатие — сортировать по нему; у активного — стрелка. */
 @Composable
-private fun Header(text: String, active: Boolean, modifier: Modifier, align: TextAlign = TextAlign.End, onClick: () -> Unit) {
+private fun Header(text: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Text(
-        text + if (active) " ▼" else "",
-        style = Palm.small.copy(fontWeight = FontWeight.Bold),
+        if (active) "$text ▾" else text,
+        style = HeaderStyle,
         color = if (active) Palm.navy else Palm.inkSoft,
-        textAlign = align,
+        textAlign = TextAlign.End,
         maxLines = 1,
+        softWrap = false,
         modifier = modifier.clickable(onClick = onClick).padding(vertical = 6.dp),
     )
 }
@@ -173,9 +181,9 @@ private fun StatRow(s: ContactStat, sort: StatSort, onAction: (StatAction) -> Un
                 s.contact.name, style = Palm.body, color = Palm.ink,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
             )
-            Num(s.calls, sort == StatSort.CALLS, 64)
-            Num(s.meetings, sort == StatSort.MEETINGS, 64)
-            Num(s.total, sort == StatSort.TOTAL, 52)
+            Num(s.calls, sort == StatSort.CALLS)
+            Num(s.meetings, sort == StatSort.MEETINGS)
+            Num(s.total, sort == StatSort.TOTAL)
         }
         Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(Palm.rule).align(Alignment.BottomCenter))
 
@@ -199,12 +207,12 @@ private fun MenuItem(text: String, icon: androidx.compose.ui.graphics.vector.Ima
 }
 
 @Composable
-private fun Num(n: Int, bold: Boolean, width: Int) {
+private fun Num(n: Int, bold: Boolean) {
     Text(
         if (n == 0) "–" else n.toString(),
-        style = if (bold) Palm.body.copy(fontWeight = FontWeight.Bold) else Palm.body,
+        style = if (bold) NumStyle.copy(fontWeight = FontWeight.Bold) else NumStyle,
         color = if (n == 0) Palm.inkSoft else Palm.ink,
         textAlign = TextAlign.End,
-        modifier = Modifier.width(width.dp),
+        modifier = Modifier.width(COL_W).padding(end = 10.dp),
     )
 }

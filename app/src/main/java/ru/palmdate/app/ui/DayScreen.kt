@@ -213,7 +213,6 @@ fun DayScreen(vm: DayViewModel) {
             },
             onToday = vm::today,
             onGoTo = { pickDate = true },
-            onCalendars = { showCalendars = true },
             onStats = { showStats = true },
             onSettings = { showSettings = true },
             onMode = { vm.setMode(it) },
@@ -671,7 +670,6 @@ private fun ButtonBar(
     onNew: () -> Unit,
     onToday: () -> Unit,
     onGoTo: () -> Unit,
-    onCalendars: () -> Unit,
     onStats: () -> Unit,
     onSettings: () -> Unit,
     onMode: (ViewMode) -> Unit,
@@ -699,17 +697,16 @@ private fun ButtonBar(
         }
         // Кнопки, как на Palm
         Row(
-            Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 8.dp, top = 2.dp),
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp, top = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PalmButton("Новое", filled = true, compact = true, onClick = onNew)
-            PalmButton("Сегодня", compact = true, onClick = onToday)
-            PalmButton("Перейти", compact = true, onClick = onGoTo)
+            PalmButton("Новое", filled = true, onClick = onNew)
+            PalmButton("Сегодня", onClick = onToday)
+            PalmButton("Перейти", onClick = onGoTo)
             Spacer(Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 BarIcon(Icons.Outlined.BarChart, "Статистика", onStats)
-                BarIcon(Icons.Outlined.Layers, "Календари", onCalendars)
                 BarIcon(Icons.Outlined.Settings, "Настройки", onSettings)
             }
         }
@@ -719,7 +716,7 @@ private fun ButtonBar(
 @Composable
 private fun BarIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     Box(
-        Modifier.size(34.dp).clip(RoundedCornerShape(10.dp))
+        Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
             .border(1.dp, Palm.navy, RoundedCornerShape(10.dp)).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, label, tint = Palm.navy, modifier = Modifier.size(20.dp)) }
