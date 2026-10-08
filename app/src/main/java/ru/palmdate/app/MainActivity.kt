@@ -52,6 +52,8 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
+        ru.palmdate.app.data.SettingsStore.init(this)
+        BirthdayReminder.schedule(this)
         setContent {
             PalmTheme {
                 var granted by remember { mutableStateOf(hasAll()) }

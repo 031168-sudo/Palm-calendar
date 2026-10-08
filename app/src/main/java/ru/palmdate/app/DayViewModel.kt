@@ -57,7 +57,11 @@ data class CalState(
     val pageKey: String get() = "$mode:${range.first}"
 }
 
-fun weekStart(d: LocalDate): LocalDate = d.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+/** Начало недели — из настроек: понедельник или воскресенье. */
+fun firstDayOfWeek(): DayOfWeek =
+    if (ru.palmdate.app.data.SettingsStore.current.weekStartsSunday) DayOfWeek.SUNDAY else DayOfWeek.MONDAY
+
+fun weekStart(d: LocalDate): LocalDate = d.with(TemporalAdjusters.previousOrSame(firstDayOfWeek()))
 fun monthGridStart(d: LocalDate): LocalDate = weekStart(d.withDayOfMonth(1))
 
 class DayViewModel(app: Application) : AndroidViewModel(app) {
@@ -67,7 +71,14 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("palmdate", Context.MODE_PRIVATE)
 
     private val _state = MutableStateFlow(
-        CalState(mode = runCatching { ViewMode.valueOf(prefs.getString(KEY_MODE, null)!!) }.getOrDefault(ViewMode.DAY)),
+        CalState(
+            mode = when (ru.palmdate.app.data.SettingsStore.also { it.init(app) }.current.startView) {
+                ru.palmdate.app.data.StartView.DAY -> ViewMode.DAY
+                ru.palmdate.app.data.StartView.AGENDA -> ViewMode.AGENDA
+                ru.palmdate.app.data.StartView.LAST ->
+                    runCatching { ViewMode.valueOf(prefs.getString(KEY_MODE, null)!!) }.getOrDefault(ViewMode.DAY)
+            },
+        ),
     )
     val state = _state.asStateFlow()
 
@@ -116,6 +127,38 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     fun shift(days: Long) = select(_state.value.date.plusDays(days))
     fun today() = select(LocalDate.now())
     fun dismissError() = _state.update { it.copy(error = null) }
+
+    /* ---- Резервная копия, почта, обновления ---- */
+
+    private val backup = ru.palmdate.app.data.Backup(app, db.links())
+
+    suspend fun exportBackup(): String = withContext(Dispatchers.IO) { backup.export() }
+
+    suspend fun importBackup(text: String): Int = withContext(Dispatchers.IO) { backup.import(text) }
+        .also { settingsChanged() }
+
+    suspend fun checkMail(password: String): String? = withContext(Dispatchers.IO) {
+        runCatching { ru.palmdate.app.data.Mail.check(ru.palmdate.app.data.SettingsStore.current, password) }
+            .getOrElse { it.message ?: "Ошибка" }
+    }
+
+    /** Номер последней сборки на GitHub (или null, если не удалось узнать). */
+    suspend fun latestBuild(): Int? = withContext(Dispatchers.IO) {
+        runCatching {
+            val c = java.net.URL("https://api.github.com/repos/031168-sudo/Palm-calendar/releases/latest")
+                .openConnection() as java.net.HttpURLConnection
+            c.connectTimeout = 10_000; c.readTimeout = 10_000
+            c.setRequestProperty("Accept", "application/vnd.github+json")
+            val body = c.inputStream.bufferedReader().use { it.readText() }
+            org.json.JSONObject(body).getString("tag_name").removePrefix("build-").toInt()
+        }.getOrNull()
+    }
+
+    /** Настройки поменялись — перечитать календарь (начало недели, дни рождения…). */
+    fun settingsChanged() {
+        contacts.invalidate()
+        reload()
+    }
 
     private fun go(mode: ViewMode, date: LocalDate) {
         val old = _state.value
@@ -189,7 +232,8 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Последний календарь, в который создавали событие, или null — тогда спросим. */
-    fun lastCalendarId(): Long? = prefs.getLong(KEY_LAST_CAL, -1L).takeIf { it >= 0 }
+    fun lastCalendarId(): Long? = ru.palmdate.app.data.SettingsStore.current.calendarFixedId
+        ?: prefs.getLong(KEY_LAST_CAL, -1L).takeIf { it >= 0 }
 
     /* ---- Изменения ---- */
 
@@ -250,7 +294,8 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
                 minutes = minutes,
                 note = null,
                 calendarId = cal,
-                reminders = type.defaultReminders,
+                reminders = if (minutes == 0) ru.palmdate.app.data.SettingsStore.current.allDayReminders
+                else ru.palmdate.app.data.SettingsStore.current.remindersFor(type),
             ),
         )
     }

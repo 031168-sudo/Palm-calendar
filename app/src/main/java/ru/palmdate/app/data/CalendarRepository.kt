@@ -158,6 +158,7 @@ class CalendarRepository(
      * У каждого свой постоянный отрицательный id, чтобы не путать с событиями календаря.
      */
     private suspend fun birthdayEvents(from: LocalDate, toExclusive: LocalDate, onlyKey: String? = null): List<PalmEvent> {
+        if (!SettingsStore.current.birthdaysShown) return emptyList()
         val list = contacts.birthdays().filter { onlyKey == null || it.lookupKey == onlyKey }
         if (list.isEmpty()) return emptyList()
         val ids = list.map { birthdayId(it.lookupKey) }
@@ -329,7 +330,7 @@ class CalendarRepository(
                 while (!d.isAfter(last) && d.isBefore(toExclusive)) { days += d; d = d.plusDays(1) }
             }
         }
-        contacts.birthdays().forEach { b ->
+        if (SettingsStore.current.birthdaysShown) contacts.birthdays().forEach { b ->
             for (year in from.year..toExclusive.year) {
                 runCatching {
                     java.time.LocalDate.of(year, b.month, minOf(b.day, java.time.YearMonth.of(year, b.month).lengthOfMonth()))

@@ -150,9 +150,11 @@ fun WeekView(
     var selected by remember(monday) { mutableStateOf<PalmEvent?>(null) }
 
     val timed = events.filter { !it.allDay }
-    val firstHour = (timed.minOfOrNull { if (it.start.toLocalDate() < monday) 0 else it.start.hour } ?: 8).coerceAtMost(8)
-    val lastHour = (timed.maxOfOrNull { if (it.end.toLocalDate() > it.start.toLocalDate()) 23 else it.end.hour } ?: 19)
-        .coerceAtLeast(19).coerceAtMost(23)
+    val settings = ru.palmdate.app.data.SettingsStore.current
+    val firstHour = (timed.minOfOrNull { if (it.start.toLocalDate() < monday) 0 else it.start.hour } ?: settings.dayFrom)
+        .coerceAtMost(settings.dayFrom)
+    val lastHour = (timed.maxOfOrNull { if (it.end.toLocalDate() > it.start.toLocalDate()) 23 else it.end.hour } ?: (settings.dayTo + 1))
+        .coerceAtLeast(settings.dayTo + 1).coerceAtMost(23)
     val hours = firstHour..lastHour
 
     Column(Modifier.fillMaxSize()) {
@@ -222,7 +224,7 @@ fun WeekView(
         val scroll = rememberScrollState()
         val density = LocalDensity.current
         LaunchedEffect(monday) {
-            val target = (if (monday == weekStart(today)) LocalTime.now().hour - 1 else 8) - firstHour
+            val target = (if (monday == weekStart(today)) LocalTime.now().hour - 1 else settings.dayFrom) - firstHour
             scroll.scrollTo(with(density) { (HOUR_H * target.coerceAtLeast(0)).roundToPx() })
         }
         Row(Modifier.fillMaxWidth().verticalScroll(scroll).padding(end = 6.dp)) {

@@ -64,6 +64,8 @@ import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.model.PhoneNumber
 import ru.palmdate.app.model.REMINDER_OPTIONS
 import ru.palmdate.app.model.reminderLabel
+import ru.palmdate.app.model.ALLDAY_REMINDER_OPTIONS
+import ru.palmdate.app.model.allDayReminderLabel
 import ru.palmdate.app.model.REPEAT_OPTIONS
 import ru.palmdate.app.model.matchRepeat
 import ru.palmdate.app.ui.theme.Palm
@@ -155,8 +157,9 @@ fun NewEventSheet(
             when (step) {
                 Step.TYPE -> TypeGrid { t ->
                     type = t
-                    minutes = t.defaultMinutes
-                    reminders = t.defaultReminders
+                    val st = ru.palmdate.app.data.SettingsStore.current
+                    minutes = st.duration(t)
+                    reminders = if (minutes == 0) st.allDayReminders else st.remindersFor(t)
                     step = Step.WHO
                 }
 
@@ -444,10 +447,10 @@ private fun TimeEditDialog(event: PalmEvent, onDismiss: () -> Unit, onSave: (Loc
                 if (minutes != 0) {
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        StepIcon(Icons.Filled.Remove) { start = start.minusMinutes(15) }
+                        StepIcon(Icons.Filled.Remove) { start = start.minusMinutes(timeStep()) }
                         Text(start.format(HM), style = Palm.title, color = Palm.navy,
                             modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                        StepIcon(Icons.Filled.Add) { start = start.plusMinutes(15) }
+                        StepIcon(Icons.Filled.Add) { start = start.plusMinutes(timeStep()) }
                     }
                 }
                 Spacer(Modifier.height(10.dp))
@@ -529,12 +532,21 @@ private fun RepeatChips(rrule: String?, title: String = "Повтор", onChange
 /** Напоминания: можно выбрать несколько, "Без" — снять все. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ReminderChips(selected: List<Int>, onChange: (List<Int>) -> Unit) {
+internal fun ReminderChips(selected: List<Int>, allDay: Boolean = false, onChange: (List<Int>) -> Unit) {
     Text("Напоминание", style = Palm.small, color = Palm.inkSoft)
     Spacer(Modifier.height(6.dp))
+    // У событий на весь день — "в этот день в 9:00", "накануне в 18:00"; у остальных — "за N минут"
+    val options: List<Pair<Int, String>> = if (allDay) {
+        val st = ru.palmdate.app.data.SettingsStore.current
+        (ALLDAY_REMINDER_OPTIONS + st.allDayReminders + selected).distinct().sortedBy { -it }
+            .map { it to allDayReminderLabel(it).replace("В этот день в ", "В ").replace("Накануне в ", "Накануне ") }
+    } else {
+        (REMINDER_OPTIONS + selected.filter { m -> REMINDER_OPTIONS.none { it.first == m } }.map { it to reminderLabel(it) })
+            .sortedBy { it.first }
+    }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Chip("Без", selected = selected.isEmpty()) { onChange(emptyList()) }
-        REMINDER_OPTIONS.forEach { (m, label) ->
+        options.forEach { (m, label) ->
             val on = m in selected
             Chip(label, selected = on) {
                 onChange(if (on) selected - m else (selected + m).sorted().take(5))
@@ -544,7 +556,7 @@ private fun ReminderChips(selected: List<Int>, onChange: (List<Int>) -> Unit) {
 }
 
 @Composable
-private fun SettingRow(label: String, value: String, sub: String? = null, dot: Color? = null, onClick: (() -> Unit)?) {
+internal fun SettingRow(label: String, value: String, sub: String? = null, dot: Color? = null, onClick: (() -> Unit)?) {
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
@@ -594,10 +606,10 @@ private fun WhenPicker(
     // Время с шагом 15 минут
     if (!allDay) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            StepIcon(Icons.Filled.Remove) { onStart(start.minusMinutes(15)) }
+            StepIcon(Icons.Filled.Remove) { onStart(start.minusMinutes(timeStep())) }
             Text(start.format(HM), style = Palm.title.copy(fontSize = Palm.title.fontSize * 1.6f),
                 color = Palm.navy, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-            StepIcon(Icons.Filled.Add) { onStart(start.plusMinutes(15)) }
+            StepIcon(Icons.Filled.Add) { onStart(start.plusMinutes(timeStep())) }
         }
         Spacer(Modifier.height(10.dp))
     }
@@ -620,7 +632,12 @@ private fun WhenPicker(
     Spacer(Modifier.height(6.dp))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf(15 to "15 мин", 30 to "30 мин", 60 to "1 ч", 120 to "2 ч", 0 to "Весь день").forEach { (m, label) ->
-            Chip(label, selected = minutes == m) { onMinutes(m) }
+            Chip(label, selected = minutes == m) {
+                val st = ru.palmdate.app.data.SettingsStore.current
+                // Переключились на "весь день" или обратно — подставляем подходящие напоминания
+                if ((m == 0) != (minutes == 0)) onReminders(if (m == 0) st.allDayReminders else st.remindersFor(type))
+                onMinutes(m)
+            }
         }
     }
     Spacer(Modifier.height(12.dp))
@@ -628,7 +645,7 @@ private fun WhenPicker(
     RepeatChips(rrule, onChange = onRrule)
     Spacer(Modifier.height(12.dp))
 
-    ReminderChips(reminders, onReminders)
+    ReminderChips(reminders, allDay = minutes == 0, onChange = onReminders)
     Spacer(Modifier.height(12.dp))
 
     OutlinedTextField(
@@ -657,7 +674,7 @@ private fun WhenPicker(
 }
 
 @Composable
-private fun StepIcon(icon: ImageVector, onClick: () -> Unit) {
+internal fun StepIcon(icon: ImageVector, onClick: () -> Unit) {
     Box(
         Modifier.size(40.dp).clip(CircleShape).border(1.dp, Palm.navy, CircleShape).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -665,7 +682,7 @@ private fun StepIcon(icon: ImageVector, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Chip(text: String, selected: Boolean = false, onClick: () -> Unit) {
+internal fun Chip(text: String, selected: Boolean = false, onClick: () -> Unit) {
     val shape = RoundedCornerShape(8.dp)
     Box(
         Modifier
@@ -886,7 +903,7 @@ fun EventDetailsSheet(
 
                     Spacer(Modifier.height(10.dp))
                     if (!event.fromContacts) reminders?.let { r ->
-                        ReminderChips(r) { new ->
+                        ReminderChips(r, allDay = event.allDay) { new ->
                             reminders = new
                             onSetReminders(new)
                         }
@@ -999,10 +1016,10 @@ private fun OutcomeSection(
             if (!event.allDay) {
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    StepIcon(Icons.Filled.Remove) { start = start.minusMinutes(15) }
+                    StepIcon(Icons.Filled.Remove) { start = start.minusMinutes(timeStep()) }
                     Text(start.format(HM), style = Palm.title, color = Palm.navy,
                         modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                    StepIcon(Icons.Filled.Add) { start = start.plusMinutes(15) }
+                    StepIcon(Icons.Filled.Add) { start = start.plusMinutes(timeStep()) }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -1014,3 +1031,6 @@ private fun OutcomeSection(
         }
     }
 }
+
+/** Шаг времени в окнах — из настроек (15 или 30 минут). */
+private fun timeStep(): Long = ru.palmdate.app.data.SettingsStore.current.timeStep.toLong()

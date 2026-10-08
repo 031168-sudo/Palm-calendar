@@ -65,6 +65,7 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.DisabledByDefault
 import ru.palmdate.app.model.EventType
@@ -120,6 +121,7 @@ fun DayScreen(vm: DayViewModel) {
     var history by remember { mutableStateOf<ru.palmdate.app.model.ContactRef?>(null) }
     var pickDate by remember { mutableStateOf(false) }
     var showCalendars by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
 
     val openDay: (LocalDate) -> Unit = { vm.setMode(ViewMode.DAY, it) }
 
@@ -207,7 +209,16 @@ fun DayScreen(vm: DayViewModel) {
             onToday = vm::today,
             onGoTo = { pickDate = true },
             onCalendars = { showCalendars = true },
+            onSettings = { showSettings = true },
             onMode = { vm.setMode(it) },
+        )
+    }
+
+    if (showSettings) {
+        SettingsSheet(
+            vm = vm,
+            onCalendars = { showSettings = false; showCalendars = true },
+            onDismiss = { showSettings = false },
         )
     }
 
@@ -460,8 +471,10 @@ private fun DayBody(
 ) {
     val timed = events.filter { !it.allDay }
     val byHour = timed.groupBy { if (it.start.toLocalDate() < date) 0 else it.start.hour }
-    val first = (byHour.keys.minOrNull() ?: 8).coerceAtMost(8)
-    val last = (byHour.keys.maxOrNull() ?: 18).coerceAtLeast(18)
+    // Рабочие часы — из настроек; события вне их расширяют день
+    val settings = ru.palmdate.app.data.SettingsStore.current
+    val first = (byHour.keys.minOrNull() ?: settings.dayFrom).coerceAtMost(settings.dayFrom)
+    val last = (byHour.keys.maxOrNull() ?: settings.dayTo).coerceAtLeast(settings.dayTo)
     val rows: List<DayRow> =
         events.filter { it.allDay }.map { DayRow.AllDay(it) } +
             (first..last).map { DayRow.Slot(it, byHour[it].orEmpty()) }
@@ -470,7 +483,7 @@ private fun DayBody(
     val nowHour = LocalTime.now().hour
     val listState = rememberLazyListState()
     LaunchedEffect(date) {
-        val target = rows.indexOfFirst { it is DayRow.Slot && it.hour == (if (isToday) nowHour else 8) }
+        val target = rows.indexOfFirst { it is DayRow.Slot && it.hour == (if (isToday) nowHour else settings.dayFrom) }
         if (target > 0) listState.scrollToItem((target - 1).coerceAtLeast(0))
     }
 
@@ -631,6 +644,7 @@ private fun ButtonBar(
     onToday: () -> Unit,
     onGoTo: () -> Unit,
     onCalendars: () -> Unit,
+    onSettings: () -> Unit,
     onMode: (ViewMode) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().background(Palm.paper).navigationBarsPadding()) {
@@ -657,7 +671,7 @@ private fun ButtonBar(
         // Кнопки, как на Palm
         Row(
             Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp, top = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PalmButton("Новое", filled = true, onClick = onNew)
@@ -666,10 +680,16 @@ private fun ButtonBar(
             Spacer(Modifier.weight(1f))
             // Какие календари показывать
             Box(
-                Modifier.size(38.dp).clip(RoundedCornerShape(10.dp))
+                Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
                     .border(1.dp, Palm.navy, RoundedCornerShape(10.dp)).clickable(onClick = onCalendars),
                 contentAlignment = Alignment.Center,
             ) { Icon(Icons.Outlined.Layers, "Календари", tint = Palm.navy, modifier = Modifier.size(20.dp)) }
+            // Настройки
+            Box(
+                Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                    .border(1.dp, Palm.navy, RoundedCornerShape(10.dp)).clickable(onClick = onSettings),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Outlined.Settings, "Настройки", tint = Palm.navy, modifier = Modifier.size(20.dp)) }
         }
     }
 }

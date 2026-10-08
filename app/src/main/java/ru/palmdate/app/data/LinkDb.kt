@@ -41,6 +41,11 @@ data class OutcomeRow(
 
 @Dao
 interface LinkDao {
+    // Для резервной копии
+    @Query("SELECT * FROM links") suspend fun allLinks(): List<EventLink>
+    @Query("SELECT * FROM outcomes") suspend fun allOutcomes(): List<OutcomeRow>
+    @Query("SELECT * FROM contact_phone") suspend fun allPhones(): List<ContactPhone>
+
     @Query("SELECT * FROM outcomes WHERE eventId IN (:ids)")
     suspend fun outcomes(ids: List<Long>): List<OutcomeRow>
 

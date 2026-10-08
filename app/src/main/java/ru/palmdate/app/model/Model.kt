@@ -50,6 +50,21 @@ val REMINDER_OPTIONS: List<Pair<Int, String>> = listOf(
     1440 to "1 день",
 )
 
+/** Время дня из минут: 540 → "9:00". */
+fun minutesToTime(m: Int): String = "%d:%02d".format(m / 60, m % 60)
+
+/**
+ * Напоминания для событий на весь день. Android/Google считают их от полуночи начала дня:
+ * отрицательные минуты — "в этот день в ...", положительные — "накануне в ...".
+ */
+val ALLDAY_REMINDER_OPTIONS: List<Int> = listOf(-480, -540, -720, 360)
+
+fun allDayReminderLabel(m: Int): String = when {
+    m <= 0 -> "В этот день в " + minutesToTime(-m)
+    m <= 1440 -> "Накануне в " + minutesToTime(1440 - m)
+    else -> "За ${(m + 1439) / 1440} дн"
+}
+
 fun reminderLabel(m: Int): String = REMINDER_OPTIONS.firstOrNull { it.first == m }?.second
     ?: when {
         m % 1440 == 0 -> "${m / 1440} дн"
