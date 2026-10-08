@@ -11,6 +11,7 @@ import android.provider.CalendarContract.Instances
 import android.provider.CalendarContract.Reminders
 import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
+import ru.palmdate.app.model.ContactStat
 import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.NewEvent
 import ru.palmdate.app.model.Outcome
@@ -65,6 +66,26 @@ class CalendarRepository(
         val events = ids.chunked(500).flatMap { chunk -> eventsBetween(from, to, onlyIds = chunk) }
         val bdays = birthdayEvents(from, to, onlyKey = lookupKey)
         return (events + bdays).sortedBy { it.start }
+    }
+
+    /**
+     * Статистика по людям: сколько состоявшихся звонков и встреч с каждым с даты [from] по сейчас.
+     * Считаются только прошедшие разы с итогом «Состоялось».
+     */
+    suspend fun contactStats(from: LocalDate): List<ContactStat> {
+        val wanted = setOf(EventType.CALL.name, EventType.MEETING.name)
+        val ids = links.allLinks().filter { it.type in wanted && it.lookupKey != null }.map { it.eventId }.distinct()
+        if (ids.isEmpty()) return emptyList()
+        val now = LocalDateTime.now()
+        val events = ids.chunked(500).flatMap { eventsBetween(from, LocalDate.now().plusDays(1), onlyIds = it) }
+            .filter { !it.start.isAfter(now) && it.outcome == Outcome.DONE && it.contact != null }
+        return events.groupBy { it.contact!!.lookupKey }.map { (_, list) ->
+            ContactStat(
+                contact = list.last().contact!!,
+                calls = list.count { it.type == EventType.CALL },
+                meetings = list.count { it.type == EventType.MEETING },
+            )
+        }.filter { it.total > 0 }
     }
 
     /** Все события в диапазоне дней [from, toExclusive), с типом, контактом и цветом. */

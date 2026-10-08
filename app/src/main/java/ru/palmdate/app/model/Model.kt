@@ -261,3 +261,8 @@ data class NewEvent(
     val reminders: List<Int>,
     val rrule: String? = null,
 )
+
+/** Строка статистики: человек и сколько с ним состоялось звонков и встреч. */
+data class ContactStat(val contact: ContactRef, val calls: Int, val meetings: Int) {
+    val total get() = calls + meetings
+}

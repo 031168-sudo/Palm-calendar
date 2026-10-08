@@ -65,6 +65,7 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.DisabledByDefault
@@ -123,6 +124,9 @@ fun DayScreen(vm: DayViewModel) {
     var pickDate by remember { mutableStateOf(false) }
     var showCalendars by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var showStats by remember { mutableStateOf(false) }
+    // Новое событие из статистики: тип и человек выбраны заранее
+    var newPreset by remember { mutableStateOf<Pair<EventType, ru.palmdate.app.model.ContactRef>?>(null) }
 
     val openDay: (LocalDate) -> Unit = { vm.setMode(ViewMode.DAY, it) }
 
@@ -210,6 +214,7 @@ fun DayScreen(vm: DayViewModel) {
             onToday = vm::today,
             onGoTo = { pickDate = true },
             onCalendars = { showCalendars = true },
+            onStats = { showStats = true },
             onSettings = { showSettings = true },
             onMode = { vm.setMode(it) },
         )
@@ -220,6 +225,26 @@ fun DayScreen(vm: DayViewModel) {
             vm = vm,
             onCalendars = { showSettings = false; showCalendars = true },
             onDismiss = { showSettings = false },
+        )
+    }
+
+    if (showStats) {
+        StatsSheet(
+            load = vm::contactStats,
+            onAction = { a ->
+                when (a) {
+                    is StatAction.CallNow -> call(a.contact)
+                    is StatAction.Create -> {
+                        showStats = false
+                        newPreset = a.type to a.contact
+                        val now = LocalTime.now()
+                        val today = LocalDate.now()
+                        newAt = if (now.hour < 23) today.atTime(now.hour + 1, 0) else today.plusDays(1).atTime(9, 0)
+                    }
+                    is StatAction.History -> { showStats = false; history = a.contact }
+                }
+            },
+            onDismiss = { showStats = false },
         )
     }
 
@@ -251,8 +276,10 @@ fun DayScreen(vm: DayViewModel) {
             phonesFor = vm::phonesFor,
             loadCalendars = vm::allCalendars,
             lastCalendarId = vm.lastCalendarId(),
-            onDismiss = { newAt = null },
-            onCreate = { vm.create(it); newAt = null },
+            onDismiss = { newAt = null; newPreset = null },
+            onCreate = { vm.create(it); newAt = null; newPreset = null },
+            presetType = newPreset?.first,
+            presetContact = newPreset?.second,
         )
     }
 
@@ -645,6 +672,7 @@ private fun ButtonBar(
     onToday: () -> Unit,
     onGoTo: () -> Unit,
     onCalendars: () -> Unit,
+    onStats: () -> Unit,
     onSettings: () -> Unit,
     onMode: (ViewMode) -> Unit,
 ) {
@@ -671,29 +699,30 @@ private fun ButtonBar(
         }
         // Кнопки, как на Palm
         Row(
-            Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp, top = 2.dp),
+            Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 8.dp, top = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PalmButton("Новое", filled = true, onClick = onNew)
-            PalmButton("Сегодня", onClick = onToday)
-            PalmButton("Перейти", onClick = onGoTo)
+            PalmButton("Новое", filled = true, compact = true, onClick = onNew)
+            PalmButton("Сегодня", compact = true, onClick = onToday)
+            PalmButton("Перейти", compact = true, onClick = onGoTo)
             Spacer(Modifier.weight(1f))
-            // Какие календари показывать
-            Box(
-                Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
-                    .border(1.dp, Palm.navy, RoundedCornerShape(10.dp)).clickable(onClick = onCalendars),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Outlined.Layers, "Календари", tint = Palm.navy, modifier = Modifier.size(20.dp)) }
-            Spacer(Modifier.width(6.dp)) // зазор между "Календари" и шестерёнкой
-            // Настройки
-            Box(
-                Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
-                    .border(1.dp, Palm.navy, RoundedCornerShape(10.dp)).clickable(onClick = onSettings),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Outlined.Settings, "Настройки", tint = Palm.navy, modifier = Modifier.size(20.dp)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                BarIcon(Icons.Outlined.BarChart, "Статистика", onStats)
+                BarIcon(Icons.Outlined.Layers, "Календари", onCalendars)
+                BarIcon(Icons.Outlined.Settings, "Настройки", onSettings)
+            }
         }
     }
+}
+
+@Composable
+private fun BarIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Box(
+        Modifier.size(34.dp).clip(RoundedCornerShape(10.dp))
+            .border(1.dp, Palm.navy, RoundedCornerShape(10.dp)).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, label, tint = Palm.navy, modifier = Modifier.size(20.dp)) }
 }
 
 /** Значок итога на иконке события: галочка, крестик или стрелка переноса. */

@@ -40,7 +40,7 @@ fun Modifier.dottedRule(color: Color = Palm.rule) = drawBehind {
 
 /** Кнопка в стиле Palm OS 5: скруглённая рамка, жирная надпись, без заливки. */
 @Composable
-fun PalmButton(text: String, modifier: Modifier = Modifier, filled: Boolean = false, onClick: () -> Unit) {
+fun PalmButton(text: String, modifier: Modifier = Modifier, filled: Boolean = false, compact: Boolean = false, onClick: () -> Unit) {
     val shape = RoundedCornerShape(10.dp)
     Box(
         modifier
@@ -48,7 +48,7 @@ fun PalmButton(text: String, modifier: Modifier = Modifier, filled: Boolean = fa
             .then(if (filled) Modifier.drawBehind { drawRect(Palm.navy) } else Modifier)
             .border(1.dp, Palm.navy, shape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
+            .padding(horizontal = if (compact) 11.dp else 14.dp, vertical = 7.dp),
     ) {
         Text(text, style = Palm.button, color = if (filled) Color.White else Palm.navy)
     }

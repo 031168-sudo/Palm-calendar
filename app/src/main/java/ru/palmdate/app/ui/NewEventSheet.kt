@@ -103,9 +103,12 @@ fun NewEventSheet(
     lastCalendarId: Long?,
     onDismiss: () -> Unit,
     onCreate: (NewEvent) -> Unit,
+    presetType: EventType? = null,       // из статистики: тип и человек уже выбраны
+    presetContact: ContactRef? = null,
 ) {
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(Step.TYPE) }
+    var presetPending by remember { mutableStateOf(presetType != null) }
     var type by remember { mutableStateOf<EventType?>(null) }
     var contact by remember { mutableStateOf<ContactRef?>(null) }
     var phones by remember { mutableStateOf<List<PhoneNumber>>(emptyList()) }
@@ -118,6 +121,7 @@ fun NewEventSheet(
 
     var calendars by remember { mutableStateOf<List<CalendarInfo>>(emptyList()) }
     var calendarId by remember { mutableStateOf<Long?>(null) }
+    var calLoaded by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         calendars = loadCalendars()
         calendarId = when {
@@ -125,6 +129,7 @@ fun NewEventSheet(
             calendars.count { it.usable } == 1 -> calendars.first { it.usable }.id      // выбирать не из чего
             else -> null                                               // первый раз — спросим
         }
+        calLoaded = true
     }
 
     // После "кто"/"номер": если календарь ещё не выбран — сначала спрашиваем его
@@ -149,12 +154,27 @@ fun NewEventSheet(
         }
     }
 
+    // Тип и человек заданы заранее — сразу к номеру / календарю / времени
+    LaunchedEffect(calLoaded) {
+        if (!presetPending || !calLoaded) return@LaunchedEffect
+        val t = presetType ?: return@LaunchedEffect
+        type = t
+        val st = ru.palmdate.app.data.SettingsStore.current
+        minutes = st.duration(t)
+        reminders = if (minutes == 0) st.allDayReminders else st.remindersFor(t)
+        if (presetContact != null) onContact(presetContact) else step = Step.WHO
+    }
+    // Ушли с первого шага — заготовка отработала
+    LaunchedEffect(step) { if (step != Step.TYPE) presetPending = false }
+
     PalmSheet(onDismissRequest = onDismiss, fixedHeight = false) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
-            SheetTitle(type, contact?.name ?: title.takeIf { it.isNotBlank() })
+            SheetTitle(type ?: presetType, contact?.name ?: presetContact?.name ?: title.takeIf { it.isNotBlank() })
             Spacer(Modifier.height(12.dp))
 
-            when (step) {
+            if (presetPending) {
+                Text("…", style = Palm.body, color = Palm.inkSoft)
+            } else when (step) {
                 Step.TYPE -> TypeGrid { t ->
                     type = t
                     val st = ru.palmdate.app.data.SettingsStore.current

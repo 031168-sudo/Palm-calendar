@@ -254,6 +254,10 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun history(lookupKey: String): List<PalmEvent> =
         withContext(Dispatchers.IO) { repo.historyFor(lookupKey) }
 
+    /** Статистика по людям: состоявшиеся звонки и встречи с даты [from]. */
+    suspend fun contactStats(from: LocalDate): List<ru.palmdate.app.model.ContactStat> =
+        withContext(Dispatchers.IO) { repo.contactStats(from) }
+
     suspend fun reminders(eventId: Long): List<Int> = withContext(Dispatchers.IO) { repo.reminders(eventId) }
 
     fun setReminders(eventId: Long, minutes: List<Int>) = launchSafe { repo.setReminders(eventId, minutes) }
