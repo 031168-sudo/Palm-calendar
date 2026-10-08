@@ -114,6 +114,7 @@ data class PalmEvent(
     val outcome: Outcome? = null,      // итог: состоялось, не дозвонился…
     val outcomeNote: String? = null,
     val fromContacts: Boolean = false, // день рождения из карточки контакта, а не событие календаря
+    val rrule: String? = null,         // правило повтора серии
 ) {
     /** Подпись типа: у дней рождения из контактов своя, остальные — по типу. */
     val typeLabel: String?
@@ -184,6 +185,44 @@ enum class Outcome(val kind: OutcomeKind) {
     }
 }
 
+/** Варианты повтора: правило RRULE (null — не повторяется) и подпись. */
+val REPEAT_OPTIONS: List<Pair<String?, String>> = listOf(
+    null to "Не повторяется",
+    "FREQ=DAILY" to "Каждый день",
+    "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" to "По будням",
+    "FREQ=WEEKLY" to "Каждую неделю",
+    "FREQ=MONTHLY" to "Каждый месяц",
+    "FREQ=YEARLY" to "Каждый год",
+)
+
+/**
+ * К какому из наших вариантов относится правило повтора события (в т.ч. созданного в Google).
+ * Возвращает правило-вариант, null — не повторяется, "" — своё правило (с окончанием, интервалом и т.п.).
+ */
+fun matchRepeat(rrule: String?): String? {
+    if (rrule.isNullOrBlank()) return null
+    val parts = rrule.uppercase().split(";").filter { it.isNotBlank() && !it.startsWith("WKST=") }
+        .associate { it.substringBefore("=") to it.substringAfter("=") }
+    if (parts.keys.any { it !in setOf("FREQ", "BYDAY", "BYMONTHDAY", "BYMONTH") }) return ""
+    val byDay = parts["BYDAY"]
+    return when (parts["FREQ"]) {
+        "DAILY" -> if (byDay == null) "FREQ=DAILY" else ""
+        "WEEKLY" -> when {
+            byDay == null || !byDay.contains(",") -> "FREQ=WEEKLY"
+            byDay.split(",").toSet() == setOf("MO", "TU", "WE", "TH", "FR") -> "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
+            else -> ""
+        }
+        "MONTHLY" -> "FREQ=MONTHLY"
+        "YEARLY" -> "FREQ=YEARLY"
+        else -> ""
+    }
+}
+
+fun repeatLabel(rrule: String?): String = when (val m = matchRepeat(rrule)) {
+    "" -> "Своё правило"
+    else -> REPEAT_OPTIONS.first { it.first == m }.second
+}
+
 /** То, что собирает окно "Новое". */
 data class NewEvent(
     val type: EventType,
@@ -194,4 +233,5 @@ data class NewEvent(
     val note: String?,
     val calendarId: Long,
     val reminders: List<Int>,
+    val rrule: String? = null,
 )

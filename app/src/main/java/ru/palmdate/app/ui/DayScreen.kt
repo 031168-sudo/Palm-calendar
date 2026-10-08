@@ -73,6 +73,9 @@ import ru.palmdate.app.model.OutcomeKind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
@@ -120,8 +123,21 @@ fun DayScreen(vm: DayViewModel) {
 
     val openDay: (LocalDate) -> Unit = { vm.setMode(ViewMode.DAY, it) }
 
-    Column(Modifier.fillMaxSize().background(Palm.paper)) {
+    // Нижние окна поднимаются только до синей шапки с датой
+    var rootBottom by remember { mutableIntStateOf(0) }
+    var headerBottom by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val sheetHeight = if (rootBottom > headerBottom && headerBottom > 0) {
+        with(density) { (rootBottom - headerBottom).toDp() }
+    } else androidx.compose.ui.unit.Dp.Unspecified
+
+    androidx.compose.runtime.CompositionLocalProvider(LocalSheetHeight provides sheetHeight) {
+    Column(
+        Modifier.fillMaxSize().background(Palm.paper)
+            .onGloballyPositioned { rootBottom = it.boundsInWindow().bottom.toInt() },
+    ) {
         Header(
+            modifier = Modifier.onGloballyPositioned { headerBottom = it.boundsInWindow().bottom.toInt() },
             state = state,
             onSelect = vm::select,
             onShiftWeek = { vm.shift(7L * it) },
@@ -256,6 +272,14 @@ fun DayScreen(vm: DayViewModel) {
                 details = e.copy(outcome = o, outcomeNote = note?.takeIf { it.isNotBlank() })
             },
             onFollowUp = { start -> vm.followUp(e, start) },
+            onRepeat = { rule -> vm.setRepeat(e, rule) },
+            addressesFor = vm::addressesFor,
+            onPickAddress = { addr ->
+                e.contact?.let { c ->
+                    vm.setAddress(c.lookupKey, addr)
+                    details = e.copy(contact = c.copy(address = addr))
+                }
+            },
         )
     }
 
@@ -290,6 +314,7 @@ fun DayScreen(vm: DayViewModel) {
             },
         ) { DatePicker(pickerState) }
     }
+    }
 }
 
 /* ---------- Заголовок: вкладка + полоса дней недели или стрелки периода ---------- */
@@ -322,6 +347,7 @@ private fun tabTitle(s: CalState): String {
 
 @Composable
 private fun Header(
+    modifier: Modifier = Modifier,
     state: CalState,
     onSelect: (LocalDate) -> Unit,
     onShiftWeek: (Int) -> Unit,
@@ -332,7 +358,7 @@ private fun Header(
     val today = LocalDate.now()
     val showStrip = state.mode == ViewMode.DAY || state.mode == ViewMode.WEEK || state.mode == ViewMode.AGENDA
 
-    Column(Modifier.fillMaxWidth().background(Palm.paper).statusBarsPadding()) {
+    Column(modifier.fillMaxWidth().background(Palm.paper).statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.Bottom) {
             // Тап по вкладке — "Перейти" к дате (там же кнопка "Сегодня")
             Box(

@@ -157,6 +157,16 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
         contacts.phones(lookupKey) to db.links().rememberedPhone(lookupKey)
     }
 
+    /** Все адреса контакта. */
+    suspend fun addressesFor(lookupKey: String): List<PhoneNumber> =
+        withContext(Dispatchers.IO) { contacts.addresses(lookupKey) }
+
+    /** Выбрать адрес контакта (запоминается для всех его событий). */
+    fun setAddress(lookupKey: String, address: String) {
+        contacts.rememberAddress(lookupKey, address)
+        reload()
+    }
+
     /* ---- Календарь для записи: последний использованный запоминается ---- */
 
     /** Все календари телефона с пометками (только чтение, без синхронизации, локальный). */
@@ -205,6 +215,9 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     fun setReminders(eventId: Long, minutes: List<Int>) = launchSafe { repo.setReminders(eventId, minutes) }
 
     fun delete(e: PalmEvent) = launchSafe { repo.delete(e.eventId) }
+
+    /** Сменить повтор серии события. */
+    fun setRepeat(e: PalmEvent, rrule: String?) = launchSafe { repo.setRepeat(e.eventId, rrule) }
 
     /* ---- Итоги ---- */
 

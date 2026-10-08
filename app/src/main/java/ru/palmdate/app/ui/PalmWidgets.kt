@@ -3,6 +3,8 @@ package ru.palmdate.app.ui
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -71,4 +73,18 @@ fun Modifier.keepAboveKeyboard(): Modifier {
     return this
         .then(Modifier.bringIntoViewRequester(requester))
         .onFocusEvent { focused = it.isFocused }
+}
+
+/**
+ * Высота, до которой могут подниматься нижние окна: от низа экрана до синей шапки с датой.
+ * Выставляется экраном календаря; окна не перекрывают шапку.
+ */
+val LocalSheetHeight = androidx.compose.runtime.compositionLocalOf { androidx.compose.ui.unit.Dp.Unspecified }
+
+/** Ограничить окно по высоте шапкой; fixed = всегда на всю эту высоту (окно подробностей). */
+@Composable
+fun Modifier.underHeader(fixed: Boolean = false): Modifier {
+    val h = LocalSheetHeight.current
+    if (h == androidx.compose.ui.unit.Dp.Unspecified) return this
+    return if (fixed) this.then(Modifier.height(h)) else this.then(Modifier.heightIn(max = h))
 }

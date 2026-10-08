@@ -76,8 +76,8 @@ class CalendarRepository(
         data class Raw(
             val id: Long, val title: String, val begin: Long, val end: Long,
             val allDay: Boolean, val desc: String?, val color: Int,
-            val calName: String, val calId: Long, val recurring: Boolean,
-        )
+            val calName: String, val calId: Long, val rrule: String?,
+        ) { val recurring get() = !rrule.isNullOrEmpty() }
 
         val raws = ArrayList<Raw>()
         resolver.query(
@@ -96,7 +96,7 @@ class CalendarRepository(
                 raws += Raw(
                     c.getLong(0), c.getString(1) ?: "", c.getLong(2), c.getLong(3),
                     c.getInt(4) == 1, c.getString(5), c.getInt(6),
-                    c.getString(7) ?: "", c.getLong(8), !c.getString(9).isNullOrEmpty(),
+                    c.getString(7) ?: "", c.getLong(8), c.getString(9),
                 )
             }
         }
@@ -137,6 +137,7 @@ class CalendarRepository(
                 accountName = accountByCal[r.calId] ?: "",
                 calendarId = r.calId,
                 recurring = r.recurring,
+                rrule = r.rrule,
                 instanceStart = r.begin,
                 outcome = Outcome.parse(outcome?.status),
                 outcomeNote = outcome?.note,
@@ -357,6 +358,12 @@ class CalendarRepository(
                 put(Events.DTSTART, start)
                 put(Events.DTEND, start + e.minutes * 60_000L)
             }
+            // Повтор: у повторяющегося события вместо конца — длительность
+            e.rrule?.let { rule ->
+                remove(Events.DTEND)
+                put(Events.RRULE, rule)
+                put(Events.DURATION, if (e.minutes == 0) "P1D" else "P${e.minutes * 60}S")
+            }
             put(Events.HAS_ALARM, if (e.reminders.isEmpty()) 0 else 1)
         }
         val eventId = resolver.insert(Events.CONTENT_URI, values)?.let { ContentUris.parseId(it) }
@@ -387,6 +394,47 @@ class CalendarRepository(
             else withMarker(Marker.strip(desc), type, contact?.lookupKey, contact?.phone)
             resolver.update(uri, ContentValues().apply { put(Events.DESCRIPTION, newDesc) }, null, null)
         }
+    }
+
+    /**
+     * Сменить повтор серии (rrule == null — сделать событие одиночным).
+     * Android требует: у повторяющегося события DURATION вместо DTEND, у одиночного — наоборот.
+     */
+    fun setRepeat(eventId: Long, rrule: String?) {
+        val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
+        var start = 0L
+        var end = 0L
+        var duration: String? = null
+        var allDay = false
+        resolver.query(uri, arrayOf(Events.DTSTART, Events.DTEND, Events.DURATION, Events.ALL_DAY), null, null, null)
+            ?.use { c ->
+                if (!c.moveToFirst()) error("Событие не найдено")
+                start = c.getLong(0); end = c.getLong(1); duration = c.getString(2); allDay = c.getInt(3) == 1
+            } ?: error("Событие не найдено")
+        val lengthMs = when {
+            end > start -> end - start
+            duration != null -> parseDuration(duration!!) ?: 3_600_000L
+            allDay -> 86_400_000L
+            else -> 3_600_000L
+        }
+        val values = ContentValues()
+        if (rrule == null) {
+            values.putNull(Events.RRULE)
+            values.putNull(Events.DURATION)
+            values.put(Events.DTEND, start + lengthMs)
+        } else {
+            values.put(Events.RRULE, rrule)
+            values.putNull(Events.DTEND)
+            values.put(Events.DURATION, if (allDay) "P${maxOf(1L, lengthMs / 86_400_000L)}D" else "P${lengthMs / 1000}S")
+        }
+        if (resolver.update(uri, values, null, null) <= 0) error("Не удалось изменить повтор")
+    }
+
+    /** P3600S, PT1H, P1D, P1W → миллисекунды. */
+    private fun parseDuration(d: String): Long? {
+        val m = Regex("P(?:(\\d+)W)?(?:(\\d+)D)?(?:T?(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?)?").matchEntire(d.trim()) ?: return null
+        fun g(i: Int) = m.groupValues[i].toLongOrNull() ?: 0L
+        return ((g(1) * 7 + g(2)) * 86_400L + g(3) * 3600L + g(4) * 60L + g(5)) * 1000L
     }
 
     fun reminders(eventId: Long): List<Int> {

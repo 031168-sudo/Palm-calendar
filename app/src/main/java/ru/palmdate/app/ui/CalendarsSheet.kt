@@ -53,6 +53,7 @@ fun CalendarsSheet(
     LaunchedEffect(Unit) { calendars = load() }
 
     ModalBottomSheet(
+        modifier = Modifier.underHeader(fixed = false),
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = Palm.paper,

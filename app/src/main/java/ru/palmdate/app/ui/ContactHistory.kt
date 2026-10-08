@@ -124,6 +124,7 @@ fun ContactHistorySheet(
     LaunchedEffect(contact.lookupKey) { events = load(contact.lookupKey) }
 
     ModalBottomSheet(
+        modifier = Modifier.underHeader(fixed = false),
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = Palm.paper,

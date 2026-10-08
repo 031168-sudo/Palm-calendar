@@ -64,6 +64,8 @@ import ru.palmdate.app.model.Outcome
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.model.PhoneNumber
 import ru.palmdate.app.model.REMINDER_OPTIONS
+import ru.palmdate.app.model.REPEAT_OPTIONS
+import ru.palmdate.app.model.matchRepeat
 import ru.palmdate.app.ui.theme.Palm
 import java.time.LocalDateTime
 
@@ -110,6 +112,7 @@ fun NewEventSheet(
     var minutes by remember { mutableStateOf(60) }
     var note by remember { mutableStateOf("") }
     var reminders by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var rrule by remember { mutableStateOf<String?>(null) }
 
     var calendars by remember { mutableStateOf<List<CalendarInfo>>(emptyList()) }
     var calendarId by remember { mutableStateOf<Long?>(null) }
@@ -145,6 +148,7 @@ fun NewEventSheet(
     }
 
     ModalBottomSheet(
+        modifier = Modifier.underHeader(fixed = false),
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = Palm.paper,
@@ -206,11 +210,12 @@ fun NewEventSheet(
                     start = start, onStart = { start = it },
                     minutes = minutes, onMinutes = { minutes = it },
                     reminders = reminders, onReminders = { reminders = it },
+                    rrule = rrule, onRrule = { rrule = it },
                     note = note, onNote = { note = it },
                     onDone = {
                         val cal = calendarId
                         if (cal == null) step = Step.CALENDAR
-                        else onCreate(NewEvent(type!!, contact, title, start, minutes, note, cal, reminders))
+                        else onCreate(NewEvent(type!!, contact, title, start, minutes, note, cal, reminders, rrule))
                     },
                 ) }
             }
@@ -391,6 +396,63 @@ private fun CalendarPicker(calendars: List<CalendarInfo>, selected: Long?, onPic
     }
 }
 
+/** Строка адреса: тап по адресу — карты; стрелка справа — выбор из адресов контакта. */
+@Composable
+private fun AddressRow(address: String, onOpen: () -> Unit, onChoose: (() -> Unit)?) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Адрес", style = Palm.small, color = Palm.inkSoft, modifier = Modifier.width(80.dp))
+        Text(
+            address, style = Palm.body, color = Palm.navy,
+            modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).clickable(onClick = onOpen).padding(vertical = 6.dp),
+        )
+        if (onChoose != null) {
+            Box(
+                Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onChoose),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Другой адрес", tint = Palm.inkSoft) }
+        }
+    }
+}
+
+/** Выбор адреса из всех адресов контакта. Запоминается для контакта. */
+@Composable
+private fun AddressPicker(addresses: List<PhoneNumber>, selected: String?, onPick: (String) -> Unit) {
+    Text("Какой адрес?", style = Palm.body, color = Palm.ink)
+    Spacer(Modifier.height(8.dp))
+    addresses.forEach { a ->
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 50.dp).clickable { onPick(a.number) }.dottedRule()
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(a.number, style = Palm.body, color = Palm.ink)
+                Text(a.label, style = Palm.small, color = Palm.inkSoft)
+            }
+            if (a.number == selected) Text("✓", style = Palm.title, color = Palm.navy)
+        }
+    }
+}
+
+/** Повтор: не повторяется, каждый день, по будням, каждую неделю/месяц/год. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RepeatChips(rrule: String?, title: String = "Повтор", onChange: (String?) -> Unit) {
+    val current = matchRepeat(rrule)
+    Text(title, style = Palm.small, color = Palm.inkSoft)
+    Spacer(Modifier.height(6.dp))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        REPEAT_OPTIONS.forEach { (rule, label) ->
+            Chip(label, selected = current == rule) { if (current != rule) onChange(rule) }
+        }
+        // Правило из Google, которого нет среди вариантов, — показываем, чтобы было видно, что повтор есть
+        if (current == "") Chip("Своё правило", selected = true) {}
+    }
+}
+
 /** Напоминания: можно выбрать несколько, "Без" — снять все. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -441,6 +503,7 @@ private fun WhenPicker(
     start: LocalDateTime, onStart: (LocalDateTime) -> Unit,
     minutes: Int, onMinutes: (Int) -> Unit,
     reminders: List<Int>, onReminders: (List<Int>) -> Unit,
+    rrule: String?, onRrule: (String?) -> Unit,
     note: String, onNote: (String) -> Unit,
     onDone: () -> Unit,
 ) {
@@ -487,6 +550,9 @@ private fun WhenPicker(
             Chip(label, selected = minutes == m) { onMinutes(m) }
         }
     }
+    Spacer(Modifier.height(12.dp))
+
+    RepeatChips(rrule, onRrule)
     Spacer(Modifier.height(12.dp))
 
     ReminderChips(reminders, onReminders)
@@ -540,7 +606,7 @@ private fun Chip(text: String, selected: Boolean = false, onClick: () -> Unit) {
 
 /* ---------- Подробности события ---------- */
 
-private enum class DetailMode { VIEW, TYPE, CONTACT, PHONE, CALENDAR }
+private enum class DetailMode { VIEW, TYPE, CONTACT, PHONE, CALENDAR, ADDRESS }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -560,12 +626,17 @@ fun EventDetailsSheet(
     onHistory: (() -> Unit)? = null,
     onOutcome: (Outcome?, String?) -> Unit = { _, _ -> },
     onFollowUp: (LocalDateTime) -> Unit = {},
+    onRepeat: (String?) -> Unit = {},
+    addressesFor: suspend (String) -> List<PhoneNumber> = { emptyList() },
+    onPickAddress: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var mode by remember { mutableStateOf(DetailMode.VIEW) }
     var pendingType by remember { mutableStateOf<EventType?>(null) }
     var pendingContact by remember { mutableStateOf<ContactRef?>(null) }
     var phones by remember { mutableStateOf<List<PhoneNumber>>(emptyList()) }
+    var addresses by remember { mutableStateOf<List<PhoneNumber>>(emptyList()) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     var reminders by remember { mutableStateOf<List<Int>?>(null) }
     var calendars by remember { mutableStateOf<List<CalendarInfo>>(emptyList()) }
     var moveTo by remember { mutableStateOf<CalendarInfo?>(null) }
@@ -609,6 +680,7 @@ fun EventDetailsSheet(
     }
 
     ModalBottomSheet(
+        modifier = Modifier.underHeader(fixed = true),
         onDismissRequest = onDismiss,
         // Сразу на всю высоту и не сворачивается, когда внутри появляются поля итога
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -641,6 +713,11 @@ fun EventDetailsSheet(
                     mode = DetailMode.VIEW
                 }
 
+                DetailMode.ADDRESS -> AddressPicker(addresses, selected = event.contact?.address) { addr ->
+                    onPickAddress(addr)
+                    mode = DetailMode.VIEW
+                }
+
                 DetailMode.CALENDAR -> CalendarPicker(calendars, selected = event.calendarId) { id ->
                     mode = DetailMode.VIEW
                     if (id != event.calendarId) moveTo = calendars.firstOrNull { it.id == id }
@@ -669,12 +746,33 @@ fun EventDetailsSheet(
                                 mode = DetailMode.PHONE
                             }
                         })
-                        c.address?.let { DetailLine("Адрес", it) }
+                        // Адрес: тап — открыть в картах; стрелка справа — выбрать другой адрес контакта
+                        var addrCount by remember(c.lookupKey) { mutableStateOf(0) }
+                        LaunchedEffect(c.lookupKey) { addrCount = addressesFor(c.lookupKey).size }
+                        c.address?.let { addr ->
+                            AddressRow(
+                                address = addr,
+                                onOpen = { ctx.openMap(addr) },
+                                onChoose = if (addrCount > 1) ({
+                                    scope.launch { addresses = addressesFor(c.lookupKey); mode = DetailMode.ADDRESS }
+                                }) else null,
+                            )
+                        }
                     }
                     event.note?.let { DetailLine("Заметка", it) }
 
                     Spacer(Modifier.height(10.dp))
                     OutcomeSection(event, onOutcome, onFollowUp)
+
+                    // Повтор — только если календарь события доступен для записи
+                    var repeat by remember(event.eventId) { mutableStateOf(event.rrule) }
+                    if (!event.fromContacts && calendars.any { it.id == event.calendarId && it.writable }) {
+                        Spacer(Modifier.height(10.dp))
+                        RepeatChips(repeat, title = if (event.recurring) "Повтор (вся серия)" else "Повтор") { rule ->
+                            repeat = rule
+                            onRepeat(rule)
+                        }
+                    }
 
                     Spacer(Modifier.height(10.dp))
                     if (!event.fromContacts) reminders?.let { r ->

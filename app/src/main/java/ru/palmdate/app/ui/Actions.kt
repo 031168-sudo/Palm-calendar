@@ -24,10 +24,15 @@ fun Context.runPrimaryAction(e: PalmEvent) {
         e.fromContacts -> c?.phone?.let { dial(it) }
         e.type == EventType.CALL && c?.phone != null ->
             launch(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(c.phone))))
-        e.type == EventType.MEETING && c?.address != null ->
-            launch(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(c.address))))
+        e.type == EventType.MEETING && c?.address != null -> openMap(c.address)
         else -> openInCalendar(e)
     }
+}
+
+/** Открыть адрес в картах — с выбором приложения (Яндекс, Google, 2ГИС…). */
+fun Context.openMap(address: String) {
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(address)))
+    launch(Intent.createChooser(intent, "Открыть в картах"))
 }
 
 fun Context.dial(number: String) =

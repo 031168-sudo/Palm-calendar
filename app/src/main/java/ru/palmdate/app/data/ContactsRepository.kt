@@ -12,7 +12,8 @@ import java.util.concurrent.ConcurrentHashMap
 class ContactsRepository(private val context: Context) {
     private val resolver = context.contentResolver
 
-    private data class Base(val name: String, val address: String?)
+    private data class Base(val name: String, val addresses: List<PhoneNumber>)
+    private val prefs = context.getSharedPreferences("contact_address", Context.MODE_PRIVATE)
     private val cache = ConcurrentHashMap<String, Base>()
 
     /** Поиск по телефонной книге (пустой запрос — первые контакты по алфавиту). */
@@ -57,7 +58,19 @@ class ContactsRepository(private val context: Context) {
     /** Имя и адрес контакта; номер подставляет вызывающий (выбранный для события). С кэшем. */
     fun byLookupKey(key: String, phone: String?): ContactRef? {
         val base = cache[key] ?: loadBase(key)?.also { cache[key] = it } ?: return null
-        return ContactRef(key, base.name, phone ?: phones(key).firstOrNull()?.number, base.address)
+        // Адрес: выбранный для контакта раньше, иначе первый
+        val remembered = prefs.getString(key, null)?.takeIf { r -> base.addresses.any { it.number == r } }
+        val address = remembered ?: base.addresses.firstOrNull()?.number
+        return ContactRef(key, base.name, phone ?: phones(key).firstOrNull()?.number, address)
+    }
+
+    /** Все адреса контакта с подписями ("Домашний", "Рабочий"…). Адрес лежит в поле number. */
+    fun addresses(key: String): List<PhoneNumber> =
+        (cache[key] ?: loadBase(key)?.also { cache[key] = it })?.addresses.orEmpty()
+
+    /** Запомнить, какой адрес контакта использовать. */
+    fun rememberAddress(key: String, address: String) {
+        prefs.edit().putString(key, address).apply()
     }
 
     private fun loadBase(key: String): Base? {
@@ -67,12 +80,22 @@ class ContactsRepository(private val context: Context) {
             "${ContactsContract.Contacts.LOOKUP_KEY} = ?", arrayOf(key), null,
         )?.use { if (it.moveToFirst()) it.getString(0) else null } ?: return null
 
-        val address = resolver.query(
-            StructuredPostal.CONTENT_URI, arrayOf(StructuredPostal.FORMATTED_ADDRESS),
-            "${StructuredPostal.LOOKUP_KEY} = ?", arrayOf(key), null,
-        )?.use { if (it.moveToFirst()) it.getString(0) else null }
-
-        return Base(name, address)
+        val addresses = ArrayList<PhoneNumber>()
+        val seen = HashSet<String>()
+        resolver.query(
+            StructuredPostal.CONTENT_URI,
+            arrayOf(StructuredPostal.FORMATTED_ADDRESS, StructuredPostal.TYPE, StructuredPostal.LABEL),
+            "${StructuredPostal.LOOKUP_KEY} = ?", arrayOf(key),
+            "${StructuredPostal.IS_SUPER_PRIMARY} DESC, ${StructuredPostal.IS_PRIMARY} DESC",
+        )?.use { c ->
+            while (c.moveToNext()) {
+                val addr = c.getString(0)?.replace("\n", ", ")?.trim() ?: continue
+                if (addr.isEmpty() || !seen.add(addr.lowercase())) continue
+                val label = StructuredPostal.getTypeLabel(context.resources, c.getInt(1), c.getString(2)).toString()
+                addresses += PhoneNumber(addr, label)
+            }
+        }
+        return Base(name, addresses)
     }
 
     /** День рождения из карточки контакта; год может быть неизвестен. */
