@@ -701,25 +701,43 @@ private fun ButtonBar(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PalmButton("Новое", filled = true, onClick = onNew)
-            PalmButton("Сегодня", onClick = onToday)
-            PalmButton("Перейти", onClick = onGoTo)
-            Spacer(Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                BarIcon(Icons.Outlined.BarChart, "Статистика", onStats)
-                BarIcon(Icons.Outlined.Settings, "Настройки", onSettings)
-            }
+            // Все кнопки одной высоты: три с текстом делят ширину поровну, две квадратные — справа
+            BarTextButton("Новое", filled = true, onClick = onNew, modifier = Modifier.weight(1f))
+            BarTextButton("Сегодня", onClick = onToday, modifier = Modifier.weight(1f))
+            BarTextButton("Перейти", onClick = onGoTo, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(10.dp)) // промежуток побольше перед значками
+            BarIcon(Icons.Outlined.BarChart, "Статистика", onStats)
+            BarIcon(Icons.Outlined.Settings, "Настройки", onSettings)
         }
+    }
+}
+
+private val BAR_H = 40.dp
+
+@Composable
+private fun BarTextButton(text: String, modifier: Modifier, filled: Boolean = false, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        modifier
+            .height(BAR_H)
+            .clip(shape)
+            .background(if (filled) Palm.navy else Color.Transparent)
+            .border(1.dp, Palm.navy, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, style = Palm.button, color = if (filled) Color.White else Palm.navy, maxLines = 1, softWrap = false)
     }
 }
 
 @Composable
 private fun BarIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     Box(
-        Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+        Modifier.size(BAR_H).clip(RoundedCornerShape(10.dp))
             .border(1.dp, Palm.navy, RoundedCornerShape(10.dp)).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, label, tint = Palm.navy, modifier = Modifier.size(20.dp)) }
+    ) { Icon(icon, label, tint = Palm.navy, modifier = Modifier.size(22.dp)) }
 }
 
 /** Значок итога на иконке события: галочка, крестик или стрелка переноса. */
