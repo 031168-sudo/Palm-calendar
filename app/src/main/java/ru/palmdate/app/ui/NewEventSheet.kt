@@ -165,7 +165,7 @@ fun NewEventSheet(
                     } else {
                         OutlinedTextField(
                             value = title, onValueChange = { title = it },
-                            label = { Text("Что (можно пусто)") },
+                            label = { Text("Название (необязательно)") },
                             singleLine = true, modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(Modifier.height(12.dp))
