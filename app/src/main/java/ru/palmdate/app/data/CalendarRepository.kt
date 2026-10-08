@@ -232,6 +232,8 @@ class CalendarRepository(
 
         fun strip(desc: String?) = desc?.replace(re, "")?.trim()
 
+        fun find(desc: String): String? = re.find(desc)?.value?.trim()
+
         /** Заменить строку итога (или убрать, если line == null), сохранив остальное описание и метку. */
         fun replace(desc: String?, line: String?): String {
             val rest = desc?.replace(re, "")?.trim()?.takeIf { it.isNotEmpty() }
@@ -437,6 +439,65 @@ class CalendarRepository(
         return ((g(1) * 7 + g(2)) * 86_400L + g(3) * 3600L + g(4) * 60L + g(5)) * 1000L
     }
 
+    /* ---------- Правка события из подробностей ---------- */
+
+    fun setTitle(eventId: Long, title: String) {
+        val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
+        resolver.update(uri, ContentValues().apply { put(Events.TITLE, title) }, null, null)
+    }
+
+    /**
+     * Новая заметка. Метка DateBook и строка итога в описании сохраняются.
+     */
+    fun setNote(eventId: Long, note: String?) {
+        val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
+        val desc = resolver.query(uri, arrayOf(Events.DESCRIPTION), null, null, null)
+            ?.use { if (it.moveToFirst()) it.getString(0) else null }
+        val outcomeLine = desc?.let { OutcomeLine.find(it) }
+        val marker = desc?.let { Marker.find(it) }
+        val newDesc = listOfNotNull(outcomeLine, note?.trim()?.takeIf { it.isNotEmpty() }, marker).joinToString("\n")
+        resolver.update(uri, ContentValues().apply { put(Events.DESCRIPTION, newDesc) }, null, null)
+    }
+
+    /**
+     * Новое время. minutes == 0 — на весь день.
+     * У повторяющегося события сдвигается вся серия на ту же разницу, что и этот раз.
+     */
+    fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int) {
+        val uri = ContentUris.withAppendedId(Events.CONTENT_URI, e.eventId)
+        val allDay = minutes == 0
+        val values = ContentValues()
+        values.put(Events.ALL_DAY, if (allDay) 1 else 0)
+        values.put(Events.EVENT_TIMEZONE, if (allDay) "UTC" else TimeZone.getDefault().id)
+        if (!e.recurring) {
+            if (allDay) {
+                val d = start.toLocalDate()
+                values.put(Events.DTSTART, d.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
+                values.put(Events.DTEND, d.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
+            } else {
+                val ms = start.atZone(zone).toInstant().toEpochMilli()
+                values.put(Events.DTSTART, ms)
+                values.put(Events.DTEND, ms + minutes * 60_000L)
+            }
+        } else {
+            val seriesStart = resolver.query(uri, arrayOf(Events.DTSTART), null, null, null)
+                ?.use { if (it.moveToFirst()) it.getLong(0) else null } ?: error("Событие не найдено")
+            if (allDay) {
+                val days = java.time.temporal.ChronoUnit.DAYS.between(e.start.toLocalDate(), start.toLocalDate())
+                val seriesDate = Instant.ofEpochMilli(seriesStart).atZone(if (e.allDay) ZoneOffset.UTC else zone).toLocalDate()
+                values.put(Events.DTSTART, seriesDate.plusDays(days).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
+                values.put(Events.DURATION, "P1D")
+            } else {
+                val oldInstance = e.start.atZone(if (e.allDay) ZoneOffset.UTC else zone).toInstant().toEpochMilli()
+                val delta = start.atZone(zone).toInstant().toEpochMilli() - oldInstance
+                values.put(Events.DTSTART, seriesStart + delta)
+                values.put(Events.DURATION, "P${minutes * 60}S")
+            }
+            values.putNull(Events.DTEND)
+        }
+        if (resolver.update(uri, values, null, null) <= 0) error("Не удалось изменить время")
+    }
+
     fun reminders(eventId: Long): List<Int> {
         val list = ArrayList<Int>()
         resolver.query(
@@ -536,6 +597,8 @@ class CalendarRepository(
         }
 
         fun strip(desc: String?) = desc?.replace(re, "")?.trim()
+
+        fun find(desc: String): String? = re.find(desc)?.value
     }
 
     companion object {

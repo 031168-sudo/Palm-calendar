@@ -30,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -62,6 +63,7 @@ import ru.palmdate.app.model.Outcome
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.model.PhoneNumber
 import ru.palmdate.app.model.REMINDER_OPTIONS
+import ru.palmdate.app.model.reminderLabel
 import ru.palmdate.app.model.REPEAT_OPTIONS
 import ru.palmdate.app.model.matchRepeat
 import ru.palmdate.app.ui.theme.Palm
@@ -216,8 +218,11 @@ fun NewEventSheet(
 }
 
 @Composable
-private fun SheetTitle(type: EventType?, who: String?, label: String? = null) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun SheetTitle(type: EventType?, who: String?, label: String? = null, onClick: (() -> Unit)? = null) {
+    Row(
+        Modifier.then(if (onClick != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onClick) else Modifier),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Icon(
             type?.icon ?: Icons.Outlined.Event, null,
             tint = type?.color ?: Palm.navy, modifier = Modifier.size(22.dp),
@@ -226,7 +231,12 @@ private fun SheetTitle(type: EventType?, who: String?, label: String? = null) {
         Text(
             listOfNotNull(label ?: type?.label ?: "Новое", who).joinToString(" · "),
             style = Palm.title, color = Palm.ink,
+            modifier = Modifier.weight(1f, fill = false),
         )
+        if (onClick != null) {
+            Spacer(Modifier.width(6.dp))
+            Icon(Icons.Outlined.Edit, "Изменить", tint = Palm.inkSoft, modifier = Modifier.size(16.dp))
+        }
     }
     Spacer(Modifier.height(6.dp))
     Box(Modifier.fillMaxWidth().height(2.dp).background(Palm.navy))
@@ -386,6 +396,77 @@ private fun CalendarPicker(calendars: List<CalendarInfo>, selected: Long?, onPic
             }
         }
     }
+}
+
+/** Окно правки текста: название или заметка. */
+@Composable
+private fun TextEditDialog(title: String, initial: String, singleLine: Boolean, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var text by remember { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Palm.paper,
+        title = { Text(title, style = Palm.title, color = Palm.ink) },
+        text = {
+            OutlinedTextField(
+                value = text, onValueChange = { text = it },
+                singleLine = singleLine, maxLines = if (singleLine) 1 else 6,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = { TextButton(onClick = { onSave(text.trim()) }) { Text("Сохранить") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+    )
+}
+
+/** Окно правки времени: дата, время с шагом 15 минут, длительность. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TimeEditDialog(event: PalmEvent, onDismiss: () -> Unit, onSave: (LocalDateTime, Int) -> Unit) {
+    var start by remember { mutableStateOf(event.start) }
+    val initialMinutes = if (event.allDay) 0
+    else java.time.Duration.between(event.start, event.end).toMinutes().toInt().coerceAtLeast(5)
+    var minutes by remember { mutableStateOf(initialMinutes) }
+    val options = (listOf(15 to "15 мин", 30 to "30 мин", 60 to "1 ч", 120 to "2 ч") +
+        (if (initialMinutes !in setOf(0, 15, 30, 60, 120)) listOf(initialMinutes to reminderLabel(initialMinutes)) else emptyList()) +
+        listOf(0 to "Весь день"))
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Palm.paper,
+        title = { Text(if (event.recurring) "Время (вся серия)" else "Когда", style = Palm.title, color = Palm.ink) },
+        text = {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowLeft) { start = start.minusDays(1) }
+                    Text(start.toLocalDate().pretty(), style = Palm.body, color = Palm.ink,
+                        modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowRight) { start = start.plusDays(1) }
+                }
+                if (minutes != 0) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        StepIcon(Icons.Filled.Remove) { start = start.minusMinutes(15) }
+                        Text(start.format(HM), style = Palm.title, color = Palm.navy,
+                            modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                        StepIcon(Icons.Filled.Add) { start = start.plusMinutes(15) }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text("Длительность", style = Palm.small, color = Palm.inkSoft)
+                Spacer(Modifier.height(6.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    options.forEach { (m, label) ->
+                        Chip(label, selected = minutes == m) {
+                            // Из "весь день" во время — ставим 9:00
+                            if (minutes == 0 && m != 0 && start.hour == 0 && start.minute == 0) start = start.withHour(9)
+                            minutes = m
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(start, minutes) }) { Text("Сохранить") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+    )
 }
 
 /** Строка адреса: тап по адресу — карты; стрелка справа — выбор из адресов контакта. */
@@ -621,6 +702,9 @@ fun EventDetailsSheet(
     onRepeat: (String?) -> Unit = {},
     addressesFor: suspend (String) -> List<PhoneNumber> = { emptyList() },
     onPickAddress: (String) -> Unit = {},
+    onEditTitle: (String) -> Unit = {},
+    onEditTime: (LocalDateTime, Int) -> Unit = { _, _ -> },
+    onEditNote: (String?) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var mode by remember { mutableStateOf(DetailMode.VIEW) }
@@ -637,6 +721,26 @@ fun EventDetailsSheet(
         calendars = loadCalendars()
     }
     // Перенести можно, только если календарь события доступен для записи и есть куда переносить
+    // Править название, время и заметку можно, если календарь события доступен для записи
+    val editable = !event.fromContacts && calendars.any { it.id == event.calendarId && it.writable }
+    var editTitle by remember { mutableStateOf(false) }
+    var editTime by remember { mutableStateOf(false) }
+    var editNote by remember { mutableStateOf(false) }
+    if (editTitle) {
+        TextEditDialog("Название", event.shortTitle, singleLine = true, onDismiss = { editTitle = false }) {
+            onEditTitle(it); editTitle = false
+        }
+    }
+    if (editNote) {
+        TextEditDialog("Заметка", event.note ?: "", singleLine = false, onDismiss = { editNote = false }) {
+            onEditNote(it); editNote = false
+        }
+    }
+    if (editTime) {
+        TimeEditDialog(event, onDismiss = { editTime = false }) { start, minutes ->
+            onEditTime(start, minutes); editTime = false
+        }
+    }
     val canMove = !event.fromContacts && calendars.count { it.writable } > 1 &&
         calendars.any { it.id == event.calendarId && it.writable }
 
@@ -674,7 +778,17 @@ fun EventDetailsSheet(
     PalmSheet(onDismissRequest = onDismiss, fixedHeight = true) {
         // Всегда на всю высоту экрана: когда в итоге появляются поля и кнопки, окно не прыгает
         Column(Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 16.dp).padding(bottom = 20.dp)) {
-            SheetTitle(event.type, event.contact?.name ?: event.title.takeIf { event.type == null }, event.typeLabel)
+            // Тип · название (у событий с контактом — имя). Тап: правка названия или выбор контакта
+            SheetTitle(
+                event.type,
+                event.contact?.name ?: event.shortTitle.takeIf { it.isNotBlank() },
+                event.typeLabel ?: "Событие",
+                onClick = if (!editable) null else ({
+                    if (event.contact != null && event.type != null) {
+                        pendingType = event.type; mode = DetailMode.CONTACT
+                    } else editTitle = true
+                }),
+            )
             Spacer(Modifier.height(12.dp))
 
             when (mode) {
@@ -711,7 +825,8 @@ fun EventDetailsSheet(
                 DetailMode.VIEW -> Column(Modifier.verticalScroll(rememberScrollState())) {
                     val whenText = if (event.allDay) event.start.toLocalDate().pretty() + ", весь день"
                     else event.start.toLocalDate().pretty() + ", " + event.start.format(HM) + "–" + event.end.format(HM)
-                    DetailLine("Когда", whenText)
+                    if (editable) SettingRow("Когда", whenText, onClick = { editTime = true })
+                    else DetailLine("Когда", whenText)
                     if (event.calendarName.isNotEmpty()) {
                         SettingRow(
                             "Календарь",
@@ -721,7 +836,6 @@ fun EventDetailsSheet(
                             onClick = if (canMove) ({ mode = DetailMode.CALENDAR }) else null,
                         )
                     }
-                    if (event.type == null) DetailLine("Событие", event.title)
                     event.contact?.let { c ->
                         // Номер можно сменить из списка номеров контакта
                         SettingRow("Телефон", c.phone ?: "нет номера", onClick = {
@@ -744,7 +858,8 @@ fun EventDetailsSheet(
                             )
                         }
                     }
-                    event.note?.let { DetailLine("Заметка", it) }
+                    if (editable) SettingRow("Заметка", event.note ?: "добавить…", onClick = { editNote = true })
+                    else event.note?.let { DetailLine("Заметка", it) }
 
                     Spacer(Modifier.height(10.dp))
                     OutcomeSection(event, onOutcome, onFollowUp)

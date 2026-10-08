@@ -116,6 +116,17 @@ data class PalmEvent(
     val fromContacts: Boolean = false, // день рождения из карточки контакта, а не событие календаря
     val rrule: String? = null,         // правило повтора серии
 ) {
+    /** Название без приставки типа: "Задача: тест" → "тест". Пусто, если названия нет. */
+    val shortTitle: String
+        get() {
+            val t = type ?: return title
+            return when {
+                title == t.label -> ""
+                title.startsWith(t.label + ": ") -> title.removePrefix(t.label + ": ")
+                else -> title
+            }
+        }
+
     /** Подпись типа: у дней рождения из контактов своя, остальные — по типу. */
     val typeLabel: String?
         get() = if (fromContacts) "День рождения" else type?.label

@@ -268,6 +268,23 @@ fun DayScreen(vm: DayViewModel) {
             },
             onFollowUp = { start -> vm.followUp(e, start) },
             onRepeat = { rule -> vm.setRepeat(e, rule) },
+            onEditTitle = { t ->
+                val newTitle = e.type?.let { type -> if (t.isBlank()) type.label else "${type.label}: $t" } ?: t
+                vm.setTitle(e, newTitle)
+                details = e.copy(title = newTitle)
+            },
+            onEditTime = { start, minutes ->
+                vm.setTime(e, start, minutes)
+                details = e.copy(
+                    start = if (minutes == 0) start.toLocalDate().atStartOfDay() else start,
+                    end = if (minutes == 0) start.toLocalDate().plusDays(1).atStartOfDay() else start.plusMinutes(minutes.toLong()),
+                    allDay = minutes == 0,
+                )
+            },
+            onEditNote = { n ->
+                vm.setNote(e, n)
+                details = e.copy(note = n?.takeIf { it.isNotBlank() })
+            },
             addressesFor = vm::addressesFor,
             onPickAddress = { addr ->
                 e.contact?.let { c ->

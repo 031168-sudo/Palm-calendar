@@ -216,6 +216,11 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
 
     fun delete(e: PalmEvent) = launchSafe { repo.delete(e.eventId) }
 
+    /** Правка из подробностей: название, время, заметка. */
+    fun setTitle(e: PalmEvent, title: String) = launchSafe { repo.setTitle(e.eventId, title) }
+    fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int) = launchSafe { repo.setTime(e, start, minutes) }
+    fun setNote(e: PalmEvent, note: String?) = launchSafe { repo.setNote(e.eventId, note) }
+
     /** Сменить повтор серии события. */
     fun setRepeat(e: PalmEvent, rrule: String?) = launchSafe { repo.setRepeat(e.eventId, rrule) }
 
