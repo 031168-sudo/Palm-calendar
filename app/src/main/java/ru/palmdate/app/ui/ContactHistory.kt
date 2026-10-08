@@ -18,9 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -123,13 +121,7 @@ fun ContactHistorySheet(
     var events by remember { mutableStateOf<List<PalmEvent>?>(null) }
     LaunchedEffect(contact.lookupKey) { events = load(contact.lookupKey) }
 
-    ModalBottomSheet(
-        modifier = Modifier.underHeader(fixed = false),
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Palm.paper,
-        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp),
-    ) {
+    PalmSheet(onDismissRequest = onDismiss, fixedHeight = false) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             // Шапка: инициал, имя, кнопка звонка
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -153,7 +145,7 @@ fun ContactHistorySheet(
         val list = events
         if (list == null) {
             Text("Загрузка…", style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(16.dp))
-            return@ModalBottomSheet
+            return@PalmSheet
         }
         if (list.isEmpty()) {
             Text(
@@ -161,7 +153,7 @@ fun ContactHistorySheet(
                     "созданные в DateBook или привязанные к нему через «Тип и контакт».",
                 style = Palm.body, color = Palm.inkSoft, modifier = Modifier.padding(16.dp),
             )
-            return@ModalBottomSheet
+            return@PalmSheet
         }
 
         val now = LocalDateTime.now()

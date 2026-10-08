@@ -21,9 +21,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,13 +50,7 @@ fun CalendarsSheet(
     var calendars by remember { mutableStateOf<List<CalendarInfo>?>(null) }
     LaunchedEffect(Unit) { calendars = load() }
 
-    ModalBottomSheet(
-        modifier = Modifier.underHeader(fixed = false),
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Palm.paper,
-        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp),
-    ) {
+    PalmSheet(onDismissRequest = onDismiss, fixedHeight = false) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Layers, null, tint = Palm.navy, modifier = Modifier.size(22.dp))

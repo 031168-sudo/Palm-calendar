@@ -35,10 +35,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -147,14 +145,8 @@ fun NewEventSheet(
         }
     }
 
-    ModalBottomSheet(
-        modifier = Modifier.underHeader(fixed = false),
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Palm.paper,
-        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp),
-    ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 16.dp).imePadding()) {
+    PalmSheet(onDismissRequest = onDismiss, fixedHeight = false) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
             SheetTitle(type, contact?.name ?: title.takeIf { it.isNotBlank() })
             Spacer(Modifier.height(12.dp))
 
@@ -679,16 +671,9 @@ fun EventDetailsSheet(
         }
     }
 
-    ModalBottomSheet(
-        modifier = Modifier.underHeader(fixed = true),
-        onDismissRequest = onDismiss,
-        // Сразу на всю высоту и не сворачивается, когда внутри появляются поля итога
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Palm.paper,
-        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp),
-    ) {
+    PalmSheet(onDismissRequest = onDismiss, fixedHeight = true) {
         // Всегда на всю высоту экрана: когда в итоге появляются поля и кнопки, окно не прыгает
-        Column(Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 16.dp).padding(bottom = 20.dp).imePadding()) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 16.dp).padding(bottom = 20.dp)) {
             SheetTitle(event.type, event.contact?.name ?: event.title.takeIf { event.type == null }, event.typeLabel)
             Spacer(Modifier.height(12.dp))
 

@@ -123,19 +123,14 @@ fun DayScreen(vm: DayViewModel) {
 
     val openDay: (LocalDate) -> Unit = { vm.setMode(ViewMode.DAY, it) }
 
-    // Нижние окна поднимаются только до синей шапки с датой
-    var rootBottom by remember { mutableIntStateOf(0) }
+    // Нижние панели поднимаются только до синей шапки с датой
     var headerBottom by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
-    val sheetHeight = if (rootBottom > headerBottom && headerBottom > 0) {
-        with(density) { (rootBottom - headerBottom).toDp() }
-    } else androidx.compose.ui.unit.Dp.Unspecified
+    val sheetTop = with(density) { headerBottom.toDp() }
 
-    androidx.compose.runtime.CompositionLocalProvider(LocalSheetHeight provides sheetHeight) {
-    Column(
-        Modifier.fillMaxSize().background(Palm.paper)
-            .onGloballyPositioned { rootBottom = it.boundsInWindow().bottom.toInt() },
-    ) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalSheetTop provides sheetTop) {
+    Box(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().background(Palm.paper)) {
         Header(
             modifier = Modifier.onGloballyPositioned { headerBottom = it.boundsInWindow().bottom.toInt() },
             state = state,
@@ -313,6 +308,7 @@ fun DayScreen(vm: DayViewModel) {
                 }
             },
         ) { DatePicker(pickerState) }
+    }
     }
     }
 }
