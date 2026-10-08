@@ -861,6 +861,16 @@ fun EventDetailsSheet(
                     if (editable) SettingRow("Заметка", event.note ?: "добавить…", onClick = { editNote = true })
                     else event.note?.let { DetailLine("Заметка", it) }
 
+                    // Главные действия — сразу под данными события, до итога
+                    val action = primaryActionLabel(event)
+                    if (action != null || onHistory != null) {
+                        Spacer(Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            action?.let { PalmButton(it, filled = true, onClick = onAction) }
+                            onHistory?.let { PalmButton("История", onClick = it) }
+                        }
+                    }
+
                     Spacer(Modifier.height(10.dp))
                     OutcomeSection(event, onOutcome, onFollowUp)
 
@@ -884,8 +894,6 @@ fun EventDetailsSheet(
 
                     Spacer(Modifier.height(16.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        primaryActionLabel(event)?.let { PalmButton(it, filled = true, onClick = onAction) }
-                        onHistory?.let { PalmButton("История", onClick = it) }
                         // День рождения из карточки контакта — не событие календаря: менять и удалять нечего
                         if (!event.fromContacts) {
                             PalmButton(if (event.type == null) "Назначить тип" else "Тип и контакт") { mode = DetailMode.TYPE }
