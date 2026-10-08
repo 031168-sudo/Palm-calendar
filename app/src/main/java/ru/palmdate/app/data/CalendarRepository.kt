@@ -351,7 +351,6 @@ class CalendarRepository(
                 put(Events.EVENT_TIMEZONE, "UTC")
                 put(Events.DTSTART, d.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
                 put(Events.DTEND, d.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
-                if (e.type == EventType.BIRTHDAY) put(Events.RRULE, "FREQ=YEARLY")
             } else {
                 val start = e.start.atZone(zone).toInstant().toEpochMilli()
                 put(Events.EVENT_TIMEZONE, TimeZone.getDefault().id)

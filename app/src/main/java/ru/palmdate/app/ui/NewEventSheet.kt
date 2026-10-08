@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -218,7 +219,7 @@ fun NewEventSheet(
 }
 
 @Composable
-private fun SheetTitle(type: EventType?, who: String?) {
+private fun SheetTitle(type: EventType?, who: String?, label: String? = null) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             type?.icon ?: Icons.Outlined.Event, null,
@@ -226,7 +227,7 @@ private fun SheetTitle(type: EventType?, who: String?) {
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            listOfNotNull(type?.label ?: "Новое", who).joinToString(" · "),
+            listOfNotNull(label ?: type?.label ?: "Новое", who).joinToString(" · "),
             style = Palm.title, color = Palm.ink,
         )
     }
@@ -614,8 +615,9 @@ fun EventDetailsSheet(
         containerColor = Palm.paper,
         shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp),
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 20.dp).imePadding()) {
-            SheetTitle(event.type, event.contact?.name ?: event.title.takeIf { event.type == null })
+        // Всегда на всю высоту экрана: когда в итоге появляются поля и кнопки, окно не прыгает
+        Column(Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 16.dp).padding(bottom = 20.dp).imePadding()) {
+            SheetTitle(event.type, event.contact?.name ?: event.title.takeIf { event.type == null }, event.typeLabel)
             Spacer(Modifier.height(12.dp))
 
             when (mode) {

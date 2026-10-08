@@ -172,16 +172,16 @@ fun ContactHistorySheet(
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             past.firstOrNull()?.let { e ->
                 val res = e.outcome?.let { ", " + it.label(e.type).lowercase() } ?: ""
-                Summary("Последний", "${(e.type?.label ?: "Событие").lowercase()}, ${daysAgo(e.start.toLocalDate())}$res")
+                Summary("Последний", "${(e.typeLabel ?: "Событие").lowercase()}, ${daysAgo(e.start.toLocalDate())}$res")
             } ?: Summary("Последний", "ещё не было")
             // Последний состоявшийся — если последний был неудачным
             if (past.firstOrNull()?.outcome != Outcome.DONE) {
                 past.firstOrNull { it.outcome == Outcome.DONE }?.let { e ->
-                    Summary("Состоялся", "${(e.type?.label ?: "Событие").lowercase()}, ${daysAgo(e.start.toLocalDate())}")
+                    Summary("Состоялся", "${(e.typeLabel ?: "Событие").lowercase()}, ${daysAgo(e.start.toLocalDate())}")
                 }
             }
             future.firstOrNull()?.let { e ->
-                Summary("Следующий", "${(e.type?.label ?: "Событие").lowercase()}, ${daysAhead(e.start.toLocalDate())}")
+                Summary("Следующий", "${(e.typeLabel ?: "Событие").lowercase()}, ${daysAhead(e.start.toLocalDate())}")
             }
             Summary("За 30 дней", typeCount(past.filter { it.start.toLocalDate() >= today.minusDays(30) }))
             val year = past.filter { it.start.toLocalDate() >= today.minusYears(1) }
@@ -221,7 +221,7 @@ fun ContactHistorySheet(
                     is HRow.Item -> {
                         val d = r.e.start.toLocalDate()
                         val dow = d.dayOfWeek.getDisplayName(TextStyle.SHORT, RU)
-                        val title = (r.e.type?.label ?: r.e.title) +
+                        val title = (r.e.typeLabel ?: r.e.title) +
                             if (r.e.allDay) "" else ", " + r.e.start.format(HM)
                         EventLine(
                             r.e, "${d.dayOfMonth} $dow", highlight = d == today,

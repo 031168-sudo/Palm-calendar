@@ -561,7 +561,7 @@ internal fun EventLine(
                     val sub = buildList {
                         // Итог важнее типа: "Не дозвонился — перезвонить после обеда"
                         e.outcome?.let { o -> add(o.label(e.type) + (e.outcomeNote?.let { " — $it" } ?: "")) }
-                        if (primary == null && e.outcome == null) e.type?.let { add(it.label) }
+                        if (primary == null && e.outcome == null) e.typeLabel?.let { add(it) }
                         if (!e.allDay && e.end.isAfter(e.start)) add("до " + e.end.format(HM))
                         if (e.outcome == null) e.note?.let { add(it.lineSequence().first()) }
                     }.joinToString(" · ")

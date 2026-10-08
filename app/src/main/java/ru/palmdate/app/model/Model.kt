@@ -29,7 +29,7 @@ enum class EventType(
     TASK("Задача", Icons.Outlined.TaskAlt, Color(0xFF2E7D32), 30, false, listOf(15)),
     TRIP("Поездка", Icons.Outlined.Flight, Color(0xFF6A4C93), 120, false, listOf(60)),
     // Имя в коде осталось BIRTHDAY — оно записано в метках уже созданных событий
-    BIRTHDAY("Праздник", Icons.Outlined.Celebration, Color(0xFFD35400), 0, true, listOf(0)),
+    BIRTHDAY("Праздник", Icons.Outlined.Celebration, Color(0xFFD35400), 0, false, listOf(0)),
     OTHER("Событие", Icons.Outlined.Event, Color(0xFF546E7A), 60, false, listOf(15));
 
     /** Цвет типа с поправкой на тему (в тёмной — светлее). */
@@ -115,6 +115,10 @@ data class PalmEvent(
     val outcomeNote: String? = null,
     val fromContacts: Boolean = false, // день рождения из карточки контакта, а не событие календаря
 ) {
+    /** Подпись типа: у дней рождения из контактов своя, остальные — по типу. */
+    val typeLabel: String?
+        get() = if (fromContacts) "День рождения" else type?.label
+
     /** Дни, которые занимает событие (для недели, месяца, года). */
     fun days(): List<LocalDate> {
         val first = start.toLocalDate()
