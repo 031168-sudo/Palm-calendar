@@ -552,7 +552,7 @@ private fun WhenPicker(
     }
     Spacer(Modifier.height(12.dp))
 
-    RepeatChips(rrule, onRrule)
+    RepeatChips(rrule, onChange = onRrule)
     Spacer(Modifier.height(12.dp))
 
     ReminderChips(reminders, onReminders)
