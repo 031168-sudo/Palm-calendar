@@ -862,6 +862,21 @@ fun EventDetailsSheet(
                                 mode = DetailMode.PHONE
                             }
                         })
+                        // Запомненный способ связи ("всегда так для этого человека") — можно сбросить
+                        val callPrefs = remember { ru.palmdate.app.data.CallOptions(ctx) }
+                        var callVia by remember(c.lookupKey) { mutableStateOf<String?>(null) }
+                        LaunchedEffect(c.lookupKey) {
+                            callVia = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                callPrefs.rememberedLabel(c.lookupKey, c.phone)
+                            }
+                        }
+                        callVia?.let { label ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("Связь", style = Palm.small, color = Palm.inkSoft, modifier = Modifier.width(80.dp))
+                                Text(label, style = Palm.body, color = Palm.ink, modifier = Modifier.weight(1f), maxLines = 2)
+                                TextButton(onClick = { callPrefs.remember(c.lookupKey, null); callVia = null }) { Text("сбросить") }
+                            }
+                        }
                         // Адрес: тап — открыть в картах; стрелка справа — выбрать другой адрес контакта
                         var addrCount by remember(c.lookupKey) { mutableStateOf(0) }
                         LaunchedEffect(c.lookupKey) { addrCount = addressesFor(c.lookupKey).size }

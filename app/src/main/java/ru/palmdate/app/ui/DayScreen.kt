@@ -118,6 +118,7 @@ fun DayScreen(vm: DayViewModel) {
 
     var newAt by remember { mutableStateOf<LocalDateTime?>(null) }
     var details by remember { mutableStateOf<PalmEvent?>(null) }
+    val call = LocalCaller.current
     var history by remember { mutableStateOf<ru.palmdate.app.model.ContactRef?>(null) }
     var pickDate by remember { mutableStateOf(false) }
     var showCalendars by remember { mutableStateOf(false) }
@@ -177,7 +178,7 @@ fun DayScreen(vm: DayViewModel) {
                 },
         ) { page ->
             // Задача — отметить выполненной; остальное — позвонить / маршрут
-            val onIcon: (PalmEvent) -> Unit = { if (it.type == EventType.TASK) vm.toggleTask(it) else ctx.runPrimaryAction(it) }
+            val onIcon: (PalmEvent) -> Unit = { if (it.type == EventType.TASK) vm.toggleTask(it) else ctx.runPrimaryAction(it, call) }
             val onEvent: (PalmEvent) -> Unit = { details = it }
             when (page.mode) {
                 ViewMode.DAY -> DayBody(
@@ -269,7 +270,7 @@ fun DayScreen(vm: DayViewModel) {
                 details = e.copy(type = type, contact = contact)
             },
             onDismiss = { details = null },
-            onAction = { ctx.runPrimaryAction(e) },
+            onAction = { ctx.runPrimaryAction(e, call) },
             onOpen = { ctx.openInCalendar(e) },
             onDelete = { vm.delete(e); details = null },
             onHistory = e.contact?.let { c -> { details = null; history = c } },
@@ -684,6 +685,7 @@ private fun ButtonBar(
                     .border(1.dp, Palm.navy, RoundedCornerShape(10.dp)).clickable(onClick = onCalendars),
                 contentAlignment = Alignment.Center,
             ) { Icon(Icons.Outlined.Layers, "Календари", tint = Palm.navy, modifier = Modifier.size(20.dp)) }
+            Spacer(Modifier.width(6.dp)) // зазор между "Календари" и шестерёнкой
             // Настройки
             Box(
                 Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))

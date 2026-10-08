@@ -57,7 +57,6 @@ import ru.palmdate.app.BirthdayReminder
 import ru.palmdate.app.BuildConfig
 import ru.palmdate.app.DayViewModel
 import ru.palmdate.app.data.AppSettings
-import ru.palmdate.app.data.CallVia
 import ru.palmdate.app.data.MailPreset
 import ru.palmdate.app.data.SettingsStore
 import ru.palmdate.app.data.StartView
@@ -219,12 +218,6 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
                     Hint("Уведомление приходит от DateBook в этот день в выбранное время.")
                 }
             }
-
-            /* ---------- Звонки ---------- */
-            Section("Звонки")
-            Label("Кнопка «Позвонить» открывает")
-            Chips(CallVia.entries.map { it to it.label }, s.callVia) { v -> set { it.copy(callVia = v) } }
-            if (s.callVia != CallVia.PHONE) Hint("Откроется чат с человеком в ${s.callVia.label}, оттуда звонок одной кнопкой. Если приложения нет — обычный набор.")
 
             /* ---------- Почта ---------- */
             Section("Почта")

@@ -134,9 +134,8 @@ fun ContactHistorySheet(
                     Text(contact.name, style = Palm.title, color = Palm.ink, maxLines = 1)
                     contact.phone?.let { Text(it, style = Palm.small, color = Palm.inkSoft) }
                 }
-                contact.phone?.let { phone ->
-                    PalmButton("Позвонить", filled = true) { ctx.dial(phone) }
-                }
+                val call = LocalCaller.current
+                PalmButton("Позвонить", filled = true) { call(contact) }
             }
             Spacer(Modifier.height(8.dp))
             Box(Modifier.fillMaxWidth().height(2.dp).background(Palm.navy))
