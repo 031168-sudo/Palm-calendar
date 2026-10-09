@@ -173,8 +173,15 @@ fun NewEventSheet(
 
     PalmSheet(onDismissRequest = onDismiss, fixedHeight = false) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
+            val done: () -> Unit = {
+                val cal = calendarId
+                if (cal == null) step = Step.CALENDAR
+                else onCreate(NewEvent(type!!, contact, title, start, minutes, note, cal, reminders, rrule, mail))
+            }
             SheetTitle(
-                type ?: presetType,
+                action = if (step == Step.WHEN && !presetPending) ({ PalmButton("Готово", filled = true, onClick = done) }) else null,
+                type = type ?: presetType,
+                who = 
                 mail?.let { m -> m.kind.verb + ": " + ((if (m.kind == ru.palmdate.app.model.MailKind.REPLY) m.subject else null) ?: m.peer ?: "") }
                     ?: contact?.name ?: presetContact?.name ?: title.takeIf { it.isNotBlank() },
             )
@@ -275,11 +282,7 @@ fun NewEventSheet(
                     reminders = reminders, onReminders = { reminders = it },
                     rrule = rrule, onRrule = { rrule = it },
                     note = note, onNote = { note = it },
-                    onDone = {
-                        val cal = calendarId
-                        if (cal == null) step = Step.CALENDAR
-                        else onCreate(NewEvent(type!!, contact, title, start, minutes, note, cal, reminders, rrule, mail))
-                    },
+                    onDone = done,
                 ) }
             }
         }
@@ -287,7 +290,10 @@ fun NewEventSheet(
 }
 
 @Composable
-private fun SheetTitle(type: EventType?, who: String?, label: String? = null, onClick: (() -> Unit)? = null) {
+private fun SheetTitle(
+    type: EventType?, who: String?, label: String? = null, onClick: (() -> Unit)? = null,
+    action: (@Composable () -> Unit)? = null,
+) {
     Row(
         Modifier.then(if (onClick != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
@@ -300,11 +306,15 @@ private fun SheetTitle(type: EventType?, who: String?, label: String? = null, on
         Text(
             listOfNotNull(label ?: type?.label ?: "Новое", who).joinToString(" · "),
             style = Palm.title, color = Palm.ink,
-            modifier = Modifier.weight(1f, fill = false),
+            modifier = Modifier.weight(1f, fill = action != null), maxLines = 2,
         )
         if (onClick != null) {
             Spacer(Modifier.width(6.dp))
             Icon(Icons.Outlined.Edit, "Изменить", tint = Palm.inkSoft, modifier = Modifier.size(16.dp))
+        }
+        if (action != null) {
+            Spacer(Modifier.width(8.dp))
+            action()
         }
     }
     Spacer(Modifier.height(6.dp))
@@ -842,7 +852,7 @@ private fun WhenPicker(
     )
 
     Spacer(Modifier.height(10.dp))
-    Row { Spacer(Modifier.weight(1f)); PalmButton("Готово", filled = true, onClick = onDone) }
+    // «Готово» — вверху окна, в строке заголовка
 }
 
 @Composable
