@@ -36,6 +36,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,6 +59,7 @@ import ru.palmdate.app.BuildConfig
 import ru.palmdate.app.DayViewModel
 import ru.palmdate.app.data.AppSettings
 import ru.palmdate.app.data.MailPreset
+import ru.palmdate.app.data.MailMode
 import ru.palmdate.app.data.SettingsStore
 import ru.palmdate.app.data.StartView
 import ru.palmdate.app.model.CalendarInfo
@@ -221,6 +223,24 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
 
             /* ---------- Почта ---------- */
             Section("Почта")
+            Chips(MailMode.entries.map { it to it.label }, s.mailMode) { v -> set { it.copy(mailMode = v) } }
+            Spacer(Modifier.height(6.dp))
+            if (s.mailMode == MailMode.APP) {
+                val apps = remember { ru.palmdate.app.data.MailApps(ctx) }
+                var appPkg by remember { mutableStateOf(apps.remembered()) }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Label("Почтовая программа")
+                        Text(appPkg?.let { apps.label(it) } ?: "спрашивать при открытии", style = Palm.body, color = Palm.ink)
+                    }
+                    if (appPkg != null) TextButton(onClick = { apps.remember(null); appPkg = null }) { Text("сбросить") }
+                }
+                Hint(
+                    "«Написать» открывает новое письмо в почтовой программе (Gmail, Яндекс Почта…) с адресом. " +
+                        "«Ответить» открывает почту, а слова для поиска письма копируются — их остаётся вставить в поиск. " +
+                        "Пароли не нужны. Вернётесь в DateBook — он спросит, отправлено ли письмо.",
+                )
+            } else {
             Label("Почтовый ящик")
             Chips(MailPreset.entries.map { it to it.label }, s.mailPreset) { v -> set { it.copy(mailPreset = v) } }
             Spacer(Modifier.height(8.dp))
@@ -267,6 +287,7 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
                 }
             }
             mailResult?.let { Text(it, style = Palm.small, color = if (it.startsWith("✓")) Color(0xFF2E7D32) else Palm.nowLine, modifier = Modifier.padding(top = 6.dp)) }
+            }
 
             /* ---------- Данные ---------- */
             Section("Данные")

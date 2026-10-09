@@ -22,6 +22,9 @@ enum class MailPreset(val label: String, val imap: String, val smtp: String) {
     CUSTOM("Другая", "", ""),
 }
 
+/** Как работать с почтой: через почтовую программу телефона или встроенной почтой (нужен пароль приложения). */
+enum class MailMode(val label: String) { APP("Через почтовую программу"), BUILTIN("Встроенная почта") }
+
 /** Все настройки DateBook. Пароль почты хранится отдельно и зашифрованно. */
 data class AppSettings(
     // События по умолчанию
@@ -42,6 +45,7 @@ data class AppSettings(
     val birthdayNotifyAt: Int = 540,
     val callVia: CallVia = CallVia.PHONE,
     // Почта
+    val mailMode: MailMode = MailMode.APP,
     val mailPreset: MailPreset = MailPreset.GMAIL,
     val mailEmail: String = "",
     val mailImapHost: String = "",
@@ -72,6 +76,7 @@ data class AppSettings(
         put("birthdayNotify", birthdayNotify)
         put("birthdayNotifyAt", birthdayNotifyAt)
         put("callVia", callVia.name)
+        put("mailMode", mailMode.name)
         put("mailPreset", mailPreset.name)
         put("mailEmail", mailEmail)
         put("mailImapHost", mailImapHost)
@@ -106,6 +111,7 @@ data class AppSettings(
                 birthdayNotify = j.optBoolean("birthdayNotify", false),
                 birthdayNotifyAt = j.optInt("birthdayNotifyAt", 540),
                 callVia = runCatching { CallVia.valueOf(j.optString("callVia")) }.getOrDefault(d.callVia),
+                mailMode = runCatching { MailMode.valueOf(j.optString("mailMode")) }.getOrDefault(d.mailMode),
                 mailPreset = runCatching { MailPreset.valueOf(j.optString("mailPreset")) }.getOrDefault(d.mailPreset),
                 mailEmail = j.optString("mailEmail", ""),
                 mailImapHost = j.optString("mailImapHost", ""),
@@ -153,6 +159,7 @@ object SettingsStore {
     fun replace(s: AppSettings) = update { s }
 
     var mailPassword: String
-        get() = secret?.getString("mail_password", "") ?: ""
-        set(v) { secret?.edit()?.putString("mail_password", v)?.apply() }
+        get() = (secret?.getString("mail_password", "") ?: "").filterNot { it.isWhitespace() }
+        // В паролях приложений пробелов не бывает — Google показывает пароль группами через пробел
+        set(v) { secret?.edit()?.putString("mail_password", v.filterNot { it.isWhitespace() })?.apply() }
 }

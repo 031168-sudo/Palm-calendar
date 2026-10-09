@@ -87,7 +87,7 @@ private suspend fun pickPhone(contact: ContactRef, phonesFor: PhonesFor): Pair<L
     return phones to chosen
 }
 
-private enum class Step { TYPE, WHO, PHONE, MAIL_KIND, MAIL_TO, CALENDAR, WHEN }
+private enum class Step { TYPE, WHO, PHONE, MAIL_KIND, MAIL_FIND, MAIL_TO, CALENDAR, WHEN }
 
 /**
  * "Новое": тип → кто → (номер) → (календарь) → когда.
@@ -194,7 +194,10 @@ fun NewEventSheet(
                 // Письмо: ответить на пришедшее или написать новое
                 Step.MAIL_KIND -> MailKindPicker(
                     onReply = {
-                        mailer.pick("") { h ->
+                        // Через почтовую программу писем не видно — запоминаем, от кого и что искать
+                        if (ru.palmdate.app.data.SettingsStore.current.mailMode != ru.palmdate.app.data.MailMode.BUILTIN) {
+                            step = Step.MAIL_FIND
+                        } else mailer.pick("") { h ->
                             mail = ru.palmdate.app.model.MailInfo(
                                 ru.palmdate.app.model.MailKind.REPLY, h.messageId, h.folder, h.subject,
                                 h.from?.name, h.from?.email, h.date,
@@ -207,6 +210,16 @@ fun NewEventSheet(
                     },
                     onNew = { step = Step.MAIL_TO },
                 )
+
+                Step.MAIL_FIND -> ReplyFinder(searchEmails) { name, addr, key, words ->
+                    mail = ru.palmdate.app.model.MailInfo(
+                        ru.palmdate.app.model.MailKind.REPLY, subject = words, peerName = name, peerAddr = addr,
+                    )
+                    scope.launch {
+                        contact = key?.let { ContactRef(it, name ?: addr ?: "") } ?: addr?.let { contactByEmail(it) }
+                        toCalendarOrWhen()
+                    }
+                }
 
                 Step.MAIL_TO -> RecipientPicker(searchEmails) { name, addr, key ->
                     mail = ru.palmdate.app.model.MailInfo(ru.palmdate.app.model.MailKind.NEW, peerName = name, peerAddr = addr)
@@ -352,6 +365,60 @@ private fun MailKindCard(title: String, sub: String, modifier: Modifier, onClick
         Spacer(Modifier.height(6.dp))
         Text(title, style = Palm.button, color = Palm.ink)
         Text(sub, style = Palm.small, color = Palm.inkSoft, textAlign = TextAlign.Center)
+    }
+}
+
+/**
+ * «Ответить» через почтовую программу: от кого письмо (человек из контактов или адрес — можно пропустить)
+ * и слова для поиска. По ним письмо потом ищется в почте.
+ */
+@Composable
+private fun ReplyFinder(
+    search: suspend (String) -> List<ru.palmdate.app.data.ContactsRepository.EmailContact>,
+    onDone: (name: String?, addr: String?, lookupKey: String?, words: String?) -> Unit,
+) {
+    var who by remember { mutableStateOf("") }
+    var chosen by remember { mutableStateOf<ru.palmdate.app.data.ContactsRepository.EmailContact?>(null) }
+    var words by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<ru.palmdate.app.data.ContactsRepository.EmailContact>>(emptyList()) }
+    LaunchedEffect(who) { delay(150); results = if (who.isBlank()) emptyList() else search(who) }
+    val typed = who.trim()
+    val typedAddr = typed.takeIf { Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$").matches(it) }
+
+    val c = chosen
+    if (c != null) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text("От: " + c.name, style = Palm.body, color = Palm.ink)
+                Text(c.email, style = Palm.small, color = Palm.inkSoft)
+            }
+            TextButton(onClick = { chosen = null }) { Text("другой") }
+        }
+    } else {
+        OutlinedTextField(
+            value = who, onValueChange = { who = it },
+            label = { Text("От кого: имя или адрес (можно пропустить)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+        )
+        if (results.isNotEmpty()) EmailList(results, Modifier.heightIn(max = 200.dp)) { chosen = it; who = "" }
+    }
+    Spacer(Modifier.height(8.dp))
+    OutlinedTextField(
+        value = words, onValueChange = { words = it },
+        label = { Text("Что искать: тема или слова из письма") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+    )
+    Text(
+        "По этим словам письмо найдётся в почте, когда вы откроете событие.",
+        style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(top = 4.dp),
+    )
+    Spacer(Modifier.height(10.dp))
+    val ready = c != null || typedAddr != null || words.isNotBlank()
+    Row {
+        Spacer(Modifier.weight(1f))
+        PalmButton("Далее", filled = ready) {
+            if (!ready) return@PalmButton
+            onDone(c?.name ?: typed.takeIf { typedAddr == null && it.isNotEmpty() }, c?.email ?: typedAddr, c?.lookupKey,
+                words.trim().takeIf { it.isNotEmpty() })
+        }
     }
 }
 

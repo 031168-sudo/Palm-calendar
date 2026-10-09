@@ -10,6 +10,7 @@ import javax.mail.Session
 object Mail {
     /** Возвращает null, если всё хорошо, иначе — понятное описание ошибки. */
     fun check(s: AppSettings, password: String): String? {
+        val password = password.filterNot { it.isWhitespace() }
         if (s.mailEmail.isBlank() || password.isBlank()) return "Укажите адрес и пароль приложения"
         if (s.imapHost.isBlank() || s.smtpHost.isBlank()) return "Укажите серверы IMAP и SMTP"
         val props = Properties().apply {
@@ -38,6 +39,8 @@ object Mail {
     internal fun explain(e: Exception): String {
         val m = (e.message ?: e.javaClass.simpleName)
         return when {
+            m.contains("Application-specific password required", true) ->
+                "почта не приняла пароль: нужен именно пароль приложения (16 латинских букв), а не пароль от аккаунта"
             m.contains("AUTHENTICATIONFAILED", true) || m.contains("Invalid credentials", true) ||
                 m.contains("535") || m.contains("authentication failed", true) ->
                 "неверный адрес или пароль. Нужен именно пароль приложения, а не обычный пароль от почты"

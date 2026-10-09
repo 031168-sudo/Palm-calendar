@@ -68,6 +68,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -118,13 +120,73 @@ fun MailHost(vm: DayViewModel, content: @Composable () -> Unit) {
     var viewer by remember { mutableStateOf<ViewerTarget?>(null) }
     var composer by remember { mutableStateOf<ComposerTarget?>(null) }
 
+    // Почта через почтовую программу телефона
+    val apps = remember { ru.palmdate.app.data.MailApps(ctx) }
+    var chooseApp by remember { mutableStateOf<((String) -> Unit)?>(null) }
+    var awaiting by remember { mutableStateOf<PalmEvent?>(null) }  // ушли в почту — по возвращении спросить
+    var askSent by remember { mutableStateOf<PalmEvent?>(null) }
+
+    /** Выполнить с почтовой программой: запомненной, единственной или выбранной сейчас. */
+    fun withApp(action: (String) -> Unit) {
+        val list = apps.installed()
+        val r = apps.remembered()
+        when {
+            r != null -> action(r)
+            list.isEmpty() -> Toast.makeText(ctx, "На телефоне нет почтовой программы", Toast.LENGTH_LONG).show()
+            list.size == 1 -> action(list.first().pkg)
+            else -> chooseApp = action
+        }
+    }
+
+    /** «Написать» — новое письмо в программе; «Ответить» — открыть программу, слова для поиска в буфере. */
+    fun openExternal(e: PalmEvent) {
+        val m = e.mail ?: return
+        withApp { pkg ->
+            val intent = if (m.kind == MailKind.NEW) apps.compose(pkg, m.peerAddr, null)
+            else {
+                val q = listOfNotNull(m.peerAddr ?: m.peerName, m.subject?.takeIf { it.isNotBlank() }).joinToString(" ")
+                if (q.isNotBlank()) {
+                    val cb = ctx.getSystemService(android.content.ClipboardManager::class.java)
+                    cb?.setPrimaryClip(android.content.ClipData.newPlainText("Поиск письма", q))
+                    Toast.makeText(ctx, "Для поиска скопировано: $q — вставьте в поиск почты", Toast.LENGTH_LONG).show()
+                }
+                apps.launch(pkg)
+            }
+            if (intent == null) {
+                Toast.makeText(ctx, "Не получается открыть почту", Toast.LENGTH_SHORT).show()
+            } else try {
+                awaiting = e
+                ctx.startActivity(intent)
+            } catch (_: Exception) {
+                awaiting = null
+                Toast.makeText(ctx, "Не получается открыть почту", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // Вернулись из почты — спросить, отправлено ли письмо
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    androidx.compose.runtime.DisposableEffect(lifecycle) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, ev ->
+            if (ev == androidx.lifecycle.Lifecycle.Event.ON_RESUME && awaiting != null) {
+                askSent = awaiting
+                awaiting = null
+            }
+        }
+        lifecycle.addObserver(obs)
+        onDispose { lifecycle.removeObserver(obs) }
+    }
+
     val mailer = remember {
         Mailer(
             pick = { q, cb -> picker = q to cb },
             open = { e ->
                 val m = e.mail
+                val builtin = ru.palmdate.app.data.SettingsStore.current.mailMode == ru.palmdate.app.data.MailMode.BUILTIN
                 if (m == null) {
                     Toast.makeText(ctx, "У события нет письма", Toast.LENGTH_SHORT).show()
+                } else if (!builtin || (m.kind == MailKind.REPLY && m.messageId == null)) {
+                    openExternal(e)
                 } else scope.launch {
                     val draft = vm.mailLink(e.eventId)?.draft?.let { Outgoing.fromJson(it) }
                     when (m.kind) {
@@ -167,6 +229,24 @@ fun MailHost(vm: DayViewModel, content: @Composable () -> Unit) {
             }
             picker?.let { (q, cb) ->
                 MailBrowser(q, vm, onPick = { picker = null; cb(it) }, onClose = { picker = null })
+            }
+            chooseApp?.let { action ->
+                MailAppChooser(apps, onDismiss = { chooseApp = null }) { pkg -> chooseApp = null; action(pkg) }
+            }
+            askSent?.let { e ->
+                AlertDialog(
+                    onDismissRequest = { askSent = null },
+                    containerColor = Palm.paper,
+                    title = { Text("Письмо отправлено?", style = Palm.title, color = Palm.ink) },
+                    text = { Text(e.title, style = Palm.body, color = Palm.ink) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            vm.setOutcome(e, ru.palmdate.app.model.Outcome.DONE, e.outcomeNote)
+                            askSent = null
+                        }) { Text("Да, отправлено") }
+                    },
+                    dismissButton = { TextButton(onClick = { askSent = null }) { Text("Нет") } },
+                )
             }
         }
     }
@@ -738,4 +818,47 @@ internal fun EmailList(list: List<EmailContact>, modifier: Modifier, onPick: (Em
             Box(Modifier.fillMaxWidth().height(1.dp).background(Palm.rule))
         }
     }
+}
+
+
+/** Выбор почтовой программы: Gmail, Яндекс Почта… С галочкой «всегда в ней». */
+@Composable
+private fun MailAppChooser(apps: ru.palmdate.app.data.MailApps, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    val list = remember { apps.installed() }
+    var always by remember { mutableStateOf(true) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Palm.paper,
+        title = { Text("Открыть в почте", style = Palm.title, color = Palm.ink) },
+        text = {
+            Column {
+                list.forEach { a ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                            .clickable { if (always) apps.remember(a.pkg); onPick(a.pkg) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        a.icon?.let { d ->
+                            androidx.compose.foundation.Image(
+                                d.toBitmap(96, 96).asImageBitmap(),
+                                null, modifier = Modifier.size(32.dp),
+                            )
+                        } ?: Spacer(Modifier.size(32.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text(a.label, style = Palm.body, color = Palm.ink)
+                    }
+                }
+                Row(
+                    Modifier.fillMaxWidth().clickable { always = !always }.padding(top = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    androidx.compose.material3.Checkbox(checked = always, onCheckedChange = { always = it })
+                    Text("Всегда открывать в ней", style = Palm.body, color = Palm.ink)
+                }
+                Text("Сменить можно в «Настройки → Почта»", style = Palm.small, color = Palm.inkSoft)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+    )
 }
