@@ -129,8 +129,6 @@ fun DayScreen(vm: DayViewModel) {
     // Новое событие из статистики: тип и человек выбраны заранее
     var newPreset by remember { mutableStateOf<Pair<EventType, ru.palmdate.app.model.ContactRef>?>(null) }
 
-    val openDay: (LocalDate) -> Unit = { vm.setMode(ViewMode.DAY, it) }
-
     // Нижние панели поднимаются только до синей шапки с датой
     var headerBottom by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
@@ -138,75 +136,20 @@ fun DayScreen(vm: DayViewModel) {
 
     androidx.compose.runtime.CompositionLocalProvider(LocalSheetTop provides sheetTop) {
     Box(Modifier.fillMaxSize()) {
-    Column(Modifier.fillMaxSize().background(Palm.paper)) {
-        Header(
-            modifier = Modifier.onGloballyPositioned { headerBottom = it.boundsInWindow().bottom.toInt() },
-            state = state,
+    MainLayout(
+        state = state,
+        headerModifier = Modifier.onGloballyPositioned { headerBottom = it.boundsInWindow().bottom.toInt() },
+        actions = MainActions(
             onSelect = vm::select,
             onShiftWeek = { vm.shift(7L * it) },
             onShiftPeriod = vm::shiftPeriod,
             onTitle = { pickDate = true },
-        )
-
-        // Свайп влево — следующий период, вправо — предыдущий. Страница уезжает в сторону свайпа.
-        val swipeThreshold = with(LocalDensity.current) { 64.dp.toPx() }
-        AnimatedContent(
-            targetState = state,
-            contentKey = { it.pageKey },
-            transitionSpec = {
-                if (targetState.mode != initialState.mode) {
-                    fadeIn(tween(180)) togetherWith fadeOut(tween(120))
-                } else {
-                    val forward = targetState.range.first > initialState.range.first
-                    (slideInHorizontally(tween(220)) { w -> if (forward) w else -w } + fadeIn(tween(220))) togetherWith
-                        (slideOutHorizontally(tween(220)) { w -> if (forward) -w / 3 else w / 3 } + fadeOut(tween(160)))
-                }
-            },
-            label = "page",
-            modifier = Modifier
-                .weight(1f)
-                .pointerInput(Unit) {
-                    var dx = 0f
-                    detectHorizontalDragGestures(
-                        onDragStart = { dx = 0f },
-                        onDragEnd = {
-                            when {
-                                dx < -swipeThreshold -> vm.shiftPeriod(1)
-                                dx > swipeThreshold -> vm.shiftPeriod(-1)
-                            }
-                        },
-                        onHorizontalDrag = { change, amount ->
-                            dx += amount
-                            change.consume()
-                        },
-                    )
-                },
-        ) { page ->
-            // Задача — отметить выполненной; остальное — позвонить / маршрут
-            val onIcon: (PalmEvent) -> Unit = { if (it.type == EventType.TASK) vm.toggleTask(it) else ctx.runPrimaryAction(it, call, mailer.open) }
-            val onEvent: (PalmEvent) -> Unit = { details = it }
-            when (page.mode) {
-                ViewMode.DAY -> DayBody(
-                    date = page.date,
-                    events = page.events,
-                    modifier = Modifier.fillMaxSize(),
-                    onSlot = { hour -> newAt = page.date.atTime(hour, 0) },
-                    onIcon = onIcon,
-                    onEvent = onEvent,
-                )
-                ViewMode.AGENDA -> AgendaView(page.date, page.events, onDay = openDay, onIcon = onIcon, onEvent = onEvent)
-                ViewMode.WEEK -> WeekView(page.date, page.events, onDay = openDay, onEvent = onEvent)
-                ViewMode.MONTH -> MonthView(page.date, page.events, onDay = openDay)
-                ViewMode.YEAR -> YearView(
-                    page.date, page.yearDays,
-                    onDay = openDay,
-                    onMonth = { vm.setMode(ViewMode.MONTH, it) },
-                )
-            }
-        }
-
-        ButtonBar(
-            mode = state.mode,
+            onSlot = { date, hour -> newAt = date.atTime(hour, 0) },
+            // Задача — отметить выполненной; остальное — позвонить / маршрут / письмо
+            onIcon = { if (it.type == EventType.TASK) vm.toggleTask(it) else ctx.runPrimaryAction(it, call, mailer.open) },
+            onEvent = { details = it },
+            onDay = { vm.setMode(ViewMode.DAY, it) },
+            onMonth = { vm.setMode(ViewMode.MONTH, it) },
             onNew = {
                 val now = LocalTime.now()
                 val hour = if (state.date == LocalDate.now()) (now.hour + 1).coerceAtMost(23) else 9
@@ -217,8 +160,8 @@ fun DayScreen(vm: DayViewModel) {
             onStats = { showStats = true },
             onSettings = { showSettings = true },
             onMode = { vm.setMode(it) },
-        )
-    }
+        ),
+    )
 
     if (showSettings) {
         SettingsSheet(
@@ -385,6 +328,103 @@ private val TabShape = GenericShape { size, _ ->
     lineTo(size.width, size.height)
     lineTo(0f, size.height)
     close()
+}
+
+/** Что делают нажатия на главном экране. */
+internal class MainActions(
+    val onSelect: (LocalDate) -> Unit = {},
+    val onShiftWeek: (Int) -> Unit = {},
+    val onShiftPeriod: (Int) -> Unit = {},
+    val onTitle: () -> Unit = {},
+    val onSlot: (LocalDate, Int) -> Unit = { _, _ -> },
+    val onIcon: (PalmEvent) -> Unit = {},
+    val onEvent: (PalmEvent) -> Unit = {},
+    val onDay: (LocalDate) -> Unit = {},
+    val onMonth: (LocalDate) -> Unit = {},
+    val onNew: () -> Unit = {},
+    val onToday: () -> Unit = {},
+    val onGoTo: () -> Unit = {},
+    val onStats: () -> Unit = {},
+    val onSettings: () -> Unit = {},
+    val onMode: (ViewMode) -> Unit = {},
+)
+
+/**
+ * Главный экран без данных и окон: шапка с датой, выбранный вид, нижняя панель.
+ * Отдельно — чтобы его можно было нарисовать в тестах со своими событиями.
+ */
+@Composable
+internal fun MainLayout(state: CalState, actions: MainActions, headerModifier: Modifier = Modifier) {
+    Column(Modifier.fillMaxSize().background(Palm.paper)) {
+        Header(
+            modifier = headerModifier,
+            state = state,
+            onSelect = actions.onSelect,
+            onShiftWeek = actions.onShiftWeek,
+            onShiftPeriod = actions.onShiftPeriod,
+            onTitle = actions.onTitle,
+        )
+
+        // Свайп влево — следующий период, вправо — предыдущий. Страница уезжает в сторону свайпа.
+        val swipeThreshold = with(LocalDensity.current) { 64.dp.toPx() }
+        AnimatedContent(
+            targetState = state,
+            contentKey = { it.pageKey },
+            transitionSpec = {
+                if (targetState.mode != initialState.mode) {
+                    fadeIn(tween(180)) togetherWith fadeOut(tween(120))
+                } else {
+                    val forward = targetState.range.first > initialState.range.first
+                    (slideInHorizontally(tween(220)) { w -> if (forward) w else -w } + fadeIn(tween(220))) togetherWith
+                        (slideOutHorizontally(tween(220)) { w -> if (forward) -w / 3 else w / 3 } + fadeOut(tween(160)))
+                }
+            },
+            label = "page",
+            modifier = Modifier
+                .weight(1f)
+                .pointerInput(Unit) {
+                    var dx = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { dx = 0f },
+                        onDragEnd = {
+                            when {
+                                dx < -swipeThreshold -> actions.onShiftPeriod(1)
+                                dx > swipeThreshold -> actions.onShiftPeriod(-1)
+                            }
+                        },
+                        onHorizontalDrag = { change, amount ->
+                            dx += amount
+                            change.consume()
+                        },
+                    )
+                },
+        ) { page ->
+            when (page.mode) {
+                ViewMode.DAY -> DayBody(
+                    date = page.date,
+                    events = page.events,
+                    modifier = Modifier.fillMaxSize(),
+                    onSlot = { hour -> actions.onSlot(page.date, hour) },
+                    onIcon = actions.onIcon,
+                    onEvent = actions.onEvent,
+                )
+                ViewMode.AGENDA -> AgendaView(page.date, page.events, onDay = actions.onDay, onIcon = actions.onIcon, onEvent = actions.onEvent)
+                ViewMode.WEEK -> WeekView(page.date, page.events, onDay = actions.onDay, onEvent = actions.onEvent)
+                ViewMode.MONTH -> MonthView(page.date, page.events, onDay = actions.onDay)
+                ViewMode.YEAR -> YearView(page.date, page.yearDays, onDay = actions.onDay, onMonth = actions.onMonth)
+            }
+        }
+
+        ButtonBar(
+            mode = state.mode,
+            onNew = actions.onNew,
+            onToday = actions.onToday,
+            onGoTo = actions.onGoTo,
+            onStats = actions.onStats,
+            onSettings = actions.onSettings,
+            onMode = actions.onMode,
+        )
+    }
 }
 
 private fun tabTitle(s: CalState): String {

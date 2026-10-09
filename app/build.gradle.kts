@@ -44,6 +44,17 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            all {
+                // Скриншоты рисуются по-настоящему (шрифты, тени) и всегда записываются заново
+                it.systemProperty("robolectric.graphicsMode", "NATIVE")
+                it.systemProperty("roborazzi.test.record", "true")
+                it.maxHeapSize = "3g"
+            }
+        }
+    }
     packaging {
         // У библиотек почты одинаковые файлы лицензий — оставляем по одному
         resources.excludes += setOf("META-INF/LICENSE.md", "META-INF/NOTICE.md", "META-INF/LICENSE", "META-INF/NOTICE")
@@ -73,4 +84,13 @@ dependencies {
     // Почта по IMAP/SMTP
     implementation("com.sun.mail:android-mail:1.6.7")
     implementation("com.sun.mail:android-activation:1.6.7")
+
+    // Тесты: логика и скриншоты экранов без телефона (Robolectric + Roborazzi)
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.32.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.32.0")
 }

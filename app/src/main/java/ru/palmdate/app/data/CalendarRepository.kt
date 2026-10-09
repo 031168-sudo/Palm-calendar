@@ -675,22 +675,6 @@ class CalendarRepository(
         error("Событие не найдено")
     }
 
-    /** Правило без COUNT/UNTIL (keepUntil — UNTIL оставить), с новым UNTIL, если задан. */
-    private fun ruleWith(rule: String, until: String? = null, keepUntil: Boolean = false): String =
-        (rule.split(";").filter {
-            it.isNotBlank() && !it.startsWith("COUNT=", true) && (keepUntil || !it.startsWith("UNTIL=", true))
-        } + listOfNotNull(until?.let { "UNTIL=$it" })).joinToString(";")
-
-    /** UNTIL для серии, которая должна закончиться перед этим разом. */
-    private fun untilBefore(instanceStart: Long, allDay: Boolean): String =
-        if (allDay) {
-            Instant.ofEpochMilli(instanceStart).atZone(ZoneOffset.UTC).toLocalDate().minusDays(1)
-                .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
-        } else {
-            java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
-                .format(Instant.ofEpochMilli(instanceStart - 1000).atZone(ZoneOffset.UTC))
-        }
-
     /** Закончить серию перед этим разом; её отдельно изменённые будущие разы убрать. */
     private fun endSeriesBefore(eventId: Long, s: Series, instanceStart: Long) {
         val rule = s.rrule ?: return
@@ -816,7 +800,7 @@ class CalendarRepository(
      * Метка в описании события: [palm:t=CALL;c=<lookupKey>;p=<номер>]
      * Видна в Google Calendar одной строкой, но позволяет восстановить тип, контакт и номер.
      */
-    private object Marker {
+    internal object Marker {
         private val re = Regex("""\[palm:t=(\w+)(?:;c=([^;\]]*))?(?:;p=([^;\]]*))?(?:;m=([^;\]]*))?]""")
 
         data class Parsed(val type: EventType, val lookupKey: String?, val phone: String?, val mail: String? = null)
@@ -840,6 +824,22 @@ class CalendarRepository(
     }
 
     companion object {
+        /** Правило без COUNT/UNTIL (keepUntil — UNTIL оставить), с новым UNTIL, если задан. */
+        internal fun ruleWith(rule: String, until: String? = null, keepUntil: Boolean = false): String =
+            (rule.split(";").filter {
+                it.isNotBlank() && !it.startsWith("COUNT=", true) && (keepUntil || !it.startsWith("UNTIL=", true))
+            } + listOfNotNull(until?.let { "UNTIL=$it" })).joinToString(";")
+
+        /** UNTIL для серии, которая должна закончиться перед этим разом. */
+        internal fun untilBefore(instanceStart: Long, allDay: Boolean): String =
+            if (allDay) {
+                Instant.ofEpochMilli(instanceStart).atZone(ZoneOffset.UTC).toLocalDate().minusDays(1)
+                    .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
+            } else {
+                java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
+                    .format(Instant.ofEpochMilli(instanceStart - 1000).atZone(ZoneOffset.UTC))
+            }
+
         /** Открыть событие в системном календаре. */
         fun eventUri(eventId: Long): Uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
     }
