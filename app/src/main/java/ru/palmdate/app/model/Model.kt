@@ -306,3 +306,6 @@ data class NewEvent(
 data class ContactStat(val contact: ContactRef, val calls: Int, val meetings: Int) {
     val total get() = calls + meetings
 }
+
+/** Что удалить у повторяющегося события. */
+enum class DeleteScope { ONE, FOLLOWING, ALL }

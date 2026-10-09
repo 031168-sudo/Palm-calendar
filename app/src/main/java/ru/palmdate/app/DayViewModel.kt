@@ -300,7 +300,14 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setReminders(eventId: Long, minutes: List<Int>) = launchSafe { repo.setReminders(eventId, minutes) }
 
-    fun delete(e: PalmEvent) = launchSafe { repo.delete(e.eventId) }
+    /** Удалить: только этот раз, этот и следующие или всю серию (у обычного события — просто удалить). */
+    fun delete(e: PalmEvent, scope: ru.palmdate.app.model.DeleteScope = ru.palmdate.app.model.DeleteScope.ALL) = launchSafe {
+        when (scope) {
+            ru.palmdate.app.model.DeleteScope.ONE -> repo.deleteOne(e)
+            ru.palmdate.app.model.DeleteScope.FOLLOWING -> repo.deleteFollowing(e)
+            ru.palmdate.app.model.DeleteScope.ALL -> repo.delete(e.eventId)
+        }
+    }
 
     /** Правка из подробностей: название, время, заметка. */
     fun setTitle(e: PalmEvent, title: String) = launchSafe { repo.setTitle(e.eventId, title) }
@@ -308,7 +315,7 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     fun setNote(e: PalmEvent, note: String?) = launchSafe { repo.setNote(e.eventId, note) }
 
     /** Сменить повтор серии события. */
-    fun setRepeat(e: PalmEvent, rrule: String?) = launchSafe { repo.setRepeat(e.eventId, rrule) }
+    fun setRepeat(e: PalmEvent, rrule: String?) = launchSafe { repo.setRepeat(e, rrule) }
 
     /* ---- Итоги ---- */
 

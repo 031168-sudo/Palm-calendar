@@ -301,14 +301,15 @@ fun DayScreen(vm: DayViewModel) {
             onDismiss = { details = null },
             onAction = { if (e.type == EventType.MAIL) details = null; ctx.runPrimaryAction(e, call, mailer.open) },
             onOpen = { ctx.openInCalendar(e) },
-            onDelete = { vm.delete(e); details = null },
+            onDelete = { scope -> vm.delete(e, scope); details = null },
             onHistory = e.contact?.let { c -> { details = null; history = c } },
             onOutcome = { o, note ->
                 vm.setOutcome(e, o, note)
                 details = e.copy(outcome = o, outcomeNote = note?.takeIf { it.isNotBlank() })
             },
             onFollowUp = { start -> vm.followUp(e, start) },
-            onRepeat = { rule -> vm.setRepeat(e, rule) },
+            // У повторяющегося с этого раза начинается новая часть серии — карточку закрываем
+            onRepeat = { rule -> vm.setRepeat(e, rule); if (e.recurring) details = null },
             onEditTitle = { t ->
                 val newTitle = e.type?.let { type ->
                     val prefix = if (type == EventType.MAIL) e.mail?.kind?.verb ?: type.label else type.label
@@ -319,7 +320,7 @@ fun DayScreen(vm: DayViewModel) {
             },
             onEditTime = { start, minutes ->
                 vm.setTime(e, start, minutes)
-                details = e.copy(
+                if (e.recurring) details = null else details = e.copy(
                     start = if (minutes == 0) start.toLocalDate().atStartOfDay() else start,
                     end = if (minutes == 0) start.toLocalDate().plusDays(1).atStartOfDay() else start.plusMinutes(minutes.toLong()),
                     allDay = minutes == 0,

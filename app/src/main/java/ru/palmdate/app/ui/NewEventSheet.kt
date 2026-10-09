@@ -617,7 +617,7 @@ private fun TimeEditDialog(event: PalmEvent, onDismiss: () -> Unit, onSave: (Loc
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Palm.paper,
-        title = { Text(if (event.recurring) "Время (вся серия)" else "Когда", style = Palm.title, color = Palm.ink) },
+        title = { Text(if (event.recurring) "Время (с этого раза)" else "Когда", style = Palm.title, color = Palm.ink) },
         text = {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -894,7 +894,7 @@ fun EventDetailsSheet(
     onDismiss: () -> Unit,
     onAction: () -> Unit,
     onOpen: () -> Unit,
-    onDelete: () -> Unit,
+    onDelete: (ru.palmdate.app.model.DeleteScope) -> Unit,
     onHistory: (() -> Unit)? = null,
     onOutcome: (Outcome?, String?) -> Unit = { _, _ -> },
     onFollowUp: (LocalDateTime) -> Unit = {},
@@ -922,6 +922,10 @@ fun EventDetailsSheet(
     // Перенести можно, только если календарь события доступен для записи и есть куда переносить
     // Править название, время и заметку можно, если календарь события доступен для записи
     val editable = !event.fromContacts && calendars.any { it.id == event.calendarId && it.writable }
+    var askDelete by remember { mutableStateOf(false) }
+    if (askDelete) {
+        DeleteDialog(event, onDismiss = { askDelete = false }) { scope -> askDelete = false; onDelete(scope) }
+    }
     var editTitle by remember { mutableStateOf(false) }
     var editTime by remember { mutableStateOf(false) }
     var editNote by remember { mutableStateOf(false) }
@@ -1109,7 +1113,7 @@ fun EventDetailsSheet(
                     var repeat by remember(event.eventId) { mutableStateOf(event.rrule) }
                     if (!event.fromContacts && calendars.any { it.id == event.calendarId && it.writable }) {
                         Spacer(Modifier.height(10.dp))
-                        RepeatChips(repeat, title = if (event.recurring) "Повтор (вся серия)" else "Повтор") { rule ->
+                        RepeatChips(repeat, title = if (event.recurring) "Повтор (с этого раза)" else "Повтор") { rule ->
                             repeat = rule
                             onRepeat(rule)
                         }
@@ -1130,7 +1134,7 @@ fun EventDetailsSheet(
                             PalmButton(if (event.type == null) "Назначить тип" else "Тип и контакт") { mode = DetailMode.TYPE }
                             PalmButton("В календаре", onClick = onOpen)
                             Box(
-                                Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onDelete),
+                                Modifier.size(36.dp).clip(CircleShape).clickable { askDelete = true },
                                 contentAlignment = Alignment.Center,
                             ) { Icon(Icons.Outlined.Delete, "Удалить", tint = Palm.nowLine) }
                         }
@@ -1139,6 +1143,61 @@ fun EventDetailsSheet(
             }
         }
     }
+}
+
+/**
+ * Подтверждение удаления. Обычное событие — «Удалить?»; повторяющееся — как в Google:
+ * только этот раз, этот и все следующие, вся серия.
+ */
+@Composable
+private fun DeleteDialog(event: PalmEvent, onDismiss: () -> Unit, onDelete: (ru.palmdate.app.model.DeleteScope) -> Unit) {
+    val name = event.title.ifBlank { "Событие" }
+    if (!event.recurring) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = Palm.paper,
+            title = { Text("Удалить событие?", style = Palm.title, color = Palm.ink) },
+            text = { Text("«$name» будет удалено и из Google Календаря.", style = Palm.body, color = Palm.ink) },
+            confirmButton = {
+                TextButton(onClick = { onDelete(ru.palmdate.app.model.DeleteScope.ALL) }) { Text("Удалить", color = Palm.nowLine) }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        )
+        return
+    }
+    var choice by remember { mutableStateOf(ru.palmdate.app.model.DeleteScope.ONE) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Palm.paper,
+        title = { Text("Удалить повторяющееся событие", style = Palm.title, color = Palm.ink) },
+        text = {
+            Column {
+                Text("«$name»", style = Palm.body, color = Palm.ink)
+                Spacer(Modifier.height(8.dp))
+                listOf(
+                    ru.palmdate.app.model.DeleteScope.ONE to "Только этот раз",
+                    ru.palmdate.app.model.DeleteScope.FOLLOWING to "Этот и все следующие",
+                    ru.palmdate.app.model.DeleteScope.ALL to "Всю серию",
+                ).forEach { (v, label) ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { choice = v }.padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        androidx.compose.material3.RadioButton(selected = choice == v, onClick = { choice = v })
+                        Text(label, style = Palm.body, color = Palm.ink)
+                    }
+                }
+                if (choice == ru.palmdate.app.model.DeleteScope.ALL) {
+                    Text(
+                        "Удалятся и прошедшие разы вместе с их итогами.",
+                        style = Palm.small, color = Palm.nowLine, modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onDelete(choice) }) { Text("Удалить", color = Palm.nowLine) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+    )
 }
 
 @Composable

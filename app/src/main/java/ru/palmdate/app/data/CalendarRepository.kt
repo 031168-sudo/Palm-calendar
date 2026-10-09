@@ -458,7 +458,19 @@ class CalendarRepository(
      * Сменить повтор серии (rrule == null — сделать событие одиночным).
      * Android требует: у повторяющегося события DURATION вместо DTEND, у одиночного — наоборот.
      */
-    fun setRepeat(eventId: Long, rrule: String?) {
+    /**
+     * Сменить повтор «с этого раза»: прошлые разы (и их итоги) остаются как были,
+     * с открытого раза — новое правило или одиночное событие. Если открыт первый раз — меняется вся серия.
+     */
+    suspend fun setRepeat(e: PalmEvent, rrule: String?) {
+        if (!e.recurring) return setRepeatWhole(e.eventId, rrule)
+        val s = series(e.eventId)
+        if (e.instanceStart <= s.start) return setRepeatWhole(e.eventId, rrule)
+        endSeriesBefore(e.eventId, s, e.instanceStart)
+        newSeriesFrom(e.eventId, s, e.instanceStart, s.allDay, s.lengthMs, rrule, e.instanceStart)
+    }
+
+    private fun setRepeatWhole(eventId: Long, rrule: String?) {
         val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
         var start = 0L
         var end = 0L
@@ -519,7 +531,22 @@ class CalendarRepository(
      * Новое время. minutes == 0 — на весь день.
      * У повторяющегося события сдвигается вся серия на ту же разницу, что и этот раз.
      */
-    fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int) {
+    suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int) {
+        // Повторяющееся, открыт не первый раз: прошлое не трогаем, с этого раза — новое время
+        if (e.recurring) {
+            val s = series(e.eventId)
+            if (e.instanceStart > s.start) {
+                val allDay = minutes == 0
+                val newStart = if (allDay) start.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                else start.atZone(zone).toInstant().toEpochMilli()
+                endSeriesBefore(e.eventId, s, e.instanceStart)
+                newSeriesFrom(
+                    e.eventId, s, newStart, allDay, if (allDay) 86_400_000L else minutes * 60_000L,
+                    s.rrule?.let { ruleWith(it, keepUntil = true) }, e.instanceStart,
+                )
+                return
+            }
+        }
         val uri = ContentUris.withAppendedId(Events.CONTENT_URI, e.eventId)
         val allDay = minutes == 0
         val values = ContentValues()
@@ -581,6 +608,128 @@ class CalendarRepository(
                 put(Reminders.MINUTES, m)
             })
         }
+    }
+
+    /** Удалить только этот раз повторяющегося события (в Google он тоже пропадёт). */
+    suspend fun deleteOne(e: PalmEvent) {
+        if (!e.recurring) return delete(e.eventId)
+        val v = ContentValues().apply {
+            put(Events.ORIGINAL_INSTANCE_TIME, e.instanceStart)
+            put(Events.STATUS, Events.STATUS_CANCELED)
+        }
+        resolver.insert(ContentUris.withAppendedId(Events.CONTENT_EXCEPTION_URI, e.eventId), v)
+            ?: error("Не удалось удалить этот раз")
+        links.clearOutcome(e.eventId, e.instanceStart)
+    }
+
+    /** Удалить этот раз и все следующие; прошлые остаются. С первого раза — вся серия. */
+    suspend fun deleteFollowing(e: PalmEvent) {
+        if (!e.recurring) return delete(e.eventId)
+        val s = series(e.eventId)
+        if (e.instanceStart <= s.start) return delete(e.eventId)
+        endSeriesBefore(e.eventId, s, e.instanceStart)
+        links.outcomes(listOf(e.eventId)).filter { it.instanceStart >= e.instanceStart }
+            .forEach { links.clearOutcome(it.eventId, it.instanceStart) }
+    }
+
+    /* ---------- Повторяющиеся события: изменения «с этого раза» ---------- */
+
+    /** Серия: начало, правило, весь день ли, длительность раза и поля для копии. */
+    private class Series(val start: Long, val rrule: String?, val allDay: Boolean, val lengthMs: Long, val values: ContentValues)
+
+    private fun series(eventId: Long): Series {
+        val copy = arrayOf(
+            Events.TITLE, Events.DESCRIPTION, Events.EVENT_LOCATION, Events.AVAILABILITY,
+            Events.ACCESS_LEVEL, Events.CALENDAR_ID, Events.EVENT_TIMEZONE,
+        )
+        val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
+        resolver.query(uri, arrayOf(Events.DTSTART, Events.DTEND, Events.DURATION, Events.ALL_DAY, Events.RRULE) + copy, null, null, null)
+            ?.use { c ->
+                if (!c.moveToFirst()) error("Событие не найдено")
+                val start = c.getLong(0)
+                val end = if (c.isNull(1)) 0L else c.getLong(1)
+                val allDay = c.getInt(3) == 1
+                val length = when {
+                    end > start -> end - start
+                    !c.isNull(2) -> parseDuration(c.getString(2)) ?: 3_600_000L
+                    allDay -> 86_400_000L
+                    else -> 3_600_000L
+                }
+                val values = ContentValues()
+                copy.forEachIndexed { i, col ->
+                    val idx = i + 5
+                    if (c.isNull(idx)) return@forEachIndexed
+                    when (c.getType(idx)) {
+                        android.database.Cursor.FIELD_TYPE_INTEGER -> values.put(col, c.getLong(idx))
+                        else -> values.put(col, c.getString(idx))
+                    }
+                }
+                return Series(start, c.getString(4)?.takeIf { it.isNotBlank() }, allDay, length, values)
+            }
+        error("Событие не найдено")
+    }
+
+    /** Правило без COUNT/UNTIL (keepUntil — UNTIL оставить), с новым UNTIL, если задан. */
+    private fun ruleWith(rule: String, until: String? = null, keepUntil: Boolean = false): String =
+        (rule.split(";").filter {
+            it.isNotBlank() && !it.startsWith("COUNT=", true) && (keepUntil || !it.startsWith("UNTIL=", true))
+        } + listOfNotNull(until?.let { "UNTIL=$it" })).joinToString(";")
+
+    /** UNTIL для серии, которая должна закончиться перед этим разом. */
+    private fun untilBefore(instanceStart: Long, allDay: Boolean): String =
+        if (allDay) {
+            Instant.ofEpochMilli(instanceStart).atZone(ZoneOffset.UTC).toLocalDate().minusDays(1)
+                .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
+        } else {
+            java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
+                .format(Instant.ofEpochMilli(instanceStart - 1000).atZone(ZoneOffset.UTC))
+        }
+
+    /** Закончить серию перед этим разом; её отдельно изменённые будущие разы убрать. */
+    private fun endSeriesBefore(eventId: Long, s: Series, instanceStart: Long) {
+        val rule = s.rrule ?: return
+        val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
+        val v = ContentValues().apply { put(Events.RRULE, ruleWith(rule, untilBefore(instanceStart, s.allDay))) }
+        if (resolver.update(uri, v, null, null) <= 0) error("Не удалось изменить серию")
+        runCatching {
+            resolver.delete(
+                Events.CONTENT_URI,
+                "${Events.ORIGINAL_ID} = ? AND ${Events.ORIGINAL_INSTANCE_TIME} >= ?",
+                arrayOf(eventId.toString(), instanceStart.toString()),
+            )
+        }
+    }
+
+    /**
+     * Новая часть серии (или одиночное событие, rrule == null) с этого раза: те же название, заметка,
+     * календарь, напоминания, тип, человек и письмо. Итоги будущих разов переезжают.
+     */
+    private suspend fun newSeriesFrom(
+        oldId: Long, s: Series, start: Long, allDay: Boolean, lengthMs: Long, rrule: String?, fromInstance: Long,
+    ): Long {
+        val values = ContentValues(s.values).apply {
+            put(Events.DTSTART, start)
+            put(Events.ALL_DAY, if (allDay) 1 else 0)
+            put(Events.EVENT_TIMEZONE, if (allDay) "UTC" else TimeZone.getDefault().id)
+            if (rrule == null) {
+                put(Events.DTEND, start + lengthMs)
+            } else {
+                put(Events.RRULE, rrule)
+                put(Events.DURATION, if (allDay) "P${maxOf(1L, lengthMs / 86_400_000L)}D" else "P${lengthMs / 1000}S")
+            }
+        }
+        val reminders = reminders(oldId)
+        values.put(Events.HAS_ALARM, if (reminders.isEmpty()) 0 else 1)
+        val newId = resolver.insert(Events.CONTENT_URI, values)?.let { ContentUris.parseId(it) }
+            ?: error("Не удалось создать новую часть серии")
+        insertReminders(newId, reminders)
+        links.byIds(listOf(oldId)).firstOrNull()?.let { links.upsert(it.copy(eventId = newId)) }
+        links.mail(oldId)?.let { links.upsertMail(it.copy(eventId = newId)) }
+        links.outcomes(listOf(oldId)).filter { it.instanceStart >= fromInstance }.forEach { o ->
+            links.setOutcome(o.copy(eventId = newId, instanceStart = if (o.instanceStart == fromInstance) start else o.instanceStart))
+            links.clearOutcome(oldId, o.instanceStart)
+        }
+        return newId
     }
 
     suspend fun delete(eventId: Long) {
