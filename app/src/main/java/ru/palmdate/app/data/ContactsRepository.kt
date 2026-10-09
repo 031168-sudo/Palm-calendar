@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.Phone
+import android.provider.ContactsContract.CommonDataKinds.Email as EmailKind
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.PhoneNumber
@@ -41,15 +42,14 @@ class ContactsRepository(private val context: Context) {
 
     /** Поиск людей с почтой по имени или адресу. */
     fun searchEmails(query: String, limit: Int = 50): List<EmailContact> {
-        val E = ContactsContract.CommonDataKinds.Email
-        val uri = if (query.isBlank()) E.CONTENT_URI
-        else Uri.withAppendedPath(E.CONTENT_FILTER_URI, Uri.encode(query.trim()))
+        val uri = if (query.isBlank()) EmailKind.CONTENT_URI
+        else Uri.withAppendedPath(EmailKind.CONTENT_FILTER_URI, Uri.encode(query.trim()))
         val result = ArrayList<EmailContact>()
         val seen = HashSet<String>()
         runCatching {
             resolver.query(
-                uri, arrayOf(E.LOOKUP_KEY, E.DISPLAY_NAME_PRIMARY, E.ADDRESS), null, null,
-                "${E.DISPLAY_NAME_PRIMARY} COLLATE LOCALIZED ASC",
+                uri, arrayOf(EmailKind.LOOKUP_KEY, EmailKind.DISPLAY_NAME_PRIMARY, EmailKind.ADDRESS), null, null,
+                "${EmailKind.DISPLAY_NAME_PRIMARY} COLLATE LOCALIZED ASC",
             )?.use { c ->
                 while (c.moveToNext() && result.size < limit) {
                     val key = c.getString(0) ?: continue
@@ -64,12 +64,11 @@ class ContactsRepository(private val context: Context) {
 
     /** Все адреса почты контакта. */
     fun emails(lookupKey: String): List<String> {
-        val E = ContactsContract.CommonDataKinds.Email
         val list = ArrayList<String>()
         runCatching {
             resolver.query(
-                E.CONTENT_URI, arrayOf(E.ADDRESS), "${E.LOOKUP_KEY} = ?", arrayOf(lookupKey),
-                "${E.IS_SUPER_PRIMARY} DESC, ${E.IS_PRIMARY} DESC",
+                EmailKind.CONTENT_URI, arrayOf(EmailKind.ADDRESS), "${EmailKind.LOOKUP_KEY} = ?", arrayOf(lookupKey),
+                "${EmailKind.IS_SUPER_PRIMARY} DESC, ${EmailKind.IS_PRIMARY} DESC",
             )?.use { c -> while (c.moveToNext()) c.getString(0)?.trim()?.takeIf { it.contains("@") }?.let { if (it !in list) list += it } }
         }
         return list
@@ -77,10 +76,9 @@ class ContactsRepository(private val context: Context) {
 
     /** Чей это адрес почты (lookupKey контакта) — или null. */
     fun byEmail(address: String): ContactRef? {
-        val E = ContactsContract.CommonDataKinds.Email
         val key = runCatching {
             resolver.query(
-                E.CONTENT_URI, arrayOf(E.LOOKUP_KEY), "LOWER(${E.ADDRESS}) = ?", arrayOf(address.trim().lowercase()), null,
+                EmailKind.CONTENT_URI, arrayOf(EmailKind.LOOKUP_KEY), "LOWER(${EmailKind.ADDRESS}) = ?", arrayOf(address.trim().lowercase()), null,
             )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
         }.getOrNull() ?: return null
         return byLookupKey(key, null)
