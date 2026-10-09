@@ -39,8 +39,40 @@ data class OutcomeRow(
     val note: String?,
 )
 
+/**
+ * Письмо события «Письмо»: kind = REPLY (ответить на найденное письмо) или NEW (написать новое).
+ * draft — незаконченное письмо (JSON), draftId — Message-ID его копии в «Черновиках» ящика.
+ */
+@Entity(tableName = "mail_links")
+data class MailLink(
+    @PrimaryKey val eventId: Long,
+    val kind: String,
+    val messageId: String? = null,
+    val folder: String? = null,
+    val subject: String? = null,
+    val peerName: String? = null,
+    val peerAddr: String? = null,
+    val date: Long? = null,
+    val draft: String? = null,
+    val draftId: String? = null,
+)
+
 @Dao
 interface LinkDao {
+    @Query("SELECT * FROM mail_links WHERE eventId IN (:ids)")
+    suspend fun mailByIds(ids: List<Long>): List<MailLink>
+
+    @Query("SELECT * FROM mail_links WHERE eventId = :eventId")
+    suspend fun mail(eventId: Long): MailLink?
+
+    @Query("SELECT * FROM mail_links") suspend fun allMail(): List<MailLink>
+
+    @Upsert
+    suspend fun upsertMail(m: MailLink)
+
+    @Query("DELETE FROM mail_links WHERE eventId = :eventId")
+    suspend fun deleteMail(eventId: Long)
+
     // Для резервной копии
     @Query("SELECT * FROM links") suspend fun allLinks(): List<EventLink>
     @Query("SELECT * FROM outcomes") suspend fun allOutcomes(): List<OutcomeRow>
@@ -87,7 +119,18 @@ private val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
     }
 }
 
-@Database(entities = [EventLink::class, ContactPhone::class, OutcomeRow::class], version = 3, exportSchema = false)
+/** 3 → 4: таблица писем у событий «Письмо». */
+private val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `mail_links` (`eventId` INTEGER NOT NULL, `kind` TEXT NOT NULL, " +
+                "`messageId` TEXT, `folder` TEXT, `subject` TEXT, `peerName` TEXT, `peerAddr` TEXT, " +
+                "`date` INTEGER, `draft` TEXT, `draftId` TEXT, PRIMARY KEY(`eventId`))",
+        )
+    }
+}
+
+@Database(entities = [EventLink::class, ContactPhone::class, OutcomeRow::class, MailLink::class], version = 4, exportSchema = false)
 abstract class AppDb : RoomDatabase() {
     abstract fun links(): LinkDao
 
@@ -97,7 +140,7 @@ abstract class AppDb : RoomDatabase() {
         fun get(context: Context): AppDb = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, AppDb::class.java, "palmdate.db")
                 // Связи восстанавливаются из меток в описании событий, поэтому при смене схемы можно пересоздать
-                .addMigrations(MIGRATION_2_3)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                 .fallbackToDestructiveMigration()
                 .build().also { instance = it }
         }

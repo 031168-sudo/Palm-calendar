@@ -1,7 +1,8 @@
 package ru.palmdate.app.model
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Celebration
+import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Flight
 import androidx.compose.material.icons.outlined.Groups
@@ -28,15 +29,21 @@ enum class EventType(
     MEETING("Встреча", Icons.Outlined.Groups, Color(0xFF1E3A6E), 60, true, listOf(15)),
     TASK("Задача", Icons.Outlined.TaskAlt, Color(0xFF2E7D32), 30, false, listOf(15)),
     TRIP("Поездка", Icons.Outlined.Flight, Color(0xFF6A4C93), 120, false, listOf(60)),
-    // Имя в коде осталось BIRTHDAY — оно записано в метках уже созданных событий
-    BIRTHDAY("Праздник", Icons.Outlined.Celebration, Color(0xFFD35400), 0, false, listOf(0)),
-    OTHER("Событие", Icons.Outlined.Event, Color(0xFF546E7A), 60, false, listOf(15));
+    MAIL("Письмо", Icons.Outlined.Email, Color(0xFF00838F), 15, false, listOf(15)),
+    OTHER("Событие", Icons.Outlined.Event, Color(0xFF546E7A), 60, false, listOf(15)),
+    // Только для дней рождения из карточек контактов — выбрать его нельзя.
+    // Старые события «Праздник» (метка t=BIRTHDAY) становятся обычными событиями.
+    BIRTHDAY("День рождения", Icons.Outlined.Cake, Color(0xFFD35400), 0, false, listOf(0));
 
     /** Цвет типа с поправкой на тему (в тёмной — светлее). */
     val color: Color get() = ru.palmdate.app.ui.theme.Palm.typeColor(baseColor)
 
     companion object {
-        fun parse(s: String?): EventType? = entries.firstOrNull { it.name == s }
+        /** Типы, которые можно выбрать в «Новое» и в настройках. */
+        val pickable: List<EventType> get() = entries.filter { it != BIRTHDAY }
+
+        /** Тип из метки или базы. BIRTHDAY («Праздник») больше не тип — такие события обычные. */
+        fun parse(s: String?): EventType? = entries.firstOrNull { it.name == s && it != BIRTHDAY }
     }
 }
 
@@ -130,11 +137,20 @@ data class PalmEvent(
     val outcomeNote: String? = null,
     val fromContacts: Boolean = false, // день рождения из карточки контакта, а не событие календаря
     val rrule: String? = null,         // правило повтора серии
+    val mail: MailInfo? = null,        // письмо, к которому относится событие «Письмо»
 ) {
     /** Название без приставки типа: "Задача: тест" → "тест". Пусто, если названия нет. */
     val shortTitle: String
         get() {
             val t = type ?: return title
+            if (t == EventType.MAIL) {
+                val prefix = (mail?.kind ?: MailKind.REPLY).verb
+                return when {
+                    title == prefix || title == t.label -> ""
+                    title.startsWith("$prefix: ") -> title.removePrefix("$prefix: ")
+                    else -> title
+                }
+            }
             return when {
                 title == t.label -> ""
                 title.startsWith(t.label + ": ") -> title.removePrefix(t.label + ": ")
@@ -170,6 +186,7 @@ enum class Outcome(val kind: OutcomeKind) {
     /** Подпись с учётом типа события: звонок "состоялся", встреча "состоялась", задача "выполнена". */
     fun label(type: EventType?): String = when (this) {
         DONE -> when (type) {
+            EventType.MAIL -> "Отправлено"
             EventType.CALL -> "Состоялся"
             EventType.MEETING -> "Состоялась"
             EventType.TASK -> "Выполнена"
@@ -177,7 +194,7 @@ enum class Outcome(val kind: OutcomeKind) {
         }
         NO_ANSWER -> "Не дозвонился"
         NO_SHOW -> "Не пришли"
-        NOT_DONE -> "Не выполнена"
+        NOT_DONE -> if (type == EventType.MAIL) "Не отправлено" else "Не выполнена"
         RESCHEDULED -> when (type) {
             EventType.CALL -> "Перенесён"
             EventType.MEETING -> "Перенесена"
@@ -196,6 +213,7 @@ enum class Outcome(val kind: OutcomeKind) {
             EventType.CALL -> listOf(DONE, NO_ANSWER, RESCHEDULED, CANCELLED)
             EventType.MEETING -> listOf(DONE, RESCHEDULED, CANCELLED, NO_SHOW)
             EventType.TASK -> listOf(DONE, NOT_DONE)
+            EventType.MAIL -> listOf(DONE, NOT_DONE, RESCHEDULED, CANCELLED)
             else -> listOf(DONE, CANCELLED)
         }
 
@@ -249,6 +267,27 @@ fun repeatLabel(rrule: String?): String = when (val m = matchRepeat(rrule)) {
     else -> REPEAT_OPTIONS.first { it.first == m }.second
 }
 
+/** Письмо: ответить на пришедшее или написать новое. */
+enum class MailKind(val verb: String) { REPLY("Ответить"), NEW("Написать") }
+
+/**
+ * Письмо, привязанное к событию. Для «Ответить» — найденное письмо (по Message-ID),
+ * для «Написать» — кому. peerName/peerAddr — от кого (ответ) или кому (новое).
+ */
+data class MailInfo(
+    val kind: MailKind,
+    val messageId: String? = null,
+    val folder: String? = null,
+    val subject: String? = null,
+    val peerName: String? = null,
+    val peerAddr: String? = null,
+    val date: Long? = null,
+    val hasDraft: Boolean = false,
+) {
+    /** Как показать собеседника: имя, иначе адрес. */
+    val peer: String? get() = peerName?.takeIf { it.isNotBlank() } ?: peerAddr
+}
+
 /** То, что собирает окно "Новое". */
 data class NewEvent(
     val type: EventType,
@@ -260,6 +299,7 @@ data class NewEvent(
     val calendarId: Long,
     val reminders: List<Int>,
     val rrule: String? = null,
+    val mail: MailInfo? = null,
 )
 
 /** Строка статистики: человек и сколько с ним состоялось звонков и встреч. */

@@ -13,6 +13,8 @@ import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.ContactStat
 import ru.palmdate.app.model.EventType
+import ru.palmdate.app.model.MailInfo
+import ru.palmdate.app.model.MailKind
 import ru.palmdate.app.model.NewEvent
 import ru.palmdate.app.model.Outcome
 import ru.palmdate.app.model.PalmEvent
@@ -88,6 +90,15 @@ class CalendarRepository(
         }.filter { it.total > 0 }
     }
 
+    /** Письмо события (с черновиком) — для экранов почты. */
+    suspend fun mailLink(eventId: Long): MailLink? = links.mail(eventId)
+
+    /** Сохранить черновик письма события (или убрать: draft == null). */
+    suspend fun setMailDraft(eventId: Long, draft: String?, draftId: String?) {
+        val m = links.mail(eventId) ?: return
+        links.upsertMail(m.copy(draft = draft, draftId = draftId))
+    }
+
     /** Все события в диапазоне дней [from, toExclusive), с типом, контактом и цветом. */
     suspend fun eventsBetween(
         from: LocalDate,
@@ -125,6 +136,7 @@ class CalendarRepository(
         val ids = raws.map { it.id }.distinct()
         val linkById = links.byIds(ids).associateBy { it.eventId }.toMutableMap()
         val outcomeByKey = links.outcomes(ids).associateBy { it.eventId to it.instanceStart }
+        val mailById = links.mailByIds(ids).associateBy { it.eventId }.toMutableMap()
         val accountByCal = calendarAccounts()
 
         val calendarEvents = raws.map { r ->
@@ -139,6 +151,12 @@ class CalendarRepository(
                 // восстановили связь из метки в описании
                 EventLink(r.id, it.type.name, it.lookupKey, it.phone).also { l -> links.upsert(l); linkById[r.id] = l }
             }
+            // Письмо: из базы, иначе восстанавливаем из метки
+            val type = EventType.parse(link?.type)
+            val mail = if (type != EventType.MAIL) null else (mailById[r.id] ?: mailFromMarker(Marker.parse(r.desc)?.mail)?.let { ml ->
+                ml.copy(eventId = r.id, subject = if (ml.kind == MailKind.REPLY.name) r.title.substringAfter(": ", "") .takeIf { it.isNotEmpty() } else null)
+                    .also { links.upsertMail(it); mailById[r.id] = it }
+            })?.toInfo()
             val contact = link?.lookupKey?.let { key ->
                 contacts.byLookupKey(key, link.phone ?: links.rememberedPhone(key))
             }
@@ -150,7 +168,7 @@ class CalendarRepository(
                 start = LocalDateTime.ofInstant(Instant.ofEpochMilli(r.begin), tz),
                 end = LocalDateTime.ofInstant(Instant.ofEpochMilli(r.end), tz),
                 allDay = r.allDay,
-                type = EventType.parse(link?.type),
+                type = type,
                 contact = contact,
                 note = OutcomeLine.strip(Marker.strip(r.desc))?.takeIf { it.isNotBlank() },
                 color = r.color,
@@ -162,6 +180,7 @@ class CalendarRepository(
                 instanceStart = r.begin,
                 outcome = Outcome.parse(outcome?.status),
                 outcomeNote = outcome?.note,
+                mail = mail,
             )
         }
         if (onlyIds != null) return calendarEvents
@@ -328,6 +347,7 @@ class CalendarRepository(
 
         // Тип, контакт и номер переезжают вместе с событием
         links.byIds(listOf(eventId)).firstOrNull()?.let { links.upsert(it.copy(eventId = newId)) }
+        links.mail(eventId)?.let { links.upsertMail(it.copy(eventId = newId)); links.deleteMail(eventId) }
         links.outcomes(listOf(eventId)).forEach { links.setOutcome(it.copy(eventId = newId)) }
         links.clearOutcomes(eventId)
 
@@ -363,8 +383,18 @@ class CalendarRepository(
 
     suspend fun create(e: NewEvent): Long {
         val name = e.contact?.name ?: e.title?.takeIf { it.isNotBlank() }
-        val title = if (name != null) "${e.type.label}: $name" else e.type.label
-        val desc = withMarker(e.note, e.type, e.contact?.lookupKey, e.contact?.phone)
+        val title = when {
+            // Письмо: "Ответить: тема" / "Написать: Иван Петров"
+            e.type == EventType.MAIL && e.mail != null -> {
+                val m: MailInfo = e.mail
+                val what = e.title?.takeIf { it.isNotBlank() }
+                    ?: if (m.kind == MailKind.REPLY) m.subject?.takeIf { it.isNotBlank() } ?: m.peer else e.contact?.name ?: m.peer
+                if (what != null) "${m.kind.verb}: $what" else m.kind.verb
+            }
+            name != null -> "${e.type.label}: $name"
+            else -> e.type.label
+        }
+        val desc = withMarker(e.note, e.type, e.contact?.lookupKey, e.contact?.phone, mailMarker(e.mail))
 
         val values = ContentValues().apply {
             put(Events.CALENDAR_ID, e.calendarId)
@@ -395,6 +425,9 @@ class CalendarRepository(
 
         insertReminders(eventId, e.reminders)
         links.upsert(EventLink(eventId, e.type.name, e.contact?.lookupKey, e.contact?.phone))
+        e.mail?.let { m ->
+            links.upsertMail(MailLink(eventId, m.kind.name, m.messageId, m.folder, m.subject, m.peerName, m.peerAddr, m.date))
+        }
         e.contact?.let { c -> c.phone?.let { links.rememberPhone(ContactPhone(c.lookupKey, it)) } }
         return eventId
     }
@@ -414,8 +447,9 @@ class CalendarRepository(
             val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
             val desc = resolver.query(uri, arrayOf(Events.DESCRIPTION), null, null, null)
                 ?.use { if (it.moveToFirst()) it.getString(0) else null }
+            val keepMail = Marker.parse(desc)?.mail?.takeIf { type == EventType.MAIL }
             val newDesc = if (type == null) Marker.strip(desc) ?: ""
-            else withMarker(Marker.strip(desc), type, contact?.lookupKey, contact?.phone)
+            else withMarker(Marker.strip(desc), type, contact?.lookupKey, contact?.phone, keepMail)
             resolver.update(uri, ContentValues().apply { put(Events.DESCRIPTION, newDesc) }, null, null)
         }
     }
@@ -553,6 +587,7 @@ class CalendarRepository(
         resolver.delete(ContentUris.withAppendedId(Events.CONTENT_URI, eventId), null, null)
         links.delete(eventId)
         links.clearOutcomes(eventId)
+        links.deleteMail(eventId)
     }
 
     /**
@@ -594,28 +629,46 @@ class CalendarRepository(
         )
     }
 
-    private fun withMarker(note: String?, type: EventType, lookupKey: String?, phone: String?) =
-        listOfNotNull(note?.takeIf { it.isNotBlank() }, Marker.make(type, lookupKey, phone)).joinToString("\n")
+    private fun withMarker(note: String?, type: EventType, lookupKey: String?, phone: String?, mail: String? = null) =
+        listOfNotNull(note?.takeIf { it.isNotBlank() }, Marker.make(type, lookupKey, phone, mail)).joinToString("\n")
+
+    /** Письмо в метке: "R|<Message-ID>" — ответить, "N|<адрес>" — написать. */
+    private fun mailMarker(m: MailInfo?): String? = when (m?.kind) {
+        null -> null
+        MailKind.REPLY -> m.messageId?.let { "R|$it" }
+        MailKind.NEW -> m.peerAddr?.let { "N|$it" }
+    }
+
+    private fun mailFromMarker(s: String?): MailLink? {
+        if (s == null || s.length < 3 || s[1] != '|') return null
+        val v = s.substring(2)
+        return when (s[0]) {
+            'R' -> MailLink(0, MailKind.REPLY.name, messageId = v)
+            'N' -> MailLink(0, MailKind.NEW.name, peerAddr = v)
+            else -> null
+        }
+    }
 
     /**
      * Метка в описании события: [palm:t=CALL;c=<lookupKey>;p=<номер>]
      * Видна в Google Calendar одной строкой, но позволяет восстановить тип, контакт и номер.
      */
     private object Marker {
-        private val re = Regex("""\[palm:t=(\w+)(?:;c=([^;\]]*))?(?:;p=([^;\]]*))?]""")
+        private val re = Regex("""\[palm:t=(\w+)(?:;c=([^;\]]*))?(?:;p=([^;\]]*))?(?:;m=([^;\]]*))?]""")
 
-        data class Parsed(val type: EventType, val lookupKey: String?, val phone: String?)
+        data class Parsed(val type: EventType, val lookupKey: String?, val phone: String?, val mail: String? = null)
 
-        fun make(type: EventType, lookupKey: String?, phone: String?) =
+        fun make(type: EventType, lookupKey: String?, phone: String?, mail: String? = null) =
             "[palm:t=${type.name}" +
                 (lookupKey?.let { ";c=" + Uri.encode(it) } ?: "") +
-                (phone?.let { ";p=" + Uri.encode(it) } ?: "") + "]"
+                (phone?.let { ";p=" + Uri.encode(it) } ?: "") +
+                (mail?.let { ";m=" + Uri.encode(it) } ?: "") + "]"
 
         fun parse(desc: String?): Parsed? {
             val m = desc?.let { re.find(it) } ?: return null
             val type = EventType.parse(m.groupValues[1]) ?: return null
             fun g(i: Int) = m.groupValues[i].takeIf { it.isNotEmpty() }?.let { Uri.decode(it) }
-            return Parsed(type, g(2), g(3))
+            return Parsed(type, g(2), g(3), g(4))
         }
 
         fun strip(desc: String?) = desc?.replace(re, "")?.trim()
@@ -628,3 +681,11 @@ class CalendarRepository(
         fun eventUri(eventId: Long): Uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
     }
 }
+
+/** Строка базы → то, что показывают экраны. */
+fun MailLink.toInfo() = MailInfo(
+    kind = runCatching { MailKind.valueOf(kind) }.getOrDefault(MailKind.REPLY),
+    messageId = messageId, folder = folder, subject = subject,
+    peerName = peerName, peerAddr = peerAddr, date = date,
+    hasDraft = draft != null,
+)

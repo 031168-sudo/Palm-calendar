@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
 
                 if (granted) {
                     LaunchedEffect(Unit) { vm.start() }
-                    ru.palmdate.app.ui.CallerHost { DayScreen(vm) }
+                    ru.palmdate.app.ui.CallerHost { ru.palmdate.app.ui.MailHost(vm) { DayScreen(vm) } }
                 } else {
                     PermissionScreen { launcher.launch(PERMISSIONS) }
                 }

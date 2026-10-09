@@ -87,7 +87,7 @@ private suspend fun pickPhone(contact: ContactRef, phonesFor: PhonesFor): Pair<L
     return phones to chosen
 }
 
-private enum class Step { TYPE, WHO, PHONE, CALENDAR, WHEN }
+private enum class Step { TYPE, WHO, PHONE, MAIL_KIND, MAIL_TO, CALENDAR, WHEN }
 
 /**
  * "Новое": тип → кто → (номер) → (календарь) → когда.
@@ -105,7 +105,11 @@ fun NewEventSheet(
     onCreate: (NewEvent) -> Unit,
     presetType: EventType? = null,       // из статистики: тип и человек уже выбраны
     presetContact: ContactRef? = null,
+    searchEmails: suspend (String) -> List<ru.palmdate.app.data.ContactsRepository.EmailContact> = { emptyList() },
+    contactByEmail: suspend (String) -> ContactRef? = { null },
 ) {
+    val mailer = LocalMailer.current
+    var mail by remember { mutableStateOf<ru.palmdate.app.model.MailInfo?>(null) }
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(Step.TYPE) }
     var presetPending by remember { mutableStateOf(presetType != null) }
@@ -169,7 +173,11 @@ fun NewEventSheet(
 
     PalmSheet(onDismissRequest = onDismiss, fixedHeight = false) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
-            SheetTitle(type ?: presetType, contact?.name ?: presetContact?.name ?: title.takeIf { it.isNotBlank() })
+            SheetTitle(
+                type ?: presetType,
+                mail?.let { m -> m.kind.verb + ": " + ((if (m.kind == ru.palmdate.app.model.MailKind.REPLY) m.subject else null) ?: m.peer ?: "") }
+                    ?: contact?.name ?: presetContact?.name ?: title.takeIf { it.isNotBlank() },
+            )
             Spacer(Modifier.height(12.dp))
 
             if (presetPending) {
@@ -180,7 +188,32 @@ fun NewEventSheet(
                     val st = ru.palmdate.app.data.SettingsStore.current
                     minutes = st.duration(t)
                     reminders = if (minutes == 0) st.allDayReminders else st.remindersFor(t)
-                    step = Step.WHO
+                    step = if (t == EventType.MAIL) Step.MAIL_KIND else Step.WHO
+                }
+
+                // Письмо: ответить на пришедшее или написать новое
+                Step.MAIL_KIND -> MailKindPicker(
+                    onReply = {
+                        mailer.pick("") { h ->
+                            mail = ru.palmdate.app.model.MailInfo(
+                                ru.palmdate.app.model.MailKind.REPLY, h.messageId, h.folder, h.subject,
+                                h.from?.name, h.from?.email, h.date,
+                            )
+                            scope.launch {
+                                contact = h.from?.email?.let { contactByEmail(it) }
+                                toCalendarOrWhen()
+                            }
+                        }
+                    },
+                    onNew = { step = Step.MAIL_TO },
+                )
+
+                Step.MAIL_TO -> RecipientPicker(searchEmails) { name, addr, key ->
+                    mail = ru.palmdate.app.model.MailInfo(ru.palmdate.app.model.MailKind.NEW, peerName = name, peerAddr = addr)
+                    scope.launch {
+                        contact = key?.let { ContactRef(it, name ?: addr) } ?: contactByEmail(addr)
+                        toCalendarOrWhen()
+                    }
                 }
 
                 Step.WHO -> {
@@ -232,7 +265,7 @@ fun NewEventSheet(
                     onDone = {
                         val cal = calendarId
                         if (cal == null) step = Step.CALENDAR
-                        else onCreate(NewEvent(type!!, contact, title, start, minutes, note, cal, reminders, rrule))
+                        else onCreate(NewEvent(type!!, contact, title, start, minutes, note, cal, reminders, rrule, mail))
                     },
                 ) }
             }
@@ -267,14 +300,14 @@ private fun SheetTitle(type: EventType?, who: String?, label: String? = null, on
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TypeGrid(onNone: (() -> Unit)? = null, onPick: (EventType) -> Unit) {
+private fun TypeGrid(onNone: (() -> Unit)? = null, exclude: Set<EventType> = emptySet(), onPick: (EventType) -> Unit) {
     FlowRow(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
         maxItemsInEachRow = 3,
     ) {
-        EventType.entries.forEach { t ->
+        EventType.pickable.filter { it !in exclude }.forEach { t ->
             Column(
                 Modifier
                     .weight(1f)
@@ -294,6 +327,58 @@ private fun TypeGrid(onNone: (() -> Unit)? = null, onPick: (EventType) -> Unit) 
         Spacer(Modifier.height(10.dp))
         Row { Spacer(Modifier.weight(1f)); PalmButton("Без типа", onClick = onNone) }
     }
+}
+
+/** «Письмо»: два пути — ответить на пришедшее или написать новое. */
+@Composable
+private fun MailKindPicker(onReply: () -> Unit, onNew: () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        MailKindCard("Ответить", "найти письмо\nи ответить на него", Modifier.weight(1f), onReply)
+        MailKindCard("Написать", "новое письмо\nчеловеку или на адрес", Modifier.weight(1f), onNew)
+    }
+}
+
+@Composable
+private fun MailKindCard(title: String, sub: String, modifier: Modifier, onClick: () -> Unit) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(10.dp))
+            .border(1.dp, Palm.rule, RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 16.dp, horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(EventType.MAIL.icon, null, tint = EventType.MAIL.color, modifier = Modifier.size(30.dp))
+        Spacer(Modifier.height(6.dp))
+        Text(title, style = Palm.button, color = Palm.ink)
+        Text(sub, style = Palm.small, color = Palm.inkSoft, textAlign = TextAlign.Center)
+    }
+}
+
+/** Кому написать: человек с почтой из контактов или просто адрес. */
+@Composable
+private fun RecipientPicker(
+    search: suspend (String) -> List<ru.palmdate.app.data.ContactsRepository.EmailContact>,
+    onPick: (name: String?, addr: String, lookupKey: String?) -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<ru.palmdate.app.data.ContactsRepository.EmailContact>>(emptyList()) }
+    LaunchedEffect(query) { delay(150); results = search(query) }
+    val typed = query.trim()
+    val isAddress = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$").matches(typed)
+    OutlinedTextField(
+        value = query, onValueChange = { query = it },
+        label = { Text("Кому: имя или адрес почты") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+    )
+    if (isAddress) {
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(typed, style = Palm.body, color = Palm.ink, modifier = Modifier.weight(1f), maxLines = 1)
+            PalmButton("Далее", filled = true) { onPick(null, typed, null) }
+        }
+    }
+    Spacer(Modifier.height(6.dp))
+    EmailList(results, Modifier.heightIn(max = 340.dp)) { p -> onPick(p.name, p.email, p.lookupKey) }
 }
 
 @Composable
@@ -816,12 +901,14 @@ fun EventDetailsSheet(
         // Всегда на всю высоту экрана: когда в итоге появляются поля и кнопки, окно не прыгает
         Column(Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 16.dp).padding(bottom = 20.dp)) {
             // Тип · название (у событий с контактом — имя). Тап: правка названия или выбор контакта
+            val isMail = event.type == EventType.MAIL
             SheetTitle(
                 event.type,
-                event.contact?.name ?: event.shortTitle.takeIf { it.isNotBlank() },
-                event.typeLabel ?: "Событие",
+                if (isMail) event.shortTitle.takeIf { it.isNotBlank() }
+                else event.contact?.name ?: event.shortTitle.takeIf { it.isNotBlank() },
+                if (isMail) event.mail?.kind?.verb ?: "Письмо" else event.typeLabel ?: "Событие",
                 onClick = if (!editable) null else ({
-                    if (event.contact != null && event.type != null) {
+                    if (!isMail && event.contact != null && event.type != null) {
                         pendingType = event.type; mode = DetailMode.CONTACT
                     } else editTitle = true
                 }),
@@ -829,8 +916,10 @@ fun EventDetailsSheet(
             Spacer(Modifier.height(12.dp))
 
             when (mode) {
+                // Письмом существующее событие не сделать — письмо выбирается при создании
                 DetailMode.TYPE -> TypeGrid(
                     onNone = { onSetLink(null, null); mode = DetailMode.VIEW },
+                    exclude = setOf(EventType.MAIL),
                 ) { t ->
                     pendingType = t
                     if (t.needsContact) mode = DetailMode.CONTACT else applyContact(t, null)
@@ -873,7 +962,20 @@ fun EventDetailsSheet(
                             onClick = if (canMove) ({ mode = DetailMode.CALENDAR }) else null,
                         )
                     }
-                    event.contact?.let { c ->
+                    // Письмо: какое (ответить) или кому (написать); тап — открыть
+                    event.mail?.takeIf { isMail }?.let { m ->
+                        if (m.kind == ru.palmdate.app.model.MailKind.REPLY) {
+                            SettingRow(
+                                "Письмо", m.subject ?: "(без темы)",
+                                sub = listOfNotNull(m.peer?.let { "от $it" }, m.date?.let { longDate(it) }).joinToString(" · ").takeIf { it.isNotEmpty() },
+                                onClick = onAction,
+                            )
+                        } else {
+                            SettingRow("Кому", m.peer ?: "—", sub = m.peerAddr?.takeIf { it != m.peer }, onClick = onAction)
+                        }
+                        if (m.hasDraft) DetailLine("Черновик", "сохранён — продолжить можно по кнопке ниже")
+                    }
+                    event.contact?.takeIf { !isMail }?.let { c ->
                         // Номер можно сменить из списка номеров контакта
                         SettingRow("Телефон", c.phone ?: "нет номера", onClick = {
                             scope.launch {

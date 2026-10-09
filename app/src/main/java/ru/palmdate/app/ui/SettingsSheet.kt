@@ -102,7 +102,7 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
             /* ---------- События по умолчанию ---------- */
             Section("События по умолчанию")
             var openType by remember { mutableStateOf<EventType?>(null) }
-            EventType.entries.forEach { t ->
+            EventType.pickable.forEach { t ->
                 val dur = s.duration(t)
                 val rem = if (dur == 0) s.allDayReminders else s.remindersFor(t)
                 Row(

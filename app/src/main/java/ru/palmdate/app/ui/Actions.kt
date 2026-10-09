@@ -11,16 +11,22 @@ import ru.palmdate.app.model.PalmEvent
 
 /** Что делает тап по иконке события — как на Palm: звонок набирает номер, встреча ведёт на карту. */
 fun primaryActionLabel(e: PalmEvent): String? = when {
+    e.type == EventType.MAIL && e.mail != null -> when {
+        e.mail.hasDraft && e.mail.kind == ru.palmdate.app.model.MailKind.NEW -> "Продолжить письмо"
+        e.mail.kind == ru.palmdate.app.model.MailKind.REPLY -> "Открыть письмо"
+        else -> "Написать письмо"
+    }
     e.fromContacts && e.contact != null -> "Поздравить"
     e.type == EventType.CALL && e.contact != null -> "Позвонить"
     e.type == EventType.MEETING && e.contact?.address != null -> "Маршрут"
     else -> null
 }
 
-/** call — показать выбор "телефон или мессенджер" (LocalCaller). */
-fun Context.runPrimaryAction(e: PalmEvent, call: (ru.palmdate.app.model.ContactRef) -> Unit) {
+/** call — показать выбор "телефон или мессенджер" (LocalCaller); mail — открыть письмо (LocalMailer). */
+fun Context.runPrimaryAction(e: PalmEvent, call: (ru.palmdate.app.model.ContactRef) -> Unit, mail: (PalmEvent) -> Unit = {}) {
     val c = e.contact
     when {
+        e.type == EventType.MAIL && e.mail != null -> mail(e)
         // День рождения из контактов — поздравить: телефон или мессенджер
         e.fromContacts -> c?.let(call)
         e.type == EventType.CALL && c != null -> call(c)

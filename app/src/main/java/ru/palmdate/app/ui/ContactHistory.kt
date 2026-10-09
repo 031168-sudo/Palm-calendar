@@ -213,7 +213,7 @@ fun ContactHistorySheet(
                     is HRow.Item -> {
                         val d = r.e.start.toLocalDate()
                         val dow = d.dayOfWeek.getDisplayName(TextStyle.SHORT, RU)
-                        val title = (r.e.typeLabel ?: r.e.title) +
+                        val title = (if (r.e.type == EventType.MAIL) r.e.title else r.e.typeLabel ?: r.e.title) +
                             if (r.e.allDay) "" else ", " + r.e.start.format(HM)
                         EventLine(
                             r.e, "${d.dayOfMonth} $dow", highlight = d == today,

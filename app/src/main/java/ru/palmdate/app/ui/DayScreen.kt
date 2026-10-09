@@ -120,6 +120,7 @@ fun DayScreen(vm: DayViewModel) {
     var newAt by remember { mutableStateOf<LocalDateTime?>(null) }
     var details by remember { mutableStateOf<PalmEvent?>(null) }
     val call = LocalCaller.current
+    val mailer = LocalMailer.current
     var history by remember { mutableStateOf<ru.palmdate.app.model.ContactRef?>(null) }
     var pickDate by remember { mutableStateOf(false) }
     var showCalendars by remember { mutableStateOf(false) }
@@ -182,7 +183,7 @@ fun DayScreen(vm: DayViewModel) {
                 },
         ) { page ->
             // Задача — отметить выполненной; остальное — позвонить / маршрут
-            val onIcon: (PalmEvent) -> Unit = { if (it.type == EventType.TASK) vm.toggleTask(it) else ctx.runPrimaryAction(it, call) }
+            val onIcon: (PalmEvent) -> Unit = { if (it.type == EventType.TASK) vm.toggleTask(it) else ctx.runPrimaryAction(it, call, mailer.open) }
             val onEvent: (PalmEvent) -> Unit = { details = it }
             when (page.mode) {
                 ViewMode.DAY -> DayBody(
@@ -277,6 +278,8 @@ fun DayScreen(vm: DayViewModel) {
             lastCalendarId = vm.lastCalendarId(),
             onDismiss = { newAt = null; newPreset = null },
             onCreate = { vm.create(it); newAt = null; newPreset = null },
+            searchEmails = vm::searchEmails,
+            contactByEmail = vm::contactByEmail,
             presetType = newPreset?.first,
             presetContact = newPreset?.second,
         )
@@ -296,7 +299,7 @@ fun DayScreen(vm: DayViewModel) {
                 details = e.copy(type = type, contact = contact)
             },
             onDismiss = { details = null },
-            onAction = { ctx.runPrimaryAction(e, call) },
+            onAction = { if (e.type == EventType.MAIL) details = null; ctx.runPrimaryAction(e, call, mailer.open) },
             onOpen = { ctx.openInCalendar(e) },
             onDelete = { vm.delete(e); details = null },
             onHistory = e.contact?.let { c -> { details = null; history = c } },
@@ -307,7 +310,10 @@ fun DayScreen(vm: DayViewModel) {
             onFollowUp = { start -> vm.followUp(e, start) },
             onRepeat = { rule -> vm.setRepeat(e, rule) },
             onEditTitle = { t ->
-                val newTitle = e.type?.let { type -> if (t.isBlank()) type.label else "${type.label}: $t" } ?: t
+                val newTitle = e.type?.let { type ->
+                    val prefix = if (type == EventType.MAIL) e.mail?.kind?.verb ?: type.label else type.label
+                    if (t.isBlank()) prefix else "$prefix: $t"
+                } ?: t
                 vm.setTitle(e, newTitle)
                 details = e.copy(title = newTitle)
             },
@@ -632,7 +638,7 @@ internal fun EventLine(
                 ) {
                     val struck = e.outcome == Outcome.CANCELLED || (e.type == EventType.TASK && e.outcome == Outcome.DONE)
                     Text(
-                        primary ?: e.contact?.name ?: e.title,
+                        primary ?: (if (e.type == EventType.MAIL) e.title else e.contact?.name ?: e.title),
                         style = Palm.body.copy(textDecoration = if (struck) TextDecoration.LineThrough else null),
                         color = if (struck) Palm.inkSoft else Palm.ink,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -640,7 +646,14 @@ internal fun EventLine(
                     val sub = buildList {
                         // Итог важнее типа: "Не дозвонился — перезвонить после обеда"
                         e.outcome?.let { o -> add(o.label(e.type) + (e.outcomeNote?.let { " — $it" } ?: "")) }
-                        if (primary == null && e.outcome == null) e.typeLabel?.let { add(it) }
+                        if (primary == null && e.outcome == null) {
+                            // У письма вместо типа — от кого / кому
+                            val m = e.mail
+                            if (e.type == EventType.MAIL && m?.peer != null) {
+                                add((if (m.kind == ru.palmdate.app.model.MailKind.REPLY) "от " else "кому ") + m.peer)
+                            } else e.typeLabel?.let { add(it) }
+                        }
+                        if (e.mail?.hasDraft == true) add("черновик")
                         if (!e.allDay && e.end.isAfter(e.start)) add("до " + e.end.format(HM))
                         if (e.outcome == null) e.note?.let { add(it.lineSequence().first()) }
                     }.joinToString(" · ")

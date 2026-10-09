@@ -35,7 +35,7 @@ object Mail {
         return null
     }
 
-    private fun explain(e: Exception): String {
+    internal fun explain(e: Exception): String {
         val m = (e.message ?: e.javaClass.simpleName)
         return when {
             m.contains("AUTHENTICATIONFAILED", true) || m.contains("Invalid credentials", true) ||

@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.monthGridStart
 import ru.palmdate.app.ui.theme.Palm
@@ -173,7 +174,7 @@ fun WeekView(
                     ?: Box(Modifier.size(9.dp).clip(CircleShape).background(Color(s.color)))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    (s.contact?.name ?: s.title) + "  " +
+                    (if (s.type == EventType.MAIL) s.title else s.contact?.name ?: s.title) + "  " +
                         (if (s.allDay) s.start.toLocalDate().pretty() else "${s.start.toLocalDate().pretty()}, ${s.start.format(HM)}–${s.end.format(HM)}"),
                     style = Palm.body, color = Palm.ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),

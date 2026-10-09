@@ -36,6 +36,56 @@ class ContactsRepository(private val context: Context) {
         return result
     }
 
+    /** Человек с адресом почты — для поля «Кому» и для «Написать». */
+    data class EmailContact(val lookupKey: String, val name: String, val email: String)
+
+    /** Поиск людей с почтой по имени или адресу. */
+    fun searchEmails(query: String, limit: Int = 50): List<EmailContact> {
+        val E = ContactsContract.CommonDataKinds.Email
+        val uri = if (query.isBlank()) E.CONTENT_URI
+        else Uri.withAppendedPath(E.CONTENT_FILTER_URI, Uri.encode(query.trim()))
+        val result = ArrayList<EmailContact>()
+        val seen = HashSet<String>()
+        runCatching {
+            resolver.query(
+                uri, arrayOf(E.LOOKUP_KEY, E.DISPLAY_NAME_PRIMARY, E.ADDRESS), null, null,
+                "${E.DISPLAY_NAME_PRIMARY} COLLATE LOCALIZED ASC",
+            )?.use { c ->
+                while (c.moveToNext() && result.size < limit) {
+                    val key = c.getString(0) ?: continue
+                    val addr = c.getString(2)?.trim()?.takeIf { it.contains("@") } ?: continue
+                    if (!seen.add(addr.lowercase())) continue
+                    result += EmailContact(key, c.getString(1) ?: addr, addr)
+                }
+            }
+        }
+        return result
+    }
+
+    /** Все адреса почты контакта. */
+    fun emails(lookupKey: String): List<String> {
+        val E = ContactsContract.CommonDataKinds.Email
+        val list = ArrayList<String>()
+        runCatching {
+            resolver.query(
+                E.CONTENT_URI, arrayOf(E.ADDRESS), "${E.LOOKUP_KEY} = ?", arrayOf(lookupKey),
+                "${E.IS_SUPER_PRIMARY} DESC, ${E.IS_PRIMARY} DESC",
+            )?.use { c -> while (c.moveToNext()) c.getString(0)?.trim()?.takeIf { it.contains("@") }?.let { if (it !in list) list += it } }
+        }
+        return list
+    }
+
+    /** Чей это адрес почты (lookupKey контакта) — или null. */
+    fun byEmail(address: String): ContactRef? {
+        val E = ContactsContract.CommonDataKinds.Email
+        val key = runCatching {
+            resolver.query(
+                E.CONTENT_URI, arrayOf(E.LOOKUP_KEY), "LOWER(${E.ADDRESS}) = ?", arrayOf(address.trim().lowercase()), null,
+            )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        }.getOrNull() ?: return null
+        return byLookupKey(key, null)
+    }
+
     /** Все номера контакта с подписями ("Мобильный", "Рабочий"…), основной первым, без дублей. */
     fun phones(lookupKey: String): List<PhoneNumber> {
         val list = ArrayList<PhoneNumber>()

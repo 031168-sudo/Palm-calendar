@@ -19,6 +19,13 @@ class Backup(private val context: Context, private val links: LinkDao) {
         j.put("outcomes", JSONArray().apply {
             links.allOutcomes().forEach { put(JSONObject().put("e", it.eventId).put("i", it.instanceStart).put("s", it.status).put("n", it.note)) }
         })
+        j.put("mail", JSONArray().apply {
+            links.allMail().forEach {
+                put(JSONObject().put("e", it.eventId).put("k", it.kind).put("id", it.messageId).put("f", it.folder)
+                    .put("s", it.subject).put("pn", it.peerName).put("pa", it.peerAddr).put("d", it.date)
+                    .put("dr", it.draft).put("di", it.draftId))
+            }
+        })
         j.put("phones", JSONArray().apply {
             links.allPhones().forEach { put(JSONObject().put("c", it.lookupKey).put("p", it.number)) }
         })
@@ -46,6 +53,15 @@ class Backup(private val context: Context, private val links: LinkDao) {
                 val o = a.getJSONObject(i)
                 links.setOutcome(OutcomeRow(o.getLong("e"), o.getLong("i"), o.getString("s"),
                     o.optString("n").takeIf { it.isNotEmpty() && it != "null" }))
+                n++
+            }
+        }
+        j.optJSONArray("mail")?.let { a ->
+            for (i in 0 until a.length()) {
+                val o = a.getJSONObject(i)
+                fun str(k: String) = o.optString(k).takeIf { it.isNotEmpty() && it != "null" }
+                links.upsertMail(MailLink(o.getLong("e"), o.getString("k"), str("id"), str("f"), str("s"), str("pn"), str("pa"),
+                    if (o.has("d") && !o.isNull("d")) o.getLong("d") else null, str("dr"), str("di")))
                 n++
             }
         }
