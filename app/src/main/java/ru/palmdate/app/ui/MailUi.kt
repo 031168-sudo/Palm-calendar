@@ -211,7 +211,6 @@ private fun MailScreen(
     }
 }
 
-private val RU = java.util.Locale("ru")
 private val DAY_MONTH = DateTimeFormatter.ofPattern("d MMM", RU)
 private val FULL_DATE = DateTimeFormatter.ofPattern("d.MM.yyyy", RU)
 private val LONG_DATE = DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", RU)
