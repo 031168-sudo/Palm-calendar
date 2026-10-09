@@ -476,10 +476,12 @@ class CalendarRepository(
         var end = 0L
         var duration: String? = null
         var allDay = false
-        resolver.query(uri, arrayOf(Events.DTSTART, Events.DTEND, Events.DURATION, Events.ALL_DAY), null, null, null)
+        var tz: String? = null
+        resolver.query(uri, arrayOf(Events.DTSTART, Events.DTEND, Events.DURATION, Events.ALL_DAY, Events.EVENT_TIMEZONE), null, null, null)
             ?.use { c ->
                 if (!c.moveToFirst()) error("Событие не найдено")
                 start = c.getLong(0); end = c.getLong(1); duration = c.getString(2); allDay = c.getInt(3) == 1
+                tz = c.getString(4)
             } ?: error("Событие не найдено")
         val lengthMs = when {
             end > start -> end - start
@@ -487,7 +489,11 @@ class CalendarRepository(
             allDay -> 86_400_000L
             else -> 3_600_000L
         }
+        // Android пересчитывает разы события, только если в изменении есть начало — передаём его всегда
         val values = ContentValues()
+        values.put(Events.DTSTART, start)
+        values.put(Events.ALL_DAY, if (allDay) 1 else 0)
+        values.put(Events.EVENT_TIMEZONE, tz ?: if (allDay) "UTC" else TimeZone.getDefault().id)
         if (rrule == null) {
             values.putNull(Events.RRULE)
             values.putNull(Events.DURATION)
@@ -689,7 +695,15 @@ class CalendarRepository(
     private fun endSeriesBefore(eventId: Long, s: Series, instanceStart: Long) {
         val rule = s.rrule ?: return
         val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
-        val v = ContentValues().apply { put(Events.RRULE, ruleWith(rule, untilBefore(instanceStart, s.allDay))) }
+        val v = ContentValues().apply {
+            put(Events.RRULE, ruleWith(rule, untilBefore(instanceStart, s.allDay)))
+            // начало, длительность и пояс — чтобы Android пересчитал разы серии
+            put(Events.DTSTART, s.start)
+            putNull(Events.DTEND)
+            put(Events.DURATION, if (s.allDay) "P${maxOf(1L, s.lengthMs / 86_400_000L)}D" else "P${s.lengthMs / 1000}S")
+            put(Events.ALL_DAY, if (s.allDay) 1 else 0)
+            s.values.getAsString(Events.EVENT_TIMEZONE)?.let { put(Events.EVENT_TIMEZONE, it) }
+        }
         if (resolver.update(uri, v, null, null) <= 0) error("Не удалось изменить серию")
         runCatching {
             resolver.delete(

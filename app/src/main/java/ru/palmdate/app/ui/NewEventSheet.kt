@@ -988,6 +988,7 @@ fun EventDetailsSheet(
                 if (isMail) event.shortTitle.takeIf { it.isNotBlank() }
                 else event.contact?.name ?: event.shortTitle.takeIf { it.isNotBlank() },
                 if (isMail) event.mail?.kind?.verb ?: "Письмо" else event.typeLabel ?: "Событие",
+                action = { PalmButton("Закрыть", filled = true, onClick = onDismiss) },
                 onClick = if (!editable) null else ({
                     if (!isMail && event.contact != null && event.type != null) {
                         pendingType = event.type; mode = DetailMode.CONTACT
