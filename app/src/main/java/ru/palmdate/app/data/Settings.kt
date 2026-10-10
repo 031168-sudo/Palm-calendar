@@ -9,7 +9,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.annotation.StringRes
 import org.json.JSONObject
-import ru.palmdate.app.R
 import ru.palmdate.app.str
 import ru.palmdate.app.model.EventType
 

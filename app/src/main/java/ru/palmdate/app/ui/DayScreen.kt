@@ -820,7 +820,7 @@ internal fun EventLine(
                             // У письма вместо типа — от кого / кому
                             val m = e.mail
                             if (e.type == EventType.MAIL && m?.peer != null) {
-                                add(str(if (m.kind == ru.palmdate.app.model.MailKind.REPLY) R.string.mail_from else R.string.mail_to_peer, m.peer))
+                                add(str(if (m.kind == ru.palmdate.app.model.MailKind.REPLY) R.string.mail_from else R.string.mail_to_peer, m.peer ?: ""))
                             } else e.typeLabel?.let { add(it) }
                         }
                         if (e.mail?.hasDraft == true) add(str(R.string.draft_word))

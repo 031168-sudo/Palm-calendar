@@ -16,7 +16,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import java.time.LocalDate
 import java.time.LocalDateTime
 import ru.palmdate.app.Lang
-import ru.palmdate.app.R
 import ru.palmdate.app.str
 
 /**
