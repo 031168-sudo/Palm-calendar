@@ -331,10 +331,12 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun addTripFile(eventId: Long, uri: android.net.Uri, label: String) {
         withContext(Dispatchers.IO) { trips.add(eventId, uri, label) }
+        withContext(Dispatchers.Main) { reload() }   // значок документов в списке
     }
 
     suspend fun deleteTripFile(f: ru.palmdate.app.data.TripFile) {
         withContext(Dispatchers.IO) { trips.delete(f) }
+        withContext(Dispatchers.Main) { reload() }
     }
 
     /** Сменить повтор серии события. */

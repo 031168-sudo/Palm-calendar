@@ -153,6 +153,9 @@ class CalendarRepository(
         val outcomeByKey = links.outcomes(ids).associateBy { it.eventId to it.instanceStart }
         val mailById = links.mailByIds(ids).associateBy { it.eventId }.toMutableMap()
         val accountByCal = calendarAccounts()
+        // Есть ли у событий документы выезда — для значка в строке списка
+        val withFiles = HashSet<Long>()
+        ids.chunked(500).forEach { withFiles += links.eventIdsWithFiles(it) }
         // Адреса выездов (поле «Место» календаря): нужны для «Маршрут» по тапу на иконку
         val placeById = HashMap<Long, String>()
         ids.filter { linkById[it]?.type == EventType.TRIP.name }.chunked(500).forEach { chunk ->
@@ -207,6 +210,7 @@ class CalendarRepository(
                 outcomeNote = outcome?.note,
                 mail = mail,
                 place = placeById[r.id],
+                hasFiles = r.id in withFiles,
             )
         }
         if (onlyIds != null) return calendarEvents

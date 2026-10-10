@@ -82,6 +82,10 @@ interface LinkDao {
 
     @Query("SELECT * FROM trip_files") suspend fun allFiles(): List<TripFile>
 
+    /** У каких событий есть документы (для значка в списке). */
+    @Query("SELECT DISTINCT eventId FROM trip_files WHERE eventId IN (:ids)")
+    suspend fun eventIdsWithFiles(ids: List<Long>): List<Long>
+
     @Insert
     suspend fun insertFile(f: TripFile): Long
 

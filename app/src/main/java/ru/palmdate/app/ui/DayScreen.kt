@@ -65,6 +65,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.EventNote
 import androidx.compose.material.icons.outlined.BarChart
@@ -817,8 +818,20 @@ internal fun EventLine(
                         if (!e.allDay && e.end.isAfter(e.start)) add("до " + e.end.format(HM))
                         if (e.outcome == null) e.note?.let { add(it.lineSequence().first()) }
                     }.joinToString(" · ")
-                    if (sub.isNotEmpty()) {
-                        Text(sub, style = Palm.small, color = Palm.inkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (sub.isNotEmpty() || e.hasFiles) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Документы выезда (билеты, брони): значок в начале второй строки
+                            if (e.hasFiles) {
+                                Icon(
+                                    Icons.Outlined.Description, "Есть документы",
+                                    tint = Palm.inkSoft, modifier = Modifier.size(14.dp),
+                                )
+                                if (sub.isNotEmpty()) Spacer(Modifier.width(4.dp))
+                            }
+                            if (sub.isNotEmpty()) {
+                                Text(sub, style = Palm.small, color = Palm.inkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
                     }
                 }
             }
