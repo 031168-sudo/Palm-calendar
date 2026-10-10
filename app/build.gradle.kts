@@ -49,6 +49,7 @@ android {
         unitTests {
             isIncludeAndroidResources = true
             all {
+                it.testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL; showStackTraces = false }
                 // Скриншоты рисуются по-настоящему (шрифты, тени) и всегда записываются заново
                 it.systemProperty("robolectric.graphicsMode", "NATIVE")
                 it.systemProperty("roborazzi.test.record", "true")
