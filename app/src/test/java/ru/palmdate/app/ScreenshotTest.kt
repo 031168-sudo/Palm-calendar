@@ -109,7 +109,10 @@ internal object Sample {
 abstract class ScreenshotBase(
     private val device: String, private val hinge: Hinge? = null, private val lang: LangMode = LangMode.RU,
 ) {
-    @org.junit.Before fun setLanguage() = Lang.setMode(lang, persist = false)
+    @org.junit.Before fun setLanguage() {
+        Lang.init(androidx.test.core.app.ApplicationProvider.getApplicationContext())
+        Lang.setMode(lang, persist = false)
+    }
 
     @get:Rule val compose = createComposeRule()
 
