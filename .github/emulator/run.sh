@@ -45,16 +45,15 @@ shot 7_rotated_back
 $UI check "Закрыть"
 
 if [ "$DEV" = "fold" ]; then
-  # Складываем и раскладываем на ходу — карточка остаётся открытой
-  echo "::notice::Состояния складывания: $(adb shell cmd device_state print-states 2>&1 | tr '\n' ' ')"
-  # Сложить: через состояние устройства (Android 12+), запасной путь — команда эмулятора
-  adb shell cmd device_state state 1 || adb emu fold || echo "::warning::Сложить не получилось"
-  sleep 3
-  echo "::notice::После складывания: $(adb shell wm size | tr '\n' ' ')"
+  # Сложить и разложить на ходу. Без окна эмулятор не умеет менять экран при складывании,
+  # поэтому делаем то же, что видит приложение: экран становится вдвое уже, потом снова широким.
+  SIZE=$(adb shell wm size | grep -o "[0-9]*x[0-9]*" | head -1)
+  W=${SIZE%x*}; H=${SIZE#*x}
+  adb shell wm size $((W / 2))x$H
   shot 8_folded
   $UI check "Закрыть"
-  adb shell cmd device_state state reset || adb emu unfold || echo "::warning::Разложить не получилось"
-  sleep 3
+  $UI check "check123"
+  adb shell wm size reset
   shot 9_unfolded
   $UI check "Закрыть"
 fi
