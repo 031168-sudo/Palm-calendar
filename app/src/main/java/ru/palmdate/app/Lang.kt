@@ -63,7 +63,7 @@ object Lang {
     private fun apply() {
         locale = resolve(mode)
         val base = app ?: return
-        val cfg = Configuration(base.resources.configuration).apply { setLocale(locale) }
+        val cfg = Configuration(base.resources.configuration).apply { setLocale(this@Lang.locale) }
         localized = base.createConfigurationContext(cfg)
     }
 
@@ -92,7 +92,7 @@ object Lang {
         }
 
     /** Конфигурация для окна приложения (см. MainActivity). */
-    fun overrideConfiguration(): Configuration = Configuration().apply { setLocale(locale) }
+    fun overrideConfiguration(): Configuration = Configuration().apply { setLocale(this@Lang.locale) }
 }
 
 /** Application: язык нужен ещё до первого экрана (напоминания, перезагрузка телефона). */
