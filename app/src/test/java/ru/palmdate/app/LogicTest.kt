@@ -101,7 +101,13 @@ class LogicTest {
     }
 
     @Test fun plurals() {
-        assertEquals("1 звонок", plu(R.plurals.count_calls, 1))
+        val fresh = android.app.Application::class.java.let {
+            val b = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+            val cfg = android.content.res.Configuration(b.resources.configuration).apply { setLocale(java.util.Locale.forLanguageTag("ru")) }
+            b.createConfigurationContext(cfg)
+        }
+        val diag = "S=${str(R.string.outcome_done_mail)} P=${plu(R.plurals.count_calls, 1)} FS=${fresh.getString(R.string.outcome_done_mail)} FP=${fresh.resources.getQuantityString(R.plurals.count_calls, 1, 1)} FPL=${fresh.resources.getQuantityString(R.plurals.count_calls, 3, 3)}"
+        assertEquals(diag, "1 звонок", plu(R.plurals.count_calls, 1))
         assertEquals("3 звонка", plu(R.plurals.count_calls, 3))
         assertEquals("11 звонков", plu(R.plurals.count_calls, 11))
         assertEquals("21 звонок", plu(R.plurals.count_calls, 21))
