@@ -48,7 +48,7 @@ if [ "$DEV" = "fold" ]; then
   # Складываем и раскладываем на ходу — карточка остаётся открытой
   echo "::notice::Состояния складывания: $(adb shell cmd device_state print-states 2>&1 | tr '\n' ' ')"
   # Сложить: через состояние устройства (Android 12+), запасной путь — команда эмулятора
-  adb shell cmd device_state state 0 || adb emu fold || echo "::warning::Сложить не получилось"
+  adb shell cmd device_state state 1 || adb emu fold || echo "::warning::Сложить не получилось"
   sleep 3
   echo "::notice::После складывания: $(adb shell wm size | tr '\n' ' ')"
   shot 8_folded
