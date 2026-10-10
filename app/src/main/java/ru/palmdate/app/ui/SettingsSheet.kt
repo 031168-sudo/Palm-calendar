@@ -1,5 +1,7 @@
 package ru.palmdate.app.ui
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
@@ -57,6 +59,8 @@ import kotlinx.coroutines.launch
 import ru.palmdate.app.BirthdayReminder
 import ru.palmdate.app.BuildConfig
 import ru.palmdate.app.DayViewModel
+import ru.palmdate.app.Lang
+import ru.palmdate.app.LangMode
 import ru.palmdate.app.data.AppSettings
 import ru.palmdate.app.data.MailPreset
 import ru.palmdate.app.data.MailMode
@@ -93,7 +97,7 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Settings, null, tint = Palm.navy, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Настройки", style = Palm.title, color = Palm.ink)
+                Text(str(R.string.settings_title), style = Palm.title, color = Palm.ink)
             }
             Spacer(Modifier.height(6.dp))
             Box(Modifier.fillMaxWidth().height(2.dp).background(Palm.navy))
@@ -102,7 +106,7 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
 
             /* ---------- События по умолчанию ---------- */
-            Section("События по умолчанию")
+            Section(str(R.string.settings_defaults))
             var openType by remember { mutableStateOf<EventType?>(null) }
             EventType.pickable.forEach { t ->
                 val dur = s.duration(t)
@@ -117,8 +121,8 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
                     Column(Modifier.weight(1f)) {
                         Text(t.label, style = Palm.body, color = Palm.ink)
                         Text(
-                            durationLabel(dur) + " · " + (if (dur == 0) "напоминание как у событий на весь день"
-                            else rem.joinToString(", ") { reminderLabel(it) }.ifEmpty { "без напоминания" }),
+                            durationLabel(dur) + " · " + (if (dur == 0) str(R.string.settings_allday_reminder_same)
+                            else rem.joinToString(", ") { reminderLabel(it) }.ifEmpty { str(R.string.settings_no_reminder) }),
                             style = Palm.small, color = Palm.inkSoft,
                         )
                     }
@@ -129,7 +133,7 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
                 }
                 if (openType == t) {
                     Spacer(Modifier.height(8.dp))
-                    Text("Длительность", style = Palm.small, color = Palm.inkSoft)
+                    Text(str(R.string.settings_duration), style = Palm.small, color = Palm.inkSoft)
                     Spacer(Modifier.height(6.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(15, 30, 60, 120, 0).forEach { m ->
@@ -145,18 +149,18 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
             }
 
             Spacer(Modifier.height(10.dp))
-            Label("Календарь для новых событий")
+            Label(str(R.string.settings_new_calendar))
             var pickCal by remember { mutableStateOf(false) }
             val fixed = calendars.firstOrNull { it.id == s.calendarFixedId }
             SettingRow(
-                "Записывать в",
-                fixed?.displayName() ?: "последний использованный",
+                str(R.string.settings_write_to),
+                fixed?.displayName() ?: str(R.string.settings_last_used_lc),
                 sub = fixed?.accountName?.takeIf { it != fixed.displayName() },
                 dot = fixed?.let { Color(it.color) },
                 onClick = { pickCal = !pickCal },
             )
             if (pickCal) {
-                PickRow("Последний использованный", s.calendarFixedId == null) {
+                PickRow(str(R.string.settings_last_used), s.calendarFixedId == null) {
                     set { it.copy(calendarFixedId = null) }; pickCal = false
                 }
                 calendars.forEach { c ->
@@ -167,62 +171,78 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
             }
 
             Spacer(Modifier.height(10.dp))
-            Label("Шаг времени")
-            Chips(listOf(15 to "15 минут", 30 to "30 минут"), s.timeStep) { v -> set { it.copy(timeStep = v) } }
+            Label(str(R.string.settings_time_step))
+            Chips(listOf(15 to str(R.string.settings_minutes, 15), 30 to str(R.string.settings_minutes, 30)), s.timeStep) { v -> set { it.copy(timeStep = v) } }
 
             /* ---------- События на весь день ---------- */
-            Section("События на весь день")
-            Label("Напоминание в день события")
+            Section(str(R.string.settings_allday))
+            Label(str(R.string.settings_allday_reminder))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Chip("Без", selected = s.allDayReminderAt == null) { set { it.copy(allDayReminderAt = null) } }
+                Chip(str(R.string.settings_without), selected = s.allDayReminderAt == null) { set { it.copy(allDayReminderAt = null) } }
                 Spacer(Modifier.width(8.dp))
-                Chip("Напоминать", selected = s.allDayReminderAt != null) {
+                Chip(str(R.string.settings_remind), selected = s.allDayReminderAt != null) {
                     if (s.allDayReminderAt == null) set { it.copy(allDayReminderAt = 540) }
                 }
             }
             s.allDayReminderAt?.let { at ->
                 Spacer(Modifier.height(8.dp))
                 TimeStepper(at, step = 30) { v -> set { it.copy(allDayReminderAt = v) } }
-                Hint("Подставляется само, когда событие на весь день. Хранится в событии и приходит на всех устройствах, как в Google Календаре.")
+                Hint(str(R.string.settings_allday_hint))
             }
 
             /* ---------- Вид ---------- */
-            Section("Вид")
-            Label("Открывать")
+            Section(str(R.string.settings_view))
+            Label(str(R.string.settings_language))
+            Chips(
+                listOf(
+                    LangMode.AUTO to str(R.string.settings_lang_auto),
+                    LangMode.RU to "Русский",
+                    LangMode.EN to "English",
+                ),
+                Lang.mode,
+            ) { m ->
+                if (m != Lang.mode) {
+                    Lang.setMode(m)
+                    vm.settingsChanged()
+                    ctx.findActivity()?.recreate() // пересоздаём экран, чтобы все тексты стали на новом языке
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Label(str(R.string.settings_open))
             Chips(StartView.entries.map { it to it.label }, s.startView) { v -> set { it.copy(startView = v) } }
             Spacer(Modifier.height(10.dp))
-            Label("Неделя начинается")
-            Chips(listOf(false to "С понедельника", true to "С воскресенья"), s.weekStartsSunday) { v -> set { it.copy(weekStartsSunday = v) } }
+            Label(str(R.string.settings_week_starts))
+            Chips(listOf(false to str(R.string.settings_monday), true to str(R.string.settings_sunday)), s.weekStartsSunday) { v -> set { it.copy(weekStartsSunday = v) } }
             Spacer(Modifier.height(10.dp))
-            Label("Рабочие часы в виде «День»")
+            Label(str(R.string.settings_work_hours))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("с", style = Palm.body, color = Palm.inkSoft, modifier = Modifier.width(24.dp))
+                Text(str(R.string.settings_from), style = Palm.body, color = Palm.inkSoft, modifier = Modifier.width(24.dp))
                 HourStepper(s.dayFrom, 0..(s.dayTo - 1)) { v -> set { it.copy(dayFrom = v) } }
                 Spacer(Modifier.width(16.dp))
-                Text("до", style = Palm.body, color = Palm.inkSoft, modifier = Modifier.width(30.dp))
+                Text(str(R.string.settings_to), style = Palm.body, color = Palm.inkSoft, modifier = Modifier.width(30.dp))
                 HourStepper(s.dayTo, (s.dayFrom + 1)..23) { v -> set { it.copy(dayTo = v) } }
             }
 
             /* ---------- Календари и контакты ---------- */
-            Section("Календари и контакты")
-            SettingRow("Календари", "какие показывать", onClick = onCalendars)
-            Toggle("Дни рождения из контактов", s.birthdaysShown) { v -> set { it.copy(birthdaysShown = v) } }
+            Section(str(R.string.settings_cal_contacts))
+            SettingRow(str(R.string.calendars_title), str(R.string.settings_which_show), onClick = onCalendars)
+            Toggle(str(R.string.settings_birthdays), s.birthdaysShown) { v -> set { it.copy(birthdaysShown = v) } }
             val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
                 set { it.copy(birthdayNotify = ok) }
             }
             if (s.birthdaysShown) {
-                Toggle("Напоминать о днях рождения", s.birthdayNotify) { v ->
+                Toggle(str(R.string.settings_birthday_notify), s.birthdayNotify) { v ->
                     if (v && Build.VERSION.SDK_INT >= 33) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                     else set { it.copy(birthdayNotify = v) }
                 }
                 if (s.birthdayNotify) {
                     TimeStepper(s.birthdayNotifyAt, step = 30) { v -> set { it.copy(birthdayNotifyAt = v) } }
-                    Hint("Уведомление приходит от DateBook в этот день в выбранное время.")
+                    Hint(str(R.string.settings_birthday_hint))
                 }
             }
 
             /* ---------- Почта ---------- */
-            Section("Почта")
+            Section(str(R.string.settings_mail))
             Chips(MailMode.entries.map { it to it.label }, s.mailMode) { v -> set { it.copy(mailMode = v) } }
             Spacer(Modifier.height(6.dp))
             if (s.mailMode == MailMode.APP) {
@@ -230,24 +250,22 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
                 var appPkg by remember { mutableStateOf(apps.remembered()) }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Label("Почтовая программа")
-                        Text(appPkg?.let { apps.label(it) } ?: "спрашивать при открытии", style = Palm.body, color = Palm.ink)
+                        Label(str(R.string.settings_mail_app))
+                        Text(appPkg?.let { apps.label(it) } ?: str(R.string.settings_ask_on_open), style = Palm.body, color = Palm.ink)
                     }
-                    if (appPkg != null) TextButton(onClick = { apps.remember(null); appPkg = null }) { Text("сбросить") }
+                    if (appPkg != null) TextButton(onClick = { apps.remember(null); appPkg = null }) { Text(str(R.string.settings_reset)) }
                 }
                 Hint(
-                    "«Написать» открывает новое письмо в почтовой программе (Gmail, Яндекс Почта…) с адресом. " +
-                        "«Ответить» открывает почту, а слова для поиска письма копируются — их остаётся вставить в поиск. " +
-                        "Пароли не нужны. Вернётесь в DateBook — он спросит, отправлено ли письмо.",
+                    str(R.string.settings_mail_app_hint),
                 )
             } else {
-            Label("Почтовый ящик")
+            Label(str(R.string.settings_mailbox))
             Chips(MailPreset.entries.map { it to it.label }, s.mailPreset) { v -> set { it.copy(mailPreset = v) } }
             Spacer(Modifier.height(8.dp))
             var email by remember { mutableStateOf(s.mailEmail) }
             OutlinedTextField(
                 value = email, onValueChange = { email = it; set { st -> st.copy(mailEmail = it.trim()) } },
-                label = { Text("Адрес почты") }, singleLine = true,
+                label = { Text(str(R.string.settings_mail_address)) }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 modifier = Modifier.fillMaxWidth().keepAboveKeyboard(),
             )
@@ -255,7 +273,7 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
             var password by remember { mutableStateOf(SettingsStore.mailPassword) }
             OutlinedTextField(
                 value = password, onValueChange = { password = it; SettingsStore.mailPassword = it },
-                label = { Text("Пароль приложения") }, singleLine = true,
+                label = { Text(str(R.string.settings_app_password)) }, singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth().keepAboveKeyboard(),
@@ -268,20 +286,20 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
             }
             Hint(
                 when (s.mailPreset) {
-                    MailPreset.GMAIL -> "Нужен пароль приложения: аккаунт Google → Безопасность → Двухэтапная аутентификация → Пароли приложений."
-                    MailPreset.YANDEX -> "Нужен пароль приложения: Яндекс ID → Безопасность → Пароли приложений → Почта."
-                    MailPreset.MAILRU -> "Нужен пароль для внешнего приложения: Mail.ru → Безопасность → Пароли для внешних приложений."
-                    MailPreset.CUSTOM -> "Обычно IMAP — порт 993, SMTP — порт 465 (SSL)."
-                } + " Пароль хранится зашифрованным только на этом телефоне.",
+                    MailPreset.GMAIL -> str(R.string.settings_hint_gmail)
+                    MailPreset.YANDEX -> str(R.string.settings_hint_yandex)
+                    MailPreset.MAILRU -> str(R.string.settings_hint_mailru)
+                    MailPreset.CUSTOM -> str(R.string.settings_hint_custom)
+                } + str(R.string.settings_hint_password_stored),
             )
             var mailResult by remember { mutableStateOf<String?>(null) }
             var checking by remember { mutableStateOf(false) }
             Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                PalmButton(if (checking) "Проверяю…" else "Проверить подключение", filled = true) {
+                PalmButton(if (checking) str(R.string.settings_checking) else str(R.string.settings_check_connection), filled = true) {
                     if (!checking) scope.launch {
                         checking = true
-                        mailResult = vm.checkMail(password)?.let { "✗ $it" } ?: "✓ Почта подключена"
+                        mailResult = vm.checkMail(password)?.let { "✗ $it" } ?: str(R.string.settings_mail_ok)
                         checking = false
                     }
                 }
@@ -290,53 +308,53 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
             }
 
             /* ---------- Данные ---------- */
-            Section("Данные")
-            Hint("Копия всего, что DateBook хранит сам: типы и контакты событий, итоги, выбранные номера и адреса, настройки. Сами события и так в Google.")
+            Section(str(R.string.settings_data))
+            Hint(str(R.string.settings_data_hint))
             var dataResult by remember { mutableStateOf<String?>(null) }
             val saveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
                 if (uri != null) scope.launch {
                     dataResult = runCatching {
                         val text = vm.exportBackup()
                         ctx.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
-                        "✓ Копия сохранена"
-                    }.getOrElse { "✗ " + (it.message ?: "Не удалось сохранить") }
+                        str(R.string.settings_backup_saved)
+                    }.getOrElse { "✗ " + (it.message ?: str(R.string.settings_backup_save_failed)) }
                 }
             }
             val openLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 if (uri != null) scope.launch {
                     dataResult = runCatching {
                         val text = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-                        "✓ Восстановлено записей: " + vm.importBackup(text)
-                    }.getOrElse { "✗ " + (it.message ?: "Не удалось восстановить") }
+                        str(R.string.settings_backup_restored, vm.importBackup(text))
+                    }.getOrElse { "✗ " + (it.message ?: str(R.string.settings_backup_restore_failed)) }
                 }
             }
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PalmButton("Сохранить копию") { saveLauncher.launch("DateBook-копия-${java.time.LocalDate.now()}.json") }
-                PalmButton("Восстановить") { openLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }
+                PalmButton(str(R.string.settings_backup_save)) { saveLauncher.launch(str(R.string.settings_backup_filename, java.time.LocalDate.now())) }
+                PalmButton(str(R.string.settings_backup_restore)) { openLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }
             }
             dataResult?.let { Text(it, style = Palm.small, color = if (it.startsWith("✓")) Color(0xFF2E7D32) else Palm.nowLine, modifier = Modifier.padding(top = 6.dp)) }
 
             /* ---------- О приложении ---------- */
-            Section("О приложении")
+            Section(str(R.string.settings_about))
             Text("DateBook ${BuildConfig.VERSION_NAME}", style = Palm.body, color = Palm.ink)
             var update by remember { mutableStateOf<String?>(null) }
             var newer by remember { mutableStateOf(false) }
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                PalmButton("Проверить обновление") {
+                PalmButton(str(R.string.settings_check_update)) {
                     scope.launch {
-                        update = "Проверяю…"
+                        update = str(R.string.settings_checking)
                         val latest = vm.latestBuild()
                         newer = latest != null && latest > BuildConfig.VERSION_CODE
                         update = when {
-                            latest == null -> "Не удалось проверить: нет интернета?"
-                            newer -> "Есть новая версия 0.1.$latest"
-                            else -> "У вас последняя версия"
+                            latest == null -> str(R.string.settings_update_failed)
+                            newer -> str(R.string.settings_update_available, latest)
+                            else -> str(R.string.settings_update_latest)
                         }
                     }
                 }
-                if (newer) PalmButton("Скачать", filled = true) {
+                if (newer) PalmButton(str(R.string.settings_download), filled = true) {
                     ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(LATEST_APK)))
                 }
             }
@@ -346,10 +364,10 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
 }
 
 private fun durationLabel(m: Int) = when (m) {
-    0 -> "весь день"
-    60 -> "1 ч"
-    120 -> "2 ч"
-    else -> if (m % 60 == 0) "${m / 60} ч" else "$m мин"
+    0 -> str(R.string.settings_all_day)
+    60 -> str(R.string.rem_hour, 1)
+    120 -> str(R.string.rem_hour, 2)
+    else -> if (m % 60 == 0) str(R.string.rem_hour, m / 60) else str(R.string.rem_min, m)
 }
 
 @Composable
@@ -435,15 +453,22 @@ private fun ServerFields(title: String, host: String, port: Int, onChange: (Stri
     Row {
         OutlinedTextField(
             value = h, onValueChange = { h = it; onChange(it.trim(), p.toIntOrNull() ?: port) },
-            label = { Text("Сервер $title") }, singleLine = true,
+            label = { Text(str(R.string.settings_server, title)) }, singleLine = true,
             modifier = Modifier.weight(1f).keepAboveKeyboard(),
         )
         Spacer(Modifier.width(8.dp))
         OutlinedTextField(
             value = p, onValueChange = { p = it.filter { c -> c.isDigit() }.take(5); onChange(h.trim(), p.toIntOrNull() ?: port) },
-            label = { Text("Порт") }, singleLine = true,
+            label = { Text(str(R.string.settings_port)) }, singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.width(96.dp).keepAboveKeyboard(),
         )
     }
+}
+
+/** Окно (Activity), в котором показан экран, — нужно, чтобы пересоздать его при смене языка. */
+private tailrec fun android.content.Context.findActivity(): android.app.Activity? = when (this) {
+    is android.app.Activity -> this
+    is android.content.ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

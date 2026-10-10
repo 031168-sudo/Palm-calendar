@@ -106,7 +106,11 @@ internal object Sample {
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-abstract class ScreenshotBase(private val device: String, private val hinge: Hinge? = null) {
+abstract class ScreenshotBase(
+    private val device: String, private val hinge: Hinge? = null, private val lang: LangMode = LangMode.RU,
+) {
+    @org.junit.Before fun setLanguage() = Lang.setMode(lang, persist = false)
+
     @get:Rule val compose = createComposeRule()
 
     private fun shot(name: String, content: @Composable () -> Unit) {
@@ -205,6 +209,9 @@ abstract class ScreenshotBase(private val device: String, private val hinge: Hin
 // Устройства: размеры экранов в dp, как у настоящих
 @Config(sdk = [34], qualifiers = "w393dp-h851dp-xhdpi")
 class PhoneScreens : ScreenshotBase("phone")
+
+@Config(sdk = [34], qualifiers = "w393dp-h851dp-xhdpi")
+class PhoneEnglishScreens : ScreenshotBase("phone_en", lang = LangMode.EN)
 
 @Config(sdk = [34], qualifiers = "w393dp-h851dp-night-xhdpi")
 class PhoneDarkScreens : ScreenshotBase("phone_dark")

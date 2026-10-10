@@ -1,5 +1,7 @@
 package ru.palmdate.app.ui
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -103,16 +105,22 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
-internal val RU: Locale = Locale.forLanguageTag("ru")
+/** Язык интерфейса — для названий месяцев, дней недели и дат. */
+internal val UiLocale: Locale get() = ru.palmdate.app.Lang.locale
 internal val HM: DateTimeFormatter = DateTimeFormatter.ofPattern("H:mm")
 
-internal fun LocalDate.shortMonth() = month.getDisplayName(TextStyle.SHORT, RU).trimEnd('.')
+internal fun LocalDate.shortMonth() = month.getDisplayName(TextStyle.SHORT, UiLocale).trimEnd('.')
 internal fun LocalDate.pretty(): String {
-    val dow = dayOfWeek.getDisplayName(TextStyle.SHORT, RU).replaceFirstChar { it.uppercase() }
-    return "$dow, $dayOfMonth ${shortMonth()}"
+    val dow = dayOfWeek.getDisplayName(TextStyle.SHORT, UiLocale).replaceFirstChar { it.uppercase() }
+    // По-русски «Сб, 10 окт», по-английски «Sat, Oct 10»
+    return if (UiLocale.language == "ru") "$dow, $dayOfMonth ${shortMonth()}" else "$dow, ${shortMonth()} $dayOfMonth"
 }
+/** День и месяц: «10 окт» / «Oct 10». */
+internal fun LocalDate.dayMonth(): String =
+    if (UiLocale.language == "ru") "$dayOfMonth ${shortMonth()}" else "${shortMonth()} $dayOfMonth"
+
 internal fun LocalDate.monthTitle() =
-    month.getDisplayName(TextStyle.FULL_STANDALONE, RU).replaceFirstChar { it.uppercase() }
+    month.getDisplayName(TextStyle.FULL_STANDALONE, UiLocale).replaceFirstChar { it.uppercase() }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -323,12 +331,12 @@ fun DayScreen(vm: DayViewModel) {
                         vm.select(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate())
                     }
                     pickDate = false
-                }) { Text("Перейти") }
+                }) { Text(str(R.string.go_to)) }
             },
             dismissButton = {
                 Row {
-                    TextButton(onClick = { vm.today(); pickDate = false }) { Text("Сегодня") }
-                    TextButton(onClick = { pickDate = false }) { Text("Отмена") }
+                    TextButton(onClick = { vm.today(); pickDate = false }) { Text(str(R.string.today_cap)) }
+                    TextButton(onClick = { pickDate = false }) { Text(str(R.string.cancel)) }
                 }
             },
         ) { DatePicker(pickerState) }
@@ -391,7 +399,7 @@ private fun PaneHint() {
         Icon(Icons.Outlined.EventNote, null, tint = Palm.rule, modifier = Modifier.size(56.dp))
         Spacer(Modifier.height(12.dp))
         Text(
-            "Нажмите на событие — здесь появятся подробности, итог и история человека",
+            str(R.string.day_pane_hint),
             style = Palm.body, color = Palm.inkSoft, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }
@@ -541,7 +549,7 @@ internal fun CalendarFrame(
 private fun TabletopHint() {
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Text(
-            "Нажмите на событие вверху — здесь появятся подробности",
+            str(R.string.day_tabletop_hint),
             style = Palm.body, color = Palm.inkSoft, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }
@@ -551,12 +559,13 @@ private fun tabTitle(s: CalState): String {
     val d = s.date
     return when (s.mode) {
         ViewMode.DAY -> d.pretty()
-        ViewMode.AGENDA -> "с ${d.dayOfMonth} ${d.shortMonth()}"
+        ViewMode.AGENDA -> str(R.string.view_agenda_from, d.dayMonth())
         ViewMode.WEEK -> {
             val a = weekStart(d)
             val b = a.plusDays(6)
-            if (a.month == b.month) "${a.dayOfMonth}–${b.dayOfMonth} ${b.shortMonth()}"
-            else "${a.dayOfMonth} ${a.shortMonth()} – ${b.dayOfMonth} ${b.shortMonth()}"
+            if (a.month != b.month) "${a.dayMonth()} – ${b.dayMonth()}"
+            else if (UiLocale.language == "ru") "${a.dayOfMonth}–${b.dayOfMonth} ${b.shortMonth()}"
+            else "${a.shortMonth()} ${a.dayOfMonth}–${b.dayOfMonth}"
         }
         ViewMode.MONTH -> "${d.monthTitle()} ${d.year}"
         ViewMode.YEAR -> "${d.year}"
@@ -578,7 +587,7 @@ private fun Header(
 
     Column(modifier.fillMaxWidth().background(Palm.paper).statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.Bottom) {
-            // Тап по вкладке — "Перейти" к дате (там же кнопка "Сегодня")
+            // Тап по вкладке — str(R.string.go_to) к дате (там же кнопка str(R.string.today_cap))
             Box(
                 Modifier
                     .clip(TabShape)
@@ -589,7 +598,7 @@ private fun Header(
                 Text(tabTitle(state), style = Palm.title, color = Color.White, maxLines = 1)
             }
             Spacer(Modifier.weight(1f))
-            Arrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Назад") {
+            Arrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, str(R.string.nav_back)) {
                 if (showStrip) onShiftWeek(-1) else onShiftPeriod(-1)
             }
             if (showStrip) {
@@ -599,7 +608,7 @@ private fun Header(
                         val d = monday.plusDays(i)
                         // В виде "Неделя" подсвечена вся неделя, в остальных — выбранный день
                         val selected = if (state.mode == ViewMode.WEEK) false else d == date
-                        val letter = d.dayOfWeek.getDisplayName(TextStyle.NARROW, RU).uppercase()
+                        val letter = d.dayOfWeek.getDisplayName(TextStyle.NARROW, UiLocale).uppercase()
                         Box(
                             Modifier
                                 .size(width = 24.dp, height = 28.dp)
@@ -629,7 +638,7 @@ private fun Header(
                     }
                 }
             }
-            Arrow(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Вперёд") {
+            Arrow(Icons.AutoMirrored.Filled.KeyboardArrowRight, str(R.string.nav_forward)) {
                 if (showStrip) onShiftWeek(1) else onShiftPeriod(1)
             }
             Spacer(Modifier.width(4.dp))
@@ -788,7 +797,7 @@ internal fun EventLine(
                             },
                             type.label, tint = type.color, modifier = Modifier.size(22.dp),
                         )
-                        e.fromContacts -> Icon(Icons.Outlined.Cake, "День рождения", tint = EventType.BIRTHDAY.color, modifier = Modifier.size(20.dp))
+                        e.fromContacts -> Icon(Icons.Outlined.Cake, str(R.string.type_birthday), tint = EventType.BIRTHDAY.color, modifier = Modifier.size(20.dp))
                         type != null -> Icon(type.icon, type.label, tint = type.color, modifier = Modifier.size(20.dp))
                         else -> Box(Modifier.size(9.dp).clip(CircleShape).background(Color(e.color)))
                     }
@@ -799,7 +808,7 @@ internal fun EventLine(
                 ) {
                     val struck = e.outcome == Outcome.CANCELLED || (e.type == EventType.TASK && e.outcome == Outcome.DONE)
                     Text(
-                        primary ?: (if (e.type == EventType.MAIL) e.title else e.contact?.name ?: e.title),
+                        primary ?: (if (e.type == EventType.MAIL) e.displayTitle else e.contact?.name ?: e.displayTitle),
                         style = Palm.body.copy(textDecoration = if (struck) TextDecoration.LineThrough else null),
                         color = if (struck) Palm.inkSoft else Palm.ink,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -811,11 +820,11 @@ internal fun EventLine(
                             // У письма вместо типа — от кого / кому
                             val m = e.mail
                             if (e.type == EventType.MAIL && m?.peer != null) {
-                                add((if (m.kind == ru.palmdate.app.model.MailKind.REPLY) "от " else "кому ") + m.peer)
+                                add(str(if (m.kind == ru.palmdate.app.model.MailKind.REPLY) R.string.mail_from else R.string.mail_to_peer, m.peer))
                             } else e.typeLabel?.let { add(it) }
                         }
-                        if (e.mail?.hasDraft == true) add("черновик")
-                        if (!e.allDay && e.end.isAfter(e.start)) add("до " + e.end.format(HM))
+                        if (e.mail?.hasDraft == true) add(str(R.string.draft_word))
+                        if (!e.allDay && e.end.isAfter(e.start)) add(str(R.string.until_time, e.end.format(HM)))
                         if (e.outcome == null) e.note?.let { add(it.lineSequence().first()) }
                     }.joinToString(" · ")
                     if (sub.isNotEmpty() || e.hasFiles) {
@@ -823,7 +832,7 @@ internal fun EventLine(
                             // Документы выезда (билеты, брони): значок в начале второй строки
                             if (e.hasFiles) {
                                 Icon(
-                                    Icons.Outlined.Description, "Есть документы",
+                                    Icons.Outlined.Description, str(R.string.has_documents),
                                     tint = Palm.inkSoft, modifier = Modifier.size(14.dp),
                                 )
                                 if (sub.isNotEmpty()) Spacer(Modifier.width(4.dp))
@@ -892,12 +901,12 @@ private fun ButtonBar(
             ) {
                 ViewMode.entries.forEach { m -> ViewTab(m, Modifier.width(64.dp)) }
                 Spacer(Modifier.weight(1f))
-                BarTextButton("Новое", filled = true, onClick = onNew, modifier = Modifier.width(104.dp))
-                BarTextButton("Сегодня", onClick = onToday, modifier = Modifier.width(104.dp))
-                BarTextButton("Перейти", onClick = onGoTo, modifier = Modifier.width(104.dp))
+                BarTextButton(str(R.string.new_event), filled = true, onClick = onNew, modifier = Modifier.width(104.dp))
+                BarTextButton(str(R.string.today_cap), onClick = onToday, modifier = Modifier.width(104.dp))
+                BarTextButton(str(R.string.go_to), onClick = onGoTo, modifier = Modifier.width(104.dp))
                 Spacer(Modifier.width(10.dp))
-                BarIcon(Icons.Outlined.BarChart, "Статистика", onStats)
-                BarIcon(Icons.Outlined.Settings, "Настройки", onSettings)
+                BarIcon(Icons.Outlined.BarChart, str(R.string.stats_title), onStats)
+                BarIcon(Icons.Outlined.Settings, str(R.string.settings_title), onSettings)
             }
         } else Column(Modifier.fillMaxWidth()) {
             // Виды: иконка + подпись, на всю ширину
@@ -911,12 +920,12 @@ private fun ButtonBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Все кнопки одной высоты: три с текстом делят ширину поровну, две квадратные — справа
-                BarTextButton("Новое", filled = true, onClick = onNew, modifier = Modifier.weight(1f))
-                BarTextButton("Сегодня", onClick = onToday, modifier = Modifier.weight(1f))
-                BarTextButton("Перейти", onClick = onGoTo, modifier = Modifier.weight(1f))
+                BarTextButton(str(R.string.new_event), filled = true, onClick = onNew, modifier = Modifier.weight(1f))
+                BarTextButton(str(R.string.today_cap), onClick = onToday, modifier = Modifier.weight(1f))
+                BarTextButton(str(R.string.go_to), onClick = onGoTo, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(10.dp)) // промежуток побольше перед значками
-                BarIcon(Icons.Outlined.BarChart, "Статистика", onStats)
-                BarIcon(Icons.Outlined.Settings, "Настройки", onSettings)
+                BarIcon(Icons.Outlined.BarChart, str(R.string.stats_title), onStats)
+                BarIcon(Icons.Outlined.Settings, str(R.string.settings_title), onSettings)
             }
         }
       }

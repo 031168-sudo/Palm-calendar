@@ -1,5 +1,7 @@
 package ru.palmdate.app.ui
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -51,7 +53,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.TextStyle
 
-private fun dayLetter(d: LocalDate) = d.dayOfWeek.getDisplayName(TextStyle.NARROW, RU).uppercase()
+private fun dayLetter(d: LocalDate) = d.dayOfWeek.getDisplayName(TextStyle.NARROW, UiLocale).uppercase()
 
 private fun List<PalmEvent>.on(d: LocalDate) = filter { d in it.days() }
 
@@ -86,7 +88,7 @@ fun AgendaView(
                     if (d == today) {
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "сегодня", style = Palm.small, color = Color.White,
+                            str(R.string.today), style = Palm.small, color = Color.White,
                             modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Palm.navy)
                                 .padding(horizontal = 6.dp, vertical = 1.dp),
                         )
@@ -98,7 +100,7 @@ fun AgendaView(
             if (dayEvents.isEmpty()) {
                 item(key = "e$d") {
                     Text(
-                        "нет событий", style = Palm.small, color = Palm.rule,
+                        str(R.string.views_no_events), style = Palm.small, color = Palm.rule,
                         modifier = Modifier.padding(start = 52.dp, top = 4.dp, bottom = 4.dp),
                     )
                 }
@@ -168,13 +170,13 @@ fun WeekView(
         ) {
             val s = selected
             if (s == null) {
-                Text("Нажмите на событие", style = Palm.small, color = Palm.inkSoft)
+                Text(str(R.string.views_tap_event), style = Palm.small, color = Palm.inkSoft)
             } else {
                 s.type?.let { Icon(it.icon, null, tint = it.color, modifier = Modifier.size(18.dp)) }
                     ?: Box(Modifier.size(9.dp).clip(CircleShape).background(Color(s.color)))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    (if (s.type == EventType.MAIL) s.title else s.contact?.name ?: s.title) + "  " +
+                    (if (s.type == EventType.MAIL) s.displayTitle else s.contact?.name ?: s.displayTitle) + "  " +
                         (if (s.allDay) s.start.toLocalDate().pretty() else "${s.start.toLocalDate().pretty()}, ${s.start.format(HM)}–${s.end.format(HM)}"),
                     style = Palm.body, color = Palm.ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),

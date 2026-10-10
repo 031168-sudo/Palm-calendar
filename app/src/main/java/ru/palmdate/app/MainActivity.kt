@@ -50,6 +50,13 @@ private val PERMISSIONS = arrayOf(
 class MainActivity : ComponentActivity() {
     private val vm: DayViewModel by viewModels()
 
+    /** Язык приложения (Авто / Русский / English) действует и на системные окна — выбор даты и т.п. */
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(newBase)
+        Lang.init(newBase)
+        applyOverrideConfiguration(Lang.overrideConfiguration())
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Прозрачные системные панели с правильным цветом значков:
         // светлая тема — тёмные значки, тёмная — светлые (как у Google Календаря).
@@ -110,11 +117,10 @@ private fun PermissionScreen(onRequest: () -> Unit) {
         Text("DateBook", style = Palm.title, color = Palm.navy)
         Spacer(Modifier.height(12.dp))
         Text(
-            "Нужен доступ к календарю — события хранятся в вашем Google-календаре — " +
-                "и к контактам, чтобы назначать звонки и встречи людям из телефонной книги.",
+            str(R.string.permission_text),
             style = Palm.body, color = Palm.inkSoft, textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(20.dp))
-        PalmButton("Разрешить", filled = true, onClick = onRequest)
+        PalmButton(str(R.string.permission_allow), filled = true, onClick = onRequest)
     }
 }

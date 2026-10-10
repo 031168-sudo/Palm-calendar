@@ -1,5 +1,7 @@
 package ru.palmdate.app.ui
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -15,15 +17,15 @@ fun primaryActionLabel(e: PalmEvent): String? = when {
         val builtin = ru.palmdate.app.data.SettingsStore.current.mailMode == ru.palmdate.app.data.MailMode.BUILTIN
         when {
             e.mail.kind == ru.palmdate.app.model.MailKind.REPLY ->
-                if (builtin && e.mail.messageId != null) "Открыть письмо" else "Найти в почте"
-            builtin && e.mail.hasDraft -> "Продолжить письмо"
-            else -> "Написать письмо"
+                if (builtin && e.mail.messageId != null) str(R.string.action_open_mail) else str(R.string.action_find_mail)
+            builtin && e.mail.hasDraft -> str(R.string.action_continue_mail)
+            else -> str(R.string.action_write_mail)
         }
     }
-    e.fromContacts && e.contact != null -> "Поздравить"
-    e.type == EventType.CALL && e.contact != null -> "Позвонить"
-    e.type == EventType.MEETING && e.contact?.address != null -> "Маршрут"
-    e.type == EventType.TRIP && e.place != null -> "Маршрут"
+    e.fromContacts && e.contact != null -> str(R.string.action_congratulate)
+    e.type == EventType.CALL && e.contact != null -> str(R.string.action_call)
+    e.type == EventType.MEETING && e.contact?.address != null -> str(R.string.action_route)
+    e.type == EventType.TRIP && e.place != null -> str(R.string.action_route)
     else -> null
 }
 
@@ -45,7 +47,7 @@ fun Context.runPrimaryAction(e: PalmEvent, call: (ru.palmdate.app.model.ContactR
 /** Открыть адрес в картах — с выбором приложения (Яндекс, Google, 2ГИС…). */
 fun Context.openMap(address: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(address)))
-    launch(Intent.createChooser(intent, "Открыть в картах"))
+    launch(Intent.createChooser(intent, str(R.string.action_open_maps)))
 }
 
 /** Обычный набор номера (без выбора мессенджера). */
@@ -59,6 +61,6 @@ private fun Context.launch(intent: Intent) {
     try {
         startActivity(intent)
     } catch (_: ActivityNotFoundException) {
-        Toast.makeText(this, "Нет приложения для этого действия", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, str(R.string.err_no_app), Toast.LENGTH_SHORT).show()
     }
 }

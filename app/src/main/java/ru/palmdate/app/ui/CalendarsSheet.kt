@@ -1,5 +1,7 @@
 package ru.palmdate.app.ui
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -55,14 +57,14 @@ fun CalendarsSheet(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Layers, null, tint = Palm.navy, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Календари", style = Palm.title, color = Palm.ink)
+                Text(str(R.string.calendars_title), style = Palm.title, color = Palm.ink)
             }
             Spacer(Modifier.height(6.dp))
             Box(Modifier.fillMaxWidth().height(2.dp).background(Palm.navy))
 
             val list = calendars
             if (list == null) {
-                Text("Загрузка…", style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(top = 12.dp))
+                Text(str(R.string.loading), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(top = 12.dp))
                 return@Column
             }
             LazyColumn(Modifier.fillMaxWidth().heightIn(max = 560.dp)) {
@@ -94,11 +96,11 @@ fun CalendarsSheet(
                 item(key = "hint") {
                     Text(
                         buildString {
-                            append("Дни рождения берутся из карточек контактов. ")
+                            append(str(R.string.calendars_hint_birthdays))
                             if (list.any { !it.synced }) {
-                                append("Если у календаря выключена синхронизация, его событий на телефоне нет: включите её в Google Календаре → Настройки → календарь → «Синхронизация». ")
+                                append(str(R.string.calendars_hint_sync))
                             }
-                            append("Задачи Google сторонним приложениям недоступны.")
+                            append(str(R.string.calendars_hint_tasks))
                         },
                         style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(top = 12.dp),
                     )

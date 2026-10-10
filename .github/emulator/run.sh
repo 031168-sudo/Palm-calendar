@@ -20,6 +20,8 @@ grep -q "OK (1 test)" seed.log
 
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 0
+# Тексты в ui.py русские — язык приложения ставим «Русский», что бы ни было у эмулятора
+adb shell "run-as ru.palmdate.app sh -c 'mkdir -p shared_prefs && echo \"<map><string name=\\\"mode\\\">RU</string></map>\" > shared_prefs/app_lang.xml'" || true
 adb shell am start -W -n ru.palmdate.app/.MainActivity
 sleep 3
 $UI check "Новое"   # заодно закрывает окно «не отвечает», если оно вылезло

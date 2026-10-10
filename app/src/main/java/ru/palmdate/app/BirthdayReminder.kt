@@ -41,14 +41,14 @@ class BirthdayReminder : BroadcastReceiver() {
         if (names.isEmpty()) return
 
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Дни рождения", NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, str(R.string.notif_channel_birthdays), NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(
             context, 0, Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val n = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_my_calendar)
-            .setContentTitle(if (names.size == 1) "Сегодня день рождения" else "Сегодня дни рождения")
+            .setContentTitle(if (names.size == 1) str(R.string.notif_birthday_one) else str(R.string.notif_birthday_many))
             .setContentText(names.joinToString(", "))
             .setStyle(NotificationCompat.BigTextStyle().bigText(names.joinToString("\n")))
             .setContentIntent(open)

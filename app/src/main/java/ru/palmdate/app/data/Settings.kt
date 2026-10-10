@@ -1,29 +1,48 @@
 package ru.palmdate.app.data
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.annotation.StringRes
 import org.json.JSONObject
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import ru.palmdate.app.model.EventType
 
 /** С какого вида открывается приложение. */
-enum class StartView(val label: String) { LAST("Последний"), DAY("День"), AGENDA("Повестка") }
+enum class StartView(@StringRes val labelRes: Int) {
+    LAST(R.string.start_last), DAY(R.string.start_day), AGENDA(R.string.start_agenda);
+
+    val label: String get() = str(labelRes)
+}
 
 /** Через что звонить по кнопке "Позвонить". */
-enum class CallVia(val label: String) { PHONE("Телефон"), WHATSAPP("WhatsApp"), TELEGRAM("Telegram") }
+enum class CallVia(@StringRes val labelRes: Int) {
+    PHONE(R.string.call_phone), WHATSAPP(R.string.call_whatsapp), TELEGRAM(R.string.call_telegram);
+
+    val label: String get() = str(labelRes)
+}
 
 /** Почтовые ящики с готовыми серверами. */
-enum class MailPreset(val label: String, val imap: String, val smtp: String) {
-    GMAIL("Gmail", "imap.gmail.com", "smtp.gmail.com"),
-    YANDEX("Яндекс", "imap.yandex.ru", "smtp.yandex.ru"),
-    MAILRU("Mail.ru", "imap.mail.ru", "smtp.mail.ru"),
-    CUSTOM("Другая", "", ""),
+enum class MailPreset(@StringRes val labelRes: Int, val imap: String, val smtp: String) {
+    GMAIL(R.string.preset_gmail, "imap.gmail.com", "smtp.gmail.com"),
+    YANDEX(R.string.preset_yandex, "imap.yandex.ru", "smtp.yandex.ru"),
+    MAILRU(R.string.preset_mailru, "imap.mail.ru", "smtp.mail.ru"),
+    CUSTOM(R.string.preset_custom, "", "");
+
+    val label: String get() = str(labelRes)
 }
 
 /** Как работать с почтой: через почтовую программу телефона или встроенной почтой (нужен пароль приложения). */
-enum class MailMode(val label: String) { APP("Через почтовую программу"), BUILTIN("Встроенная почта") }
+enum class MailMode(@StringRes val labelRes: Int) {
+    APP(R.string.mailmode_app), BUILTIN(R.string.mailmode_builtin);
+
+    val label: String get() = str(labelRes)
+}
 
 /** Все настройки DateBook. Пароль почты хранится отдельно и зашифрованно. */
 data class AppSettings(

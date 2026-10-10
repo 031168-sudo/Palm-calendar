@@ -1,5 +1,7 @@
 package ru.palmdate.app.ui
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import android.content.ActivityNotFoundException
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -67,9 +69,9 @@ private fun CallChooser(contact: ContactRef, onDone: () -> Unit) {
         try {
             ctx.startActivity(o.intent)
         } catch (_: ActivityNotFoundException) {
-            Toast.makeText(ctx, "Нет приложения для этого действия", Toast.LENGTH_SHORT).show()
+            Toast.makeText(ctx, str(R.string.err_no_app), Toast.LENGTH_SHORT).show()
         } catch (_: SecurityException) {
-            Toast.makeText(ctx, "Приложение не разрешило звонок", Toast.LENGTH_SHORT).show()
+            Toast.makeText(ctx, str(R.string.err_call_denied), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -79,7 +81,7 @@ private fun CallChooser(contact: ContactRef, onDone: () -> Unit) {
         val auto = list.firstOrNull { it.key == remembered } ?: list.singleOrNull()
         when {
             list.isEmpty() -> {
-                Toast.makeText(ctx, "У контакта нет номера", Toast.LENGTH_SHORT).show(); onDone()
+                Toast.makeText(ctx, str(R.string.err_no_number), Toast.LENGTH_SHORT).show(); onDone()
             }
             auto != null -> { start(auto); onDone() } // запомненный способ или выбирать не из чего
             else -> options = list
@@ -90,7 +92,7 @@ private fun CallChooser(contact: ContactRef, onDone: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDone,
         containerColor = Palm.paper,
-        title = { Text("Связаться: ${contact.name}", style = Palm.title, color = Palm.ink) },
+        title = { Text(str(R.string.contact_via_title, contact.name), style = Palm.title, color = Palm.ink) },
         text = {
             Column {
                 Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
@@ -125,11 +127,11 @@ private fun CallChooser(contact: ContactRef, onDone: () -> Unit) {
                         checked = always, onCheckedChange = { always = it },
                         colors = CheckboxDefaults.colors(checkedColor = Palm.navy),
                     )
-                    Text("Всегда так для этого человека", style = Palm.body, color = Palm.ink)
+                    Text(str(R.string.contact_via_always), style = Palm.body, color = Palm.ink)
                 }
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDone) { Text("Отмена") } },
+        dismissButton = { TextButton(onClick = onDone) { Text(str(R.string.cancel)) } },
     )
 }

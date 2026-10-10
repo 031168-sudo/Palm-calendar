@@ -27,13 +27,16 @@ import ru.palmdate.app.model.Outcome
 import java.time.LocalDateTime
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.model.PhoneNumber
+import androidx.annotation.StringRes
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
 
 /** Виды, как на Palm: переключаются иконками в нижней панели. */
-enum class ViewMode(val label: String) {
-    AGENDA("Повестка"), DAY("День"), WEEK("Неделя"), MONTH("Месяц"), YEAR("Год")
+enum class ViewMode(@StringRes val labelRes: Int) {
+    AGENDA(R.string.start_agenda), DAY(R.string.start_day), WEEK(R.string.view_week), MONTH(R.string.view_month), YEAR(R.string.stats_year);
+
+    val label: String get() = str(labelRes)
 }
 
 data class CalState(
@@ -140,7 +143,7 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun checkMail(password: String): String? = withContext(Dispatchers.IO) {
         runCatching { ru.palmdate.app.data.Mail.check(ru.palmdate.app.data.SettingsStore.current, password) }
-            .getOrElse { it.message ?: "Ошибка" }
+            .getOrElse { it.message ?: str(R.string.error_generic) }
     }
 
     /** Номер последней сборки на GitHub (или null, если не удалось узнать). */

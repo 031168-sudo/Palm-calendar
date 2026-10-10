@@ -1,5 +1,7 @@
 package ru.palmdate.app.ui
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
@@ -132,7 +134,7 @@ fun MailHost(vm: DayViewModel, content: @Composable () -> Unit) {
         val r = apps.remembered()
         when {
             r != null -> action(r)
-            list.isEmpty() -> Toast.makeText(ctx, "На телефоне нет почтовой программы", Toast.LENGTH_LONG).show()
+            list.isEmpty() -> Toast.makeText(ctx, str(R.string.mailui_no_mail_app), Toast.LENGTH_LONG).show()
             list.size == 1 -> action(list.first().pkg)
             else -> chooseApp = action
         }
@@ -147,19 +149,19 @@ fun MailHost(vm: DayViewModel, content: @Composable () -> Unit) {
                 val q = listOfNotNull(m.peerAddr ?: m.peerName, m.subject?.takeIf { it.isNotBlank() }).joinToString(" ")
                 if (q.isNotBlank()) {
                     val cb = ctx.getSystemService(android.content.ClipboardManager::class.java)
-                    cb?.setPrimaryClip(android.content.ClipData.newPlainText("Поиск письма", q))
-                    Toast.makeText(ctx, "Для поиска скопировано: $q — вставьте в поиск почты", Toast.LENGTH_LONG).show()
+                    cb?.setPrimaryClip(android.content.ClipData.newPlainText(str(R.string.mailui_search_clip), q))
+                    Toast.makeText(ctx, str(R.string.mailui_copied_for_search, q), Toast.LENGTH_LONG).show()
                 }
                 apps.launch(pkg)
             }
             if (intent == null) {
-                Toast.makeText(ctx, "Не получается открыть почту", Toast.LENGTH_SHORT).show()
+                Toast.makeText(ctx, str(R.string.mailui_cant_open), Toast.LENGTH_SHORT).show()
             } else try {
                 awaiting = e
                 ctx.startActivity(intent)
             } catch (_: Exception) {
                 awaiting = null
-                Toast.makeText(ctx, "Не получается открыть почту", Toast.LENGTH_SHORT).show()
+                Toast.makeText(ctx, str(R.string.mailui_cant_open), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -184,7 +186,7 @@ fun MailHost(vm: DayViewModel, content: @Composable () -> Unit) {
                 val m = e.mail
                 val builtin = ru.palmdate.app.data.SettingsStore.current.mailMode == ru.palmdate.app.data.MailMode.BUILTIN
                 if (m == null) {
-                    Toast.makeText(ctx, "У события нет письма", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, str(R.string.mailui_no_mail_on_event), Toast.LENGTH_SHORT).show()
                 } else if (!builtin || (m.kind == MailKind.REPLY && m.messageId == null)) {
                     openExternal(e)
                 } else scope.launch {
@@ -192,7 +194,7 @@ fun MailHost(vm: DayViewModel, content: @Composable () -> Unit) {
                     when (m.kind) {
                         MailKind.REPLY -> {
                             val id = m.messageId
-                            if (id == null) Toast.makeText(ctx, "Письмо не прикреплено", Toast.LENGTH_SHORT).show()
+                            if (id == null) Toast.makeText(ctx, str(R.string.mailui_not_attached), Toast.LENGTH_SHORT).show()
                             else viewer = ViewerTarget(e, id, m.folder, draft)
                         }
                         MailKind.NEW -> composer = ComposerTarget(
@@ -237,15 +239,15 @@ fun MailHost(vm: DayViewModel, content: @Composable () -> Unit) {
                 AlertDialog(
                     onDismissRequest = { askSent = null },
                     containerColor = Palm.paper,
-                    title = { Text("Письмо отправлено?", style = Palm.title, color = Palm.ink) },
+                    title = { Text(str(R.string.mailui_sent_q), style = Palm.title, color = Palm.ink) },
                     text = { Text(e.title, style = Palm.body, color = Palm.ink) },
                     confirmButton = {
                         TextButton(onClick = {
                             vm.setOutcome(e, ru.palmdate.app.model.Outcome.DONE, e.outcomeNote)
                             askSent = null
-                        }) { Text("Да, отправлено") }
+                        }) { Text(str(R.string.mailui_yes_sent)) }
                     },
-                    dismissButton = { TextButton(onClick = { askSent = null }) { Text("Нет") } },
+                    dismissButton = { TextButton(onClick = { askSent = null }) { Text(str(R.string.no)) } },
                 )
             }
         }
@@ -276,7 +278,7 @@ private fun MailScreen(
             Modifier.fillMaxWidth().background(Palm.navy).padding(horizontal = 4.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад", tint = Color.White) }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, str(R.string.nav_back), tint = Color.White) }
             Text(
                 title, style = Palm.title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -296,9 +298,9 @@ private fun MailScreen(
     }
 }
 
-private val DAY_MONTH = DateTimeFormatter.ofPattern("d MMM", RU)
-private val FULL_DATE = DateTimeFormatter.ofPattern("d.MM.yyyy", RU)
-private val LONG_DATE = DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", RU)
+private val DAY_MONTH: DateTimeFormatter get() = DateTimeFormatter.ofPattern("d MMM", UiLocale)
+private val FULL_DATE: DateTimeFormatter get() = DateTimeFormatter.ofPattern("d.MM.yyyy", UiLocale)
+private val LONG_DATE: DateTimeFormatter get() = DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", UiLocale)
 
 /** Дата в списке писем: сегодня — время, в этом году — "9 окт", раньше — "9.10.2025". */
 private fun listDate(ms: Long): String {
@@ -317,9 +319,9 @@ internal fun longDate(ms: Long): String =
 
 private fun sizeLabel(size: Long): String = when {
     size < 0 -> ""
-    size < 1024 -> "$size Б"
-    size < 1024 * 1024 -> "${size / 1024} КБ"
-    else -> "%.1f МБ".format(size / 1024.0 / 1024.0)
+    size < 1024 -> str(R.string.mailui_size_b, size)
+    size < 1024 * 1024 -> str(R.string.mailui_size_kb, size / 1024)
+    else -> str(R.string.mailui_size_mb, size / 1024.0 / 1024.0)
 }
 
 /* ---------- Список и поиск писем ---------- */
@@ -354,20 +356,20 @@ private fun MailBrowser(initialQuery: String, vm: DayViewModel, onPick: (MailHea
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            error = e.message ?: "Ошибка почты"
+            error = e.message ?: str(R.string.mailui_error)
             items = emptyList()
         } finally {
             loading = false
         }
     }
 
-    MailScreen("Выберите письмо", onBack = onClose) {
+    MailScreen(str(R.string.mailui_choose), onBack = onClose) {
         OutlinedTextField(
             value = query, onValueChange = { query = it },
-            placeholder = { Text("Кто, тема, слова из письма") },
+            placeholder = { Text(str(R.string.mailui_search_hint)) },
             leadingIcon = { Icon(Icons.Outlined.Search, null, tint = Palm.inkSoft) },
             trailingIcon = if (query.isNotEmpty()) ({
-                IconButton(onClick = { query = "" }) { Icon(Icons.Outlined.Close, "Очистить", tint = Palm.inkSoft) }
+                IconButton(onClick = { query = "" }) { Icon(Icons.Outlined.Close, str(R.string.clear), tint = Palm.inkSoft) }
             }) else null,
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -376,9 +378,9 @@ private fun MailBrowser(initialQuery: String, vm: DayViewModel, onPick: (MailHea
         else Spacer(Modifier.height(2.dp))
         Text(
             when {
-                query.isBlank() -> "Входящие"
-                loading -> "Ищу по всему ящику…"
-                else -> "Найдено: ${items.size}" + if (items.size >= 60) " (показаны последние)" else ""
+                query.isBlank() -> str(R.string.mailui_inbox)
+                loading -> str(R.string.mailui_searching)
+                else -> str(R.string.mailui_found, items.size) + if (items.size >= 60) str(R.string.mailui_found_latest) else ""
             },
             style = Palm.small, color = Palm.inkSoft,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -387,12 +389,12 @@ private fun MailBrowser(initialQuery: String, vm: DayViewModel, onPick: (MailHea
             Column(Modifier.padding(16.dp)) {
                 Text(msg, style = Palm.body, color = Palm.nowLine)
                 Spacer(Modifier.height(8.dp))
-                PalmButton("Повторить") { attempt++ }
+                PalmButton(str(R.string.retry)) { attempt++ }
             }
         }
         if (!loading && error == null && items.isEmpty() && query.isNotBlank()) {
             Text(
-                "Ничего не нашлось. Попробуйте одно слово или часть адреса.",
+                str(R.string.mailui_nothing_found),
                 style = Palm.body, color = Palm.inkSoft, modifier = Modifier.padding(16.dp),
             )
         }
@@ -400,7 +402,7 @@ private fun MailBrowser(initialQuery: String, vm: DayViewModel, onPick: (MailHea
             items(items, key = { it.messageId ?: "${it.folder}/${it.uid}" }) { h -> MailRow(h) { onPick(h) } }
             if (canMore) item(key = "more") {
                 Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                    PalmButton("Ещё") {
+                    PalmButton(str(R.string.more)) {
                         scope.launch {
                             loading = true
                             try {
@@ -434,7 +436,7 @@ private fun MailRow(h: MailHeader, onClick: () -> Unit) {
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (h.hasAttachments) {
-                Icon(Icons.Outlined.AttachFile, "Вложения", tint = Palm.inkSoft, modifier = Modifier.size(14.dp))
+                Icon(Icons.Outlined.AttachFile, str(R.string.mailui_attachments), tint = Palm.inkSoft, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
             }
             Text(h.subject, style = Palm.small.copy(fontSize = Palm.small.fontSize * 1.1f), color = Palm.inkSoft,
@@ -465,7 +467,7 @@ private fun MailViewer(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            error = e.message ?: "Ошибка почты"
+            error = e.message ?: str(R.string.mailui_error)
         }
     }
 
@@ -477,18 +479,18 @@ private fun MailViewer(
         if (uri != null && a != null) scope.launch {
             try {
                 MailClient.saveAttachment(target.messageId, msg?.header?.folder ?: target.folder, a.path) {
-                    ctx.contentResolver.openOutputStream(uri) ?: throw IllegalStateException("Не удалось открыть файл")
+                    ctx.contentResolver.openOutputStream(uri) ?: throw IllegalStateException(str(R.string.err_open_file))
                 }
-                Toast.makeText(ctx, "Сохранено: ${a.name}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(ctx, str(R.string.mailui_saved, a.name), Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                Toast.makeText(ctx, e.message ?: "Не удалось сохранить", Toast.LENGTH_LONG).show()
+                Toast.makeText(ctx, e.message ?: str(R.string.settings_backup_save_failed), Toast.LENGTH_LONG).show()
             }
         }
     }
 
     val m = msg
     MailScreen(
-        title = m?.header?.subject ?: "Письмо",
+        title = m?.header?.subject ?: str(R.string.type_mail),
         onBack = onClose,
         bottom = {
             if (m != null) FlowRow(
@@ -496,9 +498,9 @@ private fun MailViewer(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                PalmButton("Ответить", filled = true) { onCompose(MailClient.reply(m, all = false), false) }
-                if (m.to.size + m.cc.size > 1) PalmButton("Ответить всем") { onCompose(MailClient.reply(m, all = true), false) }
-                PalmButton("Переслать") { onCompose(MailClient.forward(m), false) }
+                PalmButton(str(R.string.mail_verb_reply), filled = true) { onCompose(MailClient.reply(m, all = false), false) }
+                if (m.to.size + m.cc.size > 1) PalmButton(str(R.string.mailui_reply_all)) { onCompose(MailClient.reply(m, all = true), false) }
+                PalmButton(str(R.string.mailui_forward)) { onCompose(MailClient.forward(m), false) }
             }
         },
     ) {
@@ -507,27 +509,27 @@ private fun MailViewer(
                 Modifier.fillMaxWidth().background(Palm.navyLight).padding(horizontal = 16.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Есть черновик ответа", style = Palm.body, color = Palm.navy, modifier = Modifier.weight(1f))
-                PalmButton("Продолжить", filled = true) { onCompose(d, true) }
+                Text(str(R.string.mailui_has_draft_reply), style = Palm.body, color = Palm.navy, modifier = Modifier.weight(1f))
+                PalmButton(str(R.string.continue_word), filled = true) { onCompose(d, true) }
             }
         }
         when {
             error != null -> Column(Modifier.padding(16.dp)) {
                 Text(error!!, style = Palm.body, color = Palm.nowLine)
                 Spacer(Modifier.height(8.dp))
-                PalmButton("Повторить") { attempt++ }
+                PalmButton(str(R.string.retry)) { attempt++ }
             }
             m == null -> {
                 LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp), color = Palm.navy)
-                Text("Открываю письмо…", style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(16.dp))
+                Text(str(R.string.mailui_opening), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(16.dp))
             }
             else -> {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
                     Text(m.header.subject, style = Palm.title, color = Palm.ink)
                     Spacer(Modifier.height(6.dp))
-                    m.header.from?.let { AddrLine("От", listOf(it)) }
-                    if (m.to.isNotEmpty()) AddrLine("Кому", m.to)
-                    if (m.cc.isNotEmpty()) AddrLine("Копия", m.cc)
+                    m.header.from?.let { AddrLine(str(R.string.mailui_from), listOf(it)) }
+                    if (m.to.isNotEmpty()) AddrLine(str(R.string.mail_to_label), m.to)
+                    if (m.cc.isNotEmpty()) AddrLine(str(R.string.mailui_cc), m.cc)
                     Text(longDate(m.header.date), style = Palm.small, color = Palm.inkSoft)
                     if (m.attachments.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
@@ -539,7 +541,7 @@ private fun MailViewer(
                                 }
                             }
                         }
-                        Text("Нажмите на вложение, чтобы сохранить", style = Palm.small, color = Palm.inkSoft,
+                        Text(str(R.string.mailui_tap_to_save), style = Palm.small, color = Palm.inkSoft,
                             modifier = Modifier.padding(top = 4.dp))
                     }
                 }
@@ -550,7 +552,7 @@ private fun MailViewer(
                 } else {
                     SelectionContainer(Modifier.weight(1f).fillMaxWidth()) {
                         Text(
-                            m.text ?: "(письмо без текста)", style = Palm.body.copy(fontWeight = FontWeight.Normal),
+                            m.text ?: str(R.string.mailui_no_text), style = Palm.body.copy(fontWeight = FontWeight.Normal),
                             color = Palm.ink,
                             modifier = Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
                         )
@@ -615,7 +617,7 @@ private fun AttachmentChip(name: String, size: String, onRemove: (() -> Unit)?, 
         }
         if (onRemove != null) {
             IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Outlined.Close, "Убрать", tint = Palm.inkSoft, modifier = Modifier.size(16.dp))
+                Icon(Icons.Outlined.Close, str(R.string.remove), tint = Palm.inkSoft, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -653,11 +655,11 @@ private fun MailComposer(target: ComposerTarget, vm: DayViewModel, onClose: (Boo
     }
 
     fun saveDraft() {
-        busy = "Сохраняю…"
+        busy = str(R.string.mailui_saving)
         scope.launch {
             try {
                 vm.saveMailDraft(target.event.eventId, current())
-                Toast.makeText(ctx, "Сохранено в черновики", Toast.LENGTH_SHORT).show()
+                Toast.makeText(ctx, str(R.string.mailui_saved_drafts), Toast.LENGTH_SHORT).show()
                 onClose(true)
             } catch (e: Exception) {
                 error = e.message
@@ -668,9 +670,9 @@ private fun MailComposer(target: ComposerTarget, vm: DayViewModel, onClose: (Boo
     }
 
     val title = when (o.mode) {
-        Outgoing.MODE_REPLY, Outgoing.MODE_REPLY_ALL -> "Ответ"
-        Outgoing.MODE_FORWARD -> "Пересылка"
-        else -> "Новое письмо"
+        Outgoing.MODE_REPLY, Outgoing.MODE_REPLY_ALL -> str(R.string.mailui_title_reply)
+        Outgoing.MODE_FORWARD -> str(R.string.mailui_title_forward)
+        else -> str(R.string.mailui_title_new)
     }
     val onBack: () -> Unit = { if (busy == null) { if (changed) askClose = true else onClose(false) } }
 
@@ -678,17 +680,17 @@ private fun MailComposer(target: ComposerTarget, vm: DayViewModel, onClose: (Boo
         AlertDialog(
             onDismissRequest = { askClose = false },
             containerColor = Palm.paper,
-            title = { Text("Закрыть письмо?", style = Palm.title, color = Palm.ink) },
-            text = { Text("Сохранить его в черновики, чтобы дописать потом?", style = Palm.body, color = Palm.ink) },
-            confirmButton = { TextButton(onClick = { askClose = false; saveDraft() }) { Text("В черновики") } },
+            title = { Text(str(R.string.mailui_close_q), style = Palm.title, color = Palm.ink) },
+            text = { Text(str(R.string.mailui_close_msg), style = Palm.body, color = Palm.ink) },
+            confirmButton = { TextButton(onClick = { askClose = false; saveDraft() }) { Text(str(R.string.mailui_to_drafts)) } },
             dismissButton = {
                 Row {
                     TextButton(onClick = {
                         askClose = false
                         if (target.fromDraft) scope.launch { runCatching { vm.dropMailDraft(target.event.eventId) } }
                         onClose(false)
-                    }) { Text(if (target.fromDraft) "Удалить" else "Не сохранять") }
-                    TextButton(onClick = { askClose = false }) { Text("Писать дальше") }
+                    }) { Text(if (target.fromDraft) str(R.string.delete) else str(R.string.mailui_dont_save)) }
+                    TextButton(onClick = { askClose = false }) { Text(str(R.string.mailui_keep_writing)) }
                 }
             },
         )
@@ -710,22 +712,22 @@ private fun MailComposer(target: ComposerTarget, vm: DayViewModel, onClose: (Boo
             Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
                 error?.let { Text(it, style = Palm.small, color = Palm.nowLine, modifier = Modifier.padding(bottom = 6.dp)) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    PalmButton("Отмена") { onBack() }
-                    PalmButton("В черновики") { if (busy == null) saveDraft() }
+                    PalmButton(str(R.string.cancel)) { onBack() }
+                    PalmButton(str(R.string.mailui_to_drafts)) { if (busy == null) saveDraft() }
                     Spacer(Modifier.weight(1f))
-                    PalmButton(busy ?: "Отправить", filled = true) {
+                    PalmButton(busy ?: str(R.string.mailui_send), filled = true) {
                         if (busy != null) return@PalmButton
                         error = null
-                        busy = "Отправка…"
+                        busy = str(R.string.mailui_sending)
                         scope.launch {
                             try {
                                 vm.sendMail(target.event, current())
-                                Toast.makeText(ctx, "Письмо отправлено", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(ctx, str(R.string.mailui_sent), Toast.LENGTH_SHORT).show()
                                 onClose(true)
                             } catch (e: CancellationException) {
                                 throw e
                             } catch (e: Exception) {
-                                error = e.message ?: "Не удалось отправить"
+                                error = e.message ?: str(R.string.mailui_send_failed)
                             } finally {
                                 busy = null
                             }
@@ -738,21 +740,21 @@ private fun MailComposer(target: ComposerTarget, vm: DayViewModel, onClose: (Boo
         if (busy != null) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp), color = Palm.navy)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp)) {
             OutlinedTextField(
-                value = to, onValueChange = { to = it }, label = { Text("Кому") },
-                trailingIcon = { IconButton(onClick = { pickFor = "to" }) { Icon(Icons.Outlined.PersonAdd, "Из контактов", tint = Palm.navy) } },
+                value = to, onValueChange = { to = it }, label = { Text(str(R.string.mail_to_label)) },
+                trailingIcon = { IconButton(onClick = { pickFor = "to" }) { Icon(Icons.Outlined.PersonAdd, str(R.string.mailui_from_contacts), tint = Palm.navy) } },
                 maxLines = 3, modifier = Modifier.fillMaxWidth(),
             )
             if (showCc) {
                 OutlinedTextField(
-                    value = cc, onValueChange = { cc = it }, label = { Text("Копия") },
-                    trailingIcon = { IconButton(onClick = { pickFor = "cc" }) { Icon(Icons.Outlined.PersonAdd, "Из контактов", tint = Palm.navy) } },
+                    value = cc, onValueChange = { cc = it }, label = { Text(str(R.string.mailui_cc)) },
+                    trailingIcon = { IconButton(onClick = { pickFor = "cc" }) { Icon(Icons.Outlined.PersonAdd, str(R.string.mailui_from_contacts), tint = Palm.navy) } },
                     maxLines = 3, modifier = Modifier.fillMaxWidth(),
                 )
             } else {
-                TextButton(onClick = { showCc = true }) { Text("+ Копия") }
+                TextButton(onClick = { showCc = true }) { Text(str(R.string.mailui_add_cc)) }
             }
             OutlinedTextField(
-                value = subject, onValueChange = { subject = it }, label = { Text("Тема") },
+                value = subject, onValueChange = { subject = it }, label = { Text(str(R.string.mailui_subject)) },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
@@ -775,11 +777,11 @@ private fun MailComposer(target: ComposerTarget, vm: DayViewModel, onClose: (Boo
             ) {
                 Icon(Icons.Outlined.AttachFile, null, tint = Palm.navy, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("Прикрепить файл", style = Palm.button, color = Palm.navy)
+                Text(str(R.string.mailui_attach), style = Palm.button, color = Palm.navy)
             }
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(
-                value = body, onValueChange = { body = it }, label = { Text("Письмо") },
+                value = body, onValueChange = { body = it }, label = { Text(str(R.string.mailui_body_label)) },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp),
             )
         }
@@ -795,15 +797,15 @@ private fun EmailPickerDialog(vm: DayViewModel, onDismiss: () -> Unit, onPick: (
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Palm.paper,
-        title = { Text("Кому", style = Palm.title, color = Palm.ink) },
+        title = { Text(str(R.string.mail_to_label), style = Palm.title, color = Palm.ink) },
         text = {
             Column {
-                OutlinedTextField(q, { q = it }, placeholder = { Text("Имя или адрес") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(q, { q = it }, placeholder = { Text(str(R.string.mailui_name_or_address)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(6.dp))
                 EmailList(list, Modifier.heightIn(max = 360.dp), onPick)
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Закрыть") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(str(R.string.close)) } },
     )
 }
 
@@ -811,7 +813,7 @@ private fun EmailPickerDialog(vm: DayViewModel, onDismiss: () -> Unit, onPick: (
 @Composable
 internal fun EmailList(list: List<EmailContact>, modifier: Modifier, onPick: (EmailContact) -> Unit) {
     if (list.isEmpty()) {
-        Text("Нет людей с почтой", style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(vertical = 8.dp))
+        Text(str(R.string.mailui_no_people), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(vertical = 8.dp))
         return
     }
     LazyColumn(modifier.fillMaxWidth()) {
@@ -834,7 +836,7 @@ private fun MailAppChooser(apps: ru.palmdate.app.data.MailApps, onDismiss: () ->
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Palm.paper,
-        title = { Text("Открыть в почте", style = Palm.title, color = Palm.ink) },
+        title = { Text(str(R.string.mailui_open_in_mail), style = Palm.title, color = Palm.ink) },
         text = {
             Column {
                 list.forEach { a ->
@@ -859,11 +861,11 @@ private fun MailAppChooser(apps: ru.palmdate.app.data.MailApps, onDismiss: () ->
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     androidx.compose.material3.Checkbox(checked = always, onCheckedChange = { always = it })
-                    Text("Всегда открывать в ней", style = Palm.body, color = Palm.ink)
+                    Text(str(R.string.mailui_always_open), style = Palm.body, color = Palm.ink)
                 }
-                Text("Сменить можно в «Настройки → Почта»", style = Palm.small, color = Palm.inkSoft)
+                Text(str(R.string.mailui_change_in_settings), style = Palm.small, color = Palm.inkSoft)
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(str(R.string.cancel)) } },
     )
 }

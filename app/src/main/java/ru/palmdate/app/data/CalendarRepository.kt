@@ -1,5 +1,7 @@
 package ru.palmdate.app.data
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
@@ -247,15 +249,15 @@ class CalendarRepository(
                 val o = outcomeByKey[id to instance]
                 result += PalmEvent(
                     eventId = id,
-                    title = "День рождения",
+                    title = str(R.string.type_birthday),
                     start = date.atStartOfDay(),
                     end = date.plusDays(1).atStartOfDay(),
                     allDay = true,
                     type = EventType.BIRTHDAY,
                     contact = contacts.byLookupKey(b.lookupKey, links.rememberedPhone(b.lookupKey)),
-                    note = age?.let { "исполняется $it" },
+                    note = age?.let { str(R.string.birthday_turns, it) },
                     color = 0xFFD35400.toInt(),
-                    calendarName = "Контакты",
+                    calendarName = str(R.string.contacts_calendar),
                     recurring = true,          // итог хранится только в приложении
                     instanceStart = instance,
                     outcome = Outcome.parse(o?.status),
@@ -290,10 +292,10 @@ class CalendarRepository(
 
     /** Строка итога в описании события: "Итог: Не дозвонился — перезвонить после обеда". */
     private object OutcomeLine {
-        private val re = Regex("""(?m)^Итог: ([^\n—]+?)(?: — ([^\n]*))?\s*$""")
+        private val re = Regex("""(?m)^(?:Итог|Result): ([^\n—]+?)(?: — ([^\n]*))?\s*$""")
 
         fun make(o: Outcome, type: EventType?, note: String?) =
-            "Итог: " + o.label(type) + (note?.trim()?.takeIf { it.isNotEmpty() }?.let { " — $it" } ?: "")
+            str(R.string.outcome_line_prefix) + o.label(type) + (note?.trim()?.takeIf { it.isNotEmpty() }?.let { " — $it" } ?: "")
 
         fun parse(desc: String?): Pair<Outcome, String?>? {
             val m = desc?.let { re.find(it) } ?: return null
@@ -337,8 +339,8 @@ class CalendarRepository(
         val values = ContentValues()
         var sourceCal = -1L
         resolver.query(uri, cols, null, null, null)?.use { c ->
-            if (!c.moveToFirst()) error("Событие не найдено")
-            if (!c.isNull(15)) error("Одно повторение из серии перенести нельзя — откройте всю серию")
+            if (!c.moveToFirst()) error(str(R.string.err_event_not_found))
+            if (!c.isNull(15)) error(str(R.string.err_move_occurrence))
             sourceCal = c.getLong(16)
             for (i in 0 until 15) {
                 if (c.isNull(i)) continue
@@ -347,7 +349,7 @@ class CalendarRepository(
                     else -> values.put(cols[i], c.getString(i))
                 }
             }
-        } ?: error("Событие не найдено")
+        } ?: error(str(R.string.err_event_not_found))
         if (sourceCal == targetCalendarId) return eventId
 
         // Встречи с гостями: при удалении оригинала гости получат отмену — так не переносим
@@ -355,7 +357,7 @@ class CalendarRepository(
             CalendarContract.Attendees.CONTENT_URI, arrayOf(CalendarContract.Attendees.ATTENDEE_EMAIL),
             "${CalendarContract.Attendees.EVENT_ID} = ?", arrayOf(eventId.toString()), null,
         )?.use { it.count } ?: 0
-        if (guests > 1) error("Встречи с гостями переносить нельзя — гости получат отмену")
+        if (guests > 1) error(str(R.string.err_move_guests))
 
         // У повторяющихся событий вместо DTEND должна быть DURATION
         if (values.containsKey(Events.RRULE)) {
@@ -372,7 +374,7 @@ class CalendarRepository(
 
         val reminders = reminders(eventId)
         val newId = resolver.insert(Events.CONTENT_URI, values)?.let { ContentUris.parseId(it) }
-            ?: error("Не удалось создать событие в новом календаре")
+            ?: error(str(R.string.err_create_in_new_calendar))
         insertReminders(newId, reminders)
 
         // Тип, контакт и номер переезжают вместе с событием
@@ -453,7 +455,7 @@ class CalendarRepository(
             e.place?.takeIf { it.isNotBlank() }?.let { put(Events.EVENT_LOCATION, it.trim()) }
         }
         val eventId = resolver.insert(Events.CONTENT_URI, values)?.let { ContentUris.parseId(it) }
-            ?: error("Календарь отказался сохранить событие")
+            ?: error(str(R.string.err_calendar_refused))
 
         insertReminders(eventId, e.reminders)
         links.upsert(EventLink(eventId, e.type.name, e.contact?.lookupKey, e.contact?.phone))
@@ -511,10 +513,10 @@ class CalendarRepository(
         var tz: String? = null
         resolver.query(uri, arrayOf(Events.DTSTART, Events.DTEND, Events.DURATION, Events.ALL_DAY, Events.EVENT_TIMEZONE), null, null, null)
             ?.use { c ->
-                if (!c.moveToFirst()) error("Событие не найдено")
+                if (!c.moveToFirst()) error(str(R.string.err_event_not_found))
                 start = c.getLong(0); end = c.getLong(1); duration = c.getString(2); allDay = c.getInt(3) == 1
                 tz = c.getString(4)
-            } ?: error("Событие не найдено")
+            } ?: error(str(R.string.err_event_not_found))
         val lengthMs = when {
             end > start -> end - start
             duration != null -> parseDuration(duration!!) ?: 3_600_000L
@@ -535,7 +537,7 @@ class CalendarRepository(
             values.putNull(Events.DTEND)
             values.put(Events.DURATION, if (allDay) "P${maxOf(1L, lengthMs / 86_400_000L)}D" else "P${lengthMs / 1000}S")
         }
-        if (resolver.update(uri, values, null, null) <= 0) error("Не удалось изменить повтор")
+        if (resolver.update(uri, values, null, null) <= 0) error(str(R.string.err_change_repeat))
     }
 
     /** P3600S, PT1H, P1D, P1W → миллисекунды. */
@@ -602,7 +604,7 @@ class CalendarRepository(
             }
         } else {
             val seriesStart = resolver.query(uri, arrayOf(Events.DTSTART), null, null, null)
-                ?.use { if (it.moveToFirst()) it.getLong(0) else null } ?: error("Событие не найдено")
+                ?.use { if (it.moveToFirst()) it.getLong(0) else null } ?: error(str(R.string.err_event_not_found))
             if (allDay) {
                 val days = java.time.temporal.ChronoUnit.DAYS.between(e.start.toLocalDate(), start.toLocalDate())
                 val seriesDate = Instant.ofEpochMilli(seriesStart).atZone(if (e.allDay) ZoneOffset.UTC else zone).toLocalDate()
@@ -616,7 +618,7 @@ class CalendarRepository(
             }
             values.putNull(Events.DTEND)
         }
-        if (resolver.update(uri, values, null, null) <= 0) error("Не удалось изменить время")
+        if (resolver.update(uri, values, null, null) <= 0) error(str(R.string.err_change_time))
     }
 
     fun reminders(eventId: Long): List<Int> {
@@ -656,7 +658,7 @@ class CalendarRepository(
             put(Events.STATUS, Events.STATUS_CANCELED)
         }
         resolver.insert(ContentUris.withAppendedId(Events.CONTENT_EXCEPTION_URI, e.eventId), v)
-            ?: error("Не удалось удалить этот раз")
+            ?: error(str(R.string.err_delete_occurrence))
         links.clearOutcome(e.eventId, e.instanceStart)
     }
 
@@ -683,7 +685,7 @@ class CalendarRepository(
         val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
         resolver.query(uri, arrayOf(Events.DTSTART, Events.DTEND, Events.DURATION, Events.ALL_DAY, Events.RRULE) + copy, null, null, null)
             ?.use { c ->
-                if (!c.moveToFirst()) error("Событие не найдено")
+                if (!c.moveToFirst()) error(str(R.string.err_event_not_found))
                 val start = c.getLong(0)
                 val end = if (c.isNull(1)) 0L else c.getLong(1)
                 val allDay = c.getInt(3) == 1
@@ -704,7 +706,7 @@ class CalendarRepository(
                 }
                 return Series(start, c.getString(4)?.takeIf { it.isNotBlank() }, allDay, length, values)
             }
-        error("Событие не найдено")
+        error(str(R.string.err_event_not_found))
     }
 
     /** Закончить серию перед этим разом; её отдельно изменённые будущие разы убрать. */
@@ -720,7 +722,7 @@ class CalendarRepository(
             put(Events.ALL_DAY, if (s.allDay) 1 else 0)
             s.values.getAsString(Events.EVENT_TIMEZONE)?.let { put(Events.EVENT_TIMEZONE, it) }
         }
-        if (resolver.update(uri, v, null, null) <= 0) error("Не удалось изменить серию")
+        if (resolver.update(uri, v, null, null) <= 0) error(str(R.string.err_change_series))
         runCatching {
             resolver.delete(
                 Events.CONTENT_URI,
@@ -751,7 +753,7 @@ class CalendarRepository(
         val reminders = reminders(oldId)
         values.put(Events.HAS_ALARM, if (reminders.isEmpty()) 0 else 1)
         val newId = resolver.insert(Events.CONTENT_URI, values)?.let { ContentUris.parseId(it) }
-            ?: error("Не удалось создать новую часть серии")
+            ?: error(str(R.string.err_new_series_part))
         insertReminders(newId, reminders)
         links.byIds(listOf(oldId)).firstOrNull()?.let { links.upsert(it.copy(eventId = newId)) }
         links.mail(oldId)?.let { links.upsertMail(it.copy(eventId = newId)) }
@@ -795,7 +797,7 @@ class CalendarRepository(
                     accountName.contains("local", ignoreCase = true)
                 list += CalendarInfo(
                     id = c.getLong(0),
-                    name = c.getString(1) ?: accountName.ifEmpty { "Календарь" },
+                    name = c.getString(1) ?: accountName.ifEmpty { str(R.string.cal_label) },
                     accountName = accountName,
                     accountType = accountType,
                     color = c.getInt(4),

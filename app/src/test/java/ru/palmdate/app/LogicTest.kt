@@ -3,6 +3,7 @@ package ru.palmdate.app
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -25,7 +26,6 @@ import ru.palmdate.app.model.Outcome
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.model.matchRepeat
 import ru.palmdate.app.model.repeatLabel
-import ru.palmdate.app.ui.plural
 import java.time.Instant
 import java.time.LocalDateTime
 
@@ -33,6 +33,8 @@ import java.time.LocalDateTime
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class LogicTest {
+
+    @Before fun russian() = Lang.setMode(LangMode.RU, persist = false)
 
     @Test fun repeatRules() {
         assertNull(matchRepeat(null))
@@ -99,10 +101,19 @@ class LogicTest {
     }
 
     @Test fun plurals() {
-        assertEquals("1 звонок", plural(1, "звонок", "звонка", "звонков"))
-        assertEquals("3 звонка", plural(3, "звонок", "звонка", "звонков"))
-        assertEquals("11 звонков", plural(11, "звонок", "звонка", "звонков"))
-        assertEquals("21 звонок", plural(21, "звонок", "звонка", "звонков"))
+        assertEquals("1 звонок", plu(R.plurals.count_calls, 1))
+        assertEquals("3 звонка", plu(R.plurals.count_calls, 3))
+        assertEquals("11 звонков", plu(R.plurals.count_calls, 11))
+        assertEquals("21 звонок", plu(R.plurals.count_calls, 21))
+        Lang.setMode(LangMode.EN, persist = false)
+        assertEquals("1 call", plu(R.plurals.count_calls, 1))
+        assertEquals("3 calls", plu(R.plurals.count_calls, 3))
+    }
+
+    @Test fun titlesRecognizedInBothLanguages() {
+        Lang.setMode(LangMode.EN, persist = false)
+        assertEquals("Ivan", event("Call: Ivan", EventType.CALL).shortTitle)
+        assertEquals("Иван", event("Звонок: Иван", EventType.CALL).shortTitle)
     }
 
     @Test fun outgoingJson() {

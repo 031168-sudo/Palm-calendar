@@ -1,5 +1,7 @@
 package ru.palmdate.app.data
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import java.util.Properties
 import javax.mail.Session
 
@@ -11,8 +13,8 @@ object Mail {
     /** Возвращает null, если всё хорошо, иначе — понятное описание ошибки. */
     fun check(s: AppSettings, password: String): String? {
         val password = password.filterNot { it.isWhitespace() }
-        if (s.mailEmail.isBlank() || password.isBlank()) return "Укажите адрес и пароль приложения"
-        if (s.imapHost.isBlank() || s.smtpHost.isBlank()) return "Укажите серверы IMAP и SMTP"
+        if (s.mailEmail.isBlank() || password.isBlank()) return str(R.string.mail_err_need_credentials)
+        if (s.imapHost.isBlank() || s.smtpHost.isBlank()) return str(R.string.mail_err_need_servers)
         val props = Properties().apply {
             put("mail.imaps.connectiontimeout", "15000")
             put("mail.imaps.timeout", "15000")
@@ -25,13 +27,13 @@ object Mail {
             val store = session.getStore("imaps")
             try { store.connect(s.imapHost, s.mailImapPort, s.mailEmail, password) } finally { runCatching { store.close() } }
         } catch (e: Exception) {
-            return "Чтение (IMAP): " + explain(e)
+            return str(R.string.mail_err_imap, explain(e))
         }
         try {
             val t = session.getTransport("smtps")
             try { t.connect(s.smtpHost, s.mailSmtpPort, s.mailEmail, password) } finally { runCatching { t.close() } }
         } catch (e: Exception) {
-            return "Отправка (SMTP): " + explain(e)
+            return str(R.string.mail_err_smtp, explain(e))
         }
         return null
     }
@@ -40,12 +42,12 @@ object Mail {
         val m = (e.message ?: e.javaClass.simpleName)
         return when {
             m.contains("Application-specific password required", true) ->
-                "почта не приняла пароль: нужен именно пароль приложения (16 латинских букв), а не пароль от аккаунта"
+                str(R.string.mail_err_app_password)
             m.contains("AUTHENTICATIONFAILED", true) || m.contains("Invalid credentials", true) ||
                 m.contains("535") || m.contains("authentication failed", true) ->
-                "неверный адрес или пароль. Нужен именно пароль приложения, а не обычный пароль от почты"
-            m.contains("UnknownHost", true) || e is java.net.UnknownHostException -> "сервер не найден, проверьте адрес и интернет"
-            m.contains("timed out", true) -> "сервер не отвечает"
+                str(R.string.mail_err_auth)
+            m.contains("UnknownHost", true) || e is java.net.UnknownHostException -> str(R.string.mail_err_host)
+            m.contains("timed out", true) -> str(R.string.mail_err_timeout)
             else -> m.take(200)
         }
     }

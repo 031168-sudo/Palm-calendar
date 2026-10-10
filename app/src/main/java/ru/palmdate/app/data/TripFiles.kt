@@ -1,5 +1,7 @@
 package ru.palmdate.app.data
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -20,10 +22,10 @@ class TripFiles(private val context: Context, private val dao: LinkDao) {
         val resolver = context.contentResolver
         val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
             if (c.moveToFirst()) c.getString(0) else null
-        } ?: "документ"
+        } ?: str(R.string.trip_file_default_name)
         val dir = File(context.filesDir, "trips/$eventId").apply { mkdirs() }
         val file = File(dir, UUID.randomUUID().toString() + "_" + safeName(name))
-        val input = resolver.openInputStream(uri) ?: error("Не удалось открыть файл")
+        val input = resolver.openInputStream(uri) ?: error(str(R.string.err_open_file))
         input.use { src -> file.outputStream().use { dst -> src.copyTo(dst) } }
         val row = TripFile(
             eventId = eventId, label = label, name = name,

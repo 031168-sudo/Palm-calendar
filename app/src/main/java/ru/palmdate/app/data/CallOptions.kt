@@ -1,5 +1,7 @@
 package ru.palmdate.app.data
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
@@ -46,7 +48,7 @@ class CallOptions(private val context: Context) {
         val list = ArrayList<CallOption>()
         if (phone != null) {
             list += CallOption(
-                "PHONE", "Телефон", "Звонок $phone", dialerIcon(),
+                "PHONE", str(R.string.call_phone), str(R.string.call_action_phone, phone), dialerIcon(),
                 Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(phone))),
             )
         }
@@ -77,9 +79,9 @@ class CallOptions(private val context: Context) {
                 else -> pm.getLaunchIntentForPackage(m.pkg) ?: continue
             }
             val action = when {
-                present -> "Открыть чат"
-                m.chatByPhone == null -> "Человек не отмечен в MAX — откроется приложение, найдите его там"
-                else -> "Нет в контактах ${m.name} — мессенджер проверит номер сам"
+                present -> str(R.string.call_open_chat)
+                m.chatByPhone == null -> str(R.string.call_max_hint)
+                else -> str(R.string.call_not_in_contacts, m.name)
             }
             list += CallOption(m.pkg, m.name, action, appIcon(m.pkg), intent, available = present)
         }
@@ -96,7 +98,7 @@ class CallOptions(private val context: Context) {
     /** Подпись запомненного способа: "WhatsApp" / "Телефон". */
     fun rememberedLabel(lookupKey: String): String? {
         val key = remembered(lookupKey) ?: return null
-        if (key == "PHONE") return "Телефон"
+        if (key == "PHONE") return str(R.string.call_phone)
         return MESSENGERS.firstOrNull { it.pkg == key }?.name
     }
 

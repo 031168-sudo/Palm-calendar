@@ -1,5 +1,8 @@
 package ru.palmdate.app.model
 
+import ru.palmdate.app.str
+import ru.palmdate.app.R
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Email
@@ -12,28 +15,37 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import java.time.LocalDate
 import java.time.LocalDateTime
+import ru.palmdate.app.Lang
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 
 /**
  * Тип события — то, что делало Agendus на Palm удобным:
  * не "текст во времени", а "звонок Сергею" / "встреча с Олегом".
  */
 enum class EventType(
-    val label: String,
+    @StringRes val labelRes: Int,
     val icon: ImageVector,
     private val baseColor: Color,
     val defaultMinutes: Int,
     val needsContact: Boolean,
     val defaultReminders: List<Int>,
 ) {
-    CALL("Звонок", Icons.Outlined.Phone, Color(0xFFC0392B), 15, true, listOf(5)),
-    MEETING("Встреча", Icons.Outlined.Groups, Color(0xFF1E3A6E), 60, true, listOf(15)),
-    TASK("Задача", Icons.Outlined.TaskAlt, Color(0xFF2E7D32), 30, false, listOf(15)),
-    TRIP("Выезд", Icons.Outlined.Place, Color(0xFF6A4C93), 120, false, listOf(60)),
-    MAIL("Письмо", Icons.Outlined.Email, Color(0xFF00838F), 15, false, listOf(15)),
-    OTHER("Событие", Icons.Outlined.Event, Color(0xFF546E7A), 60, false, listOf(15)),
+    CALL(R.string.type_call, Icons.Outlined.Phone, Color(0xFFC0392B), 15, true, listOf(5)),
+    MEETING(R.string.type_meeting, Icons.Outlined.Groups, Color(0xFF1E3A6E), 60, true, listOf(15)),
+    TASK(R.string.type_task, Icons.Outlined.TaskAlt, Color(0xFF2E7D32), 30, false, listOf(15)),
+    TRIP(R.string.type_trip, Icons.Outlined.Place, Color(0xFF6A4C93), 120, false, listOf(60)),
+    MAIL(R.string.type_mail, Icons.Outlined.Email, Color(0xFF00838F), 15, false, listOf(15)),
+    OTHER(R.string.type_other, Icons.Outlined.Event, Color(0xFF546E7A), 60, false, listOf(15)),
     // Только для дней рождения из карточек контактов — выбрать его нельзя.
     // Старые события «Праздник» (метка t=BIRTHDAY) становятся обычными событиями.
-    BIRTHDAY("День рождения", Icons.Outlined.Cake, Color(0xFFD35400), 0, false, listOf(0));
+    BIRTHDAY(R.string.type_birthday, Icons.Outlined.Cake, Color(0xFFD35400), 0, false, listOf(0));
+
+    /** Название типа на выбранном языке. */
+    val label: String get() = str(labelRes)
+
+    /** Названия типа на всех языках — чтобы узнавать заголовки, записанные раньше на другом языке. */
+    val allLabels: List<String> get() = Lang.TAGS.map { Lang.strIn(it, labelRes) }
 
     /** Цвет типа с поправкой на тему (в тёмной — светлее). */
     val color: Color get() = ru.palmdate.app.ui.theme.Palm.typeColor(baseColor)
@@ -48,13 +60,13 @@ enum class EventType(
 }
 
 /** Варианты напоминаний (минуты до начала) и их подписи. */
-val REMINDER_OPTIONS: List<Pair<Int, String>> = listOf(
-    0 to "В момент",
-    5 to "5 мин",
-    15 to "15 мин",
-    30 to "30 мин",
-    60 to "1 ч",
-    1440 to "1 день",
+fun reminderOptions(): List<Pair<Int, String>> = listOf(
+    0 to str(R.string.rem_at_start),
+    5 to str(R.string.rem_min, 5),
+    15 to str(R.string.rem_min, 15),
+    30 to str(R.string.rem_min, 30),
+    60 to str(R.string.rem_hour, 1),
+    1440 to str(R.string.rem_one_day),
 )
 
 /** Время дня из минут: 540 → "9:00". */
@@ -67,16 +79,16 @@ fun minutesToTime(m: Int): String = "%d:%02d".format(m / 60, m % 60)
 val ALLDAY_REMINDER_OPTIONS: List<Int> = listOf(-480, -540, -720, 360)
 
 fun allDayReminderLabel(m: Int): String = when {
-    m <= 0 -> "В этот день в " + minutesToTime(-m)
-    m <= 1440 -> "Накануне в " + minutesToTime(1440 - m)
-    else -> "За ${(m + 1439) / 1440} дн"
+    m <= 0 -> str(R.string.rem_allday_same, minutesToTime(-m))
+    m <= 1440 -> str(R.string.rem_allday_before, minutesToTime(1440 - m))
+    else -> str(R.string.rem_days_before, (m + 1439) / 1440)
 }
 
-fun reminderLabel(m: Int): String = REMINDER_OPTIONS.firstOrNull { it.first == m }?.second
+fun reminderLabel(m: Int): String = reminderOptions().firstOrNull { it.first == m }?.second
     ?: when {
-        m % 1440 == 0 -> "${m / 1440} дн"
-        m % 60 == 0 -> "${m / 60} ч"
-        else -> "$m мин"
+        m % 1440 == 0 -> str(R.string.rem_days, m / 1440)
+        m % 60 == 0 -> str(R.string.rem_hour, m / 60)
+        else -> str(R.string.rem_min, m)
     }
 
 /**
@@ -110,9 +122,9 @@ data class CalendarInfo(
     /** Почему календарь не годится (или null, если годится). */
     val problem: String?
         get() = when {
-            !writable -> "только чтение"
-            local -> "только на этом телефоне"
-            !synced -> "синхронизация выключена"
+            !writable -> str(R.string.cal_problem_readonly)
+            local -> str(R.string.cal_problem_local)
+            !synced -> str(R.string.cal_problem_nosync)
             else -> null
         }
 }
@@ -145,24 +157,31 @@ data class PalmEvent(
     val shortTitle: String
         get() {
             val t = type ?: return title
-            if (t == EventType.MAIL) {
-                val prefix = (mail?.kind ?: MailKind.REPLY).verb
-                return when {
-                    title == prefix || title == t.label -> ""
-                    title.startsWith("$prefix: ") -> title.removePrefix("$prefix: ")
-                    else -> title
-                }
-            }
-            return when {
-                title == t.label -> ""
-                title.startsWith(t.label + ": ") -> title.removePrefix(t.label + ": ")
-                else -> title
-            }
+            // Заголовок мог быть записан на другом языке — узнаём приставку на любом
+            val prefixes = if (t == EventType.MAIL) (mail?.kind ?: MailKind.REPLY).allVerbs + t.allLabels else t.allLabels
+            if (title in prefixes) return ""
+            prefixes.firstOrNull { title.startsWith("$it: ") }?.let { return title.removePrefix("$it: ") }
+            return title
+        }
+
+    /**
+     * Заголовок для списков: приставка типа («Звонок: …») — на выбранном языке,
+     * даже если событие записано в календарь на другом.
+     */
+    val displayTitle: String
+        get() {
+            val t = type ?: return title
+            if (fromContacts) return title
+            val prefixes = if (t == EventType.MAIL) (mail?.kind ?: MailKind.REPLY).allVerbs + t.allLabels else t.allLabels
+            val known = title in prefixes || prefixes.any { title.startsWith("$it: ") }
+            if (!known) return title
+            val prefix = if (t == EventType.MAIL) (mail?.kind ?: MailKind.REPLY).verb else t.label
+            return shortTitle.let { if (it.isEmpty()) prefix else "$prefix: $it" }
         }
 
     /** Подпись типа: у дней рождения из контактов своя, остальные — по типу. */
     val typeLabel: String?
-        get() = if (fromContacts) "День рождения" else type?.label
+        get() = if (fromContacts) str(R.string.type_birthday) else type?.label
 
     /** Дни, которые занимает событие (для недели, месяца, года). */
     fun days(): List<LocalDate> {
@@ -186,26 +205,32 @@ enum class Outcome(val kind: OutcomeKind) {
     CANCELLED(OutcomeKind.BAD);
 
     /** Подпись с учётом типа события: звонок "состоялся", встреча "состоялась", задача "выполнена". */
-    fun label(type: EventType?): String = when (this) {
+    fun label(type: EventType?): String = str(labelRes(type))
+
+    /** Подпись на конкретном языке — чтобы узнавать итоги, записанные в описании раньше. */
+    fun labelIn(tag: String, type: EventType?): String = Lang.strIn(tag, labelRes(type))
+
+    @StringRes
+    private fun labelRes(type: EventType?): Int = when (this) {
         DONE -> when (type) {
-            EventType.MAIL -> "Отправлено"
-            EventType.CALL -> "Состоялся"
-            EventType.MEETING -> "Состоялась"
-            EventType.TASK -> "Выполнена"
-            else -> "Состоялось"
+            EventType.MAIL -> R.string.outcome_done_mail
+            EventType.CALL -> R.string.outcome_done_call
+            EventType.MEETING -> R.string.outcome_done_meeting
+            EventType.TASK -> R.string.outcome_done_task
+            else -> R.string.outcome_done_other
         }
-        NO_ANSWER -> "Не дозвонился"
-        NO_SHOW -> "Не пришли"
-        NOT_DONE -> if (type == EventType.MAIL) "Не отправлено" else "Не выполнена"
+        NO_ANSWER -> R.string.outcome_no_answer
+        NO_SHOW -> R.string.outcome_no_show
+        NOT_DONE -> if (type == EventType.MAIL) R.string.outcome_not_sent else R.string.outcome_not_done
         RESCHEDULED -> when (type) {
-            EventType.CALL -> "Перенесён"
-            EventType.MEETING -> "Перенесена"
-            else -> "Перенесено"
+            EventType.CALL -> R.string.outcome_moved_call
+            EventType.MEETING -> R.string.outcome_moved_meeting
+            else -> R.string.outcome_moved_other
         }
         CANCELLED -> when (type) {
-            EventType.CALL -> "Отменён"
-            EventType.MEETING, EventType.TASK -> "Отменена"
-            else -> "Отменено"
+            EventType.CALL -> R.string.outcome_cancelled_call
+            EventType.MEETING, EventType.TASK -> R.string.outcome_cancelled_f
+            else -> R.string.outcome_cancelled_other
         }
     }
 
@@ -225,20 +250,22 @@ enum class Outcome(val kind: OutcomeKind) {
         fun fromLabel(label: String): Outcome? {
             val l = label.trim().lowercase()
             return entries.firstOrNull { o ->
-                (EventType.entries.map { o.label(it) } + o.label(null)).any { it.lowercase() == l }
+                Lang.TAGS.any { tag ->
+                    (EventType.entries.map { o.labelIn(tag, it) } + o.labelIn(tag, null)).any { it.lowercase() == l }
+                }
             }
         }
     }
 }
 
 /** Варианты повтора: правило RRULE (null — не повторяется) и подпись. */
-val REPEAT_OPTIONS: List<Pair<String?, String>> = listOf(
-    null to "Не повторяется",
-    "FREQ=DAILY" to "Каждый день",
-    "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" to "По будням",
-    "FREQ=WEEKLY" to "Каждую неделю",
-    "FREQ=MONTHLY" to "Каждый месяц",
-    "FREQ=YEARLY" to "Каждый год",
+fun repeatOptions(): List<Pair<String?, String>> = listOf(
+    null to str(R.string.repeat_none),
+    "FREQ=DAILY" to str(R.string.repeat_daily),
+    "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" to str(R.string.repeat_weekdays),
+    "FREQ=WEEKLY" to str(R.string.repeat_weekly),
+    "FREQ=MONTHLY" to str(R.string.repeat_monthly),
+    "FREQ=YEARLY" to str(R.string.repeat_yearly),
 )
 
 /**
@@ -265,12 +292,20 @@ fun matchRepeat(rrule: String?): String? {
 }
 
 fun repeatLabel(rrule: String?): String = when (val m = matchRepeat(rrule)) {
-    "" -> "Своё правило"
-    else -> REPEAT_OPTIONS.first { it.first == m }.second
+    "" -> str(R.string.repeat_custom)
+    else -> repeatOptions().first { it.first == m }.second
 }
 
 /** Письмо: ответить на пришедшее или написать новое. */
-enum class MailKind(val verb: String) { REPLY("Ответить"), NEW("Написать") }
+enum class MailKind(@StringRes val verbRes: Int) {
+    REPLY(R.string.mail_verb_reply), NEW(R.string.mail_verb_new);
+
+    /** Глагол на выбранном языке: «Ответить» / «Reply». */
+    val verb: String get() = str(verbRes)
+
+    /** Глагол на всех языках — чтобы узнавать заголовки, записанные раньше на другом языке. */
+    val allVerbs: List<String> get() = Lang.TAGS.map { Lang.strIn(it, verbRes) }
+}
 
 /**
  * Письмо, привязанное к событию. Для «Ответить» — найденное письмо (по Message-ID),

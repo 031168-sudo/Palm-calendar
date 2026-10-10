@@ -1,5 +1,7 @@
 package ru.palmdate.app.data
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import android.content.Context
 import android.util.Base64
 import java.io.File
@@ -49,7 +51,7 @@ class Backup(private val context: Context, private val links: LinkDao) {
     /** Восстановить из копии. Возвращает, сколько записей восстановлено. */
     suspend fun import(text: String): Int {
         val j = JSONObject(text)
-        require(j.optString("format").startsWith("datebook")) { "Это не копия DateBook" }
+        require(j.optString("format").startsWith("datebook")) { str(R.string.err_not_backup) }
         var n = 0
         j.optJSONArray("links")?.let { a ->
             for (i in 0 until a.length()) {

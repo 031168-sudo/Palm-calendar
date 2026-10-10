@@ -1,5 +1,7 @@
 package ru.palmdate.app.data
 
+import ru.palmdate.app.R
+import ru.palmdate.app.str
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -171,7 +173,7 @@ object MailClient {
     })
 
     private fun connected(): IMAPStore {
-        if (!configured()) throw MailException("Почта не настроена: «Настройки → Почта» — адрес и пароль приложения")
+        if (!configured()) throw MailException(str(R.string.mailc_not_configured))
         val key = "${s.imapHost}|${s.mailImapPort}|${s.mailEmail}"
         store?.let { st ->
             if (storeKey == key && st.isConnected) return st
@@ -251,7 +253,7 @@ object MailClient {
             folder = f.fullName,
             uid = runCatching { f.getUID(m) }.getOrDefault(0L),
             messageId = runCatching { mm.messageID }.getOrNull(),
-            subject = runCatching { mm.subject }.getOrNull()?.takeIf { it.isNotBlank() } ?: "(без темы)",
+            subject = runCatching { mm.subject }.getOrNull()?.takeIf { it.isNotBlank() } ?: str(R.string.mail_no_subject),
             from = runCatching { addr(mm.from?.firstOrNull()) }.getOrNull(),
             date = runCatching { (mm.receivedDate ?: mm.sentDate)?.time }.getOrNull() ?: 0L,
             seen = runCatching { m.isSet(Flags.Flag.SEEN) }.getOrDefault(true),
@@ -353,7 +355,7 @@ object MailClient {
                 for (i in 0 until mp.count) walk(mp.getBodyPart(i), path + i, acc)
             }
             attachment -> acc.attachments += MailAttachment(
-                name ?: if (p.isMimeType("message/rfc822")) "письмо.eml" else "вложение",
+                name ?: if (p.isMimeType("message/rfc822")) str(R.string.mailc_att_email) else str(R.string.mailc_att_default),
                 runCatching { p.contentType.substringBefore(";").trim().lowercase() }.getOrDefault("application/octet-stream"),
                 runCatching { p.size }.getOrDefault(-1),
                 path,
@@ -368,7 +370,7 @@ object MailClient {
     /** Открыть письмо: текст, адреса, вложения. Отмечается прочитанным, как в обычной почте. */
     suspend fun open(messageId: String, folder: String?): MailMessage = withStore { st ->
         val (f, m) = find(st, messageId, folder, write = true)
-            ?: throw MailException("Письмо не найдено в ящике — возможно, его удалили")
+            ?: throw MailException(str(R.string.mailc_not_found_deleted))
         try {
             val acc = Parts()
             walk(m, emptyList(), acc)
@@ -396,7 +398,7 @@ object MailClient {
 
     /** Сохранить вложение письма в файл (out — поток, выбранный пользователем). */
     suspend fun saveAttachment(messageId: String, folder: String?, path: List<Int>, out: () -> OutputStream) = withStore { st ->
-        val (f, m) = find(st, messageId, folder, write = false) ?: throw MailException("Письмо не найдено в ящике")
+        val (f, m) = find(st, messageId, folder, write = false) ?: throw MailException(str(R.string.mailc_not_found))
         try {
             val p = partAt(m, path)
             out().use { o -> p.inputStream.use { it.copyTo(o) } }
@@ -409,7 +411,7 @@ object MailClient {
     private fun forwardParts(st: IMAPStore, fwd: ForwardFrom): List<MimeBodyPart> {
         if (fwd.parts.isEmpty()) return emptyList()
         val (f, m) = find(st, fwd.messageId, fwd.folder, write = false)
-            ?: throw MailException("Пересылаемое письмо не найдено в ящике")
+            ?: throw MailException(str(R.string.mailc_forward_not_found))
         try {
             return fwd.parts.map { a ->
                 val p = partAt(m, a.path)
@@ -433,11 +435,11 @@ object MailClient {
         val parsed = try {
             InternetAddress.parse(s.replace(';', ','), false)
         } catch (e: Exception) {
-            throw MailException("Не получается разобрать адрес: ${s.take(60)}")
+            throw MailException(str(R.string.mailc_bad_address_parse, s.take(60)))
         }
         return parsed.map { a ->
             val email = a.address?.trim() ?: ""
-            if (!email.contains("@") || email.contains(" ")) throw MailException("Неверный адрес: $email")
+            if (!email.contains("@") || email.contains(" ")) throw MailException(str(R.string.mailc_bad_address, email))
             InternetAddress(email, a.personal, "UTF-8")
         }
     }
@@ -470,7 +472,7 @@ object MailClient {
 
     /** Имя и размер файла с телефона — для списка вложений. */
     fun fileInfo(ctx: Context, uri: Uri): Pair<String, Long> {
-        var name = uri.lastPathSegment ?: "файл"
+        var name = uri.lastPathSegment ?: str(R.string.mailc_file_default)
         var size = -1L
         runCatching {
             ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
@@ -488,7 +490,7 @@ object MailClient {
         val mime = ctx.contentResolver.getType(uri) ?: "application/octet-stream"
         val bytes = try {
             ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-        } catch (e: Exception) { null } ?: throw MailException("Не удалось прочитать файл «$name»")
+        } catch (e: Exception) { null } ?: throw MailException(str(R.string.mailc_read_file_failed, name))
         return attachmentPart(bytes, mime, name)
     }
 
@@ -498,7 +500,7 @@ object MailClient {
      * Возвращает Message-ID отправленного письма.
      */
     suspend fun send(ctx: Context, o: Outgoing): String {
-        if (parseAddresses(o.to).isEmpty()) throw MailException("Укажите, кому отправить")
+        if (parseAddresses(o.to).isEmpty()) throw MailException(str(R.string.mailc_need_recipient))
         val msg = withStore { st -> build(ctx, st, o) }
         withContext(Dispatchers.IO) {
             try {
@@ -510,7 +512,7 @@ object MailClient {
                     runCatching { t.close() }
                 }
             } catch (e: Exception) {
-                throw MailException("Не отправлено: " + Mail.explain(e))
+                throw MailException(str(R.string.mailc_not_sent, Mail.explain(e)))
             }
         }
         val id = msg.messageID
@@ -573,12 +575,13 @@ object MailClient {
 
     /* ---------- Ответ и пересылка: тема, цитата, адреса ---------- */
 
-    private val dateFmt = java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", java.util.Locale("ru"))
+    private val dateFmt: java.time.format.DateTimeFormatter
+        get() = java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", ru.palmdate.app.Lang.locale)
 
     private fun fmtDate(ms: Long) = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault()).format(dateFmt)
 
     private fun withPrefix(prefix: String, subject: String): String {
-        val clean = subject.takeIf { it != "(без темы)" } ?: ""
+        val clean = subject.takeIf { s -> ru.palmdate.app.Lang.TAGS.none { ru.palmdate.app.Lang.strIn(it, R.string.mail_no_subject) == s } } ?: ""
         return if (clean.startsWith("$prefix:", ignoreCase = true)) clean else "$prefix: $clean".trimEnd()
     }
 
@@ -598,7 +601,7 @@ object MailClient {
             to = to.joinToString(", ") { it.full },
             cc = cc.joinToString(", ") { it.full },
             subject = withPrefix("Re", m.header.subject),
-            body = "\n\n${fmtDate(m.header.date)}, $who пишет:\n$quote\n",
+            body = "\n\n" + str(R.string.mailc_quote_header, fmtDate(m.header.date), who) + "\n$quote\n",
             inReplyTo = m.header.messageId,
             references = refs,
         )
@@ -607,11 +610,11 @@ object MailClient {
     /** Пересылка: тема, заголовок исходного письма и его текст, все вложения. */
     fun forward(m: MailMessage): Outgoing {
         val head = buildString {
-            append("\n\n---------- Пересланное сообщение ----------\n")
-            m.header.from?.let { append("От: ${it.full}\n") }
-            append("Дата: ${fmtDate(m.header.date)}\n")
-            append("Тема: ${m.header.subject}\n")
-            if (m.to.isNotEmpty()) append("Кому: ${m.to.joinToString(", ") { it.full }}\n")
+            append("\n\n" + str(R.string.mailc_fwd_header) + "\n")
+            m.header.from?.let { append(str(R.string.mailc_fwd_from, it.full) + "\n") }
+            append(str(R.string.mailc_fwd_date, fmtDate(m.header.date)) + "\n")
+            append(str(R.string.mailc_fwd_subject, m.header.subject) + "\n")
+            if (m.to.isNotEmpty()) append(str(R.string.mailc_fwd_to, m.to.joinToString(", ") { it.full }) + "\n")
             append("\n")
         }
         return Outgoing(
