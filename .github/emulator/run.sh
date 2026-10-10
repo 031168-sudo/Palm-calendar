@@ -46,10 +46,15 @@ $UI check "Закрыть"
 
 if [ "$DEV" = "fold" ]; then
   # Складываем и раскладываем на ходу — карточка остаётся открытой
-  adb emu fold || echo "::warning::Команда fold не поддерживается"
+  echo "::notice::Состояния складывания: $(adb shell cmd device_state print-states 2>&1 | tr '\n' ' ')"
+  # Сложить: через состояние устройства (Android 12+), запасной путь — команда эмулятора
+  adb shell cmd device_state state 0 || adb emu fold || echo "::warning::Сложить не получилось"
+  sleep 3
+  echo "::notice::После складывания: $(adb shell wm size | tr '\n' ' ')"
   shot 8_folded
   $UI check "Закрыть"
-  adb emu unfold || echo "::warning::Команда unfold не поддерживается"
+  adb shell cmd device_state state reset || adb emu unfold || echo "::warning::Разложить не получилось"
+  sleep 3
   shot 9_unfolded
   $UI check "Закрыть"
 fi
