@@ -50,7 +50,7 @@ private enum class StatPeriod(val label: String, val from: () -> LocalDate) {
     ALL("Всё", { LocalDate.now().minusYears(10) }),
 }
 
-private enum class StatSort { TOTAL, CALLS, MEETINGS }
+private enum class StatSort { TOTAL, CALLS, MEETINGS, MAILS }
 
 /** Что сделать с человеком из статистики. */
 sealed interface StatAction {
@@ -60,7 +60,7 @@ sealed interface StatAction {
 }
 
 /**
- * Статистика по всем людям: сколько состоялось звонков и встреч.
+ * Статистика по всем людям: сколько состоялось звонков, встреч и отправлено писем.
  * Сортировка — по заголовкам столбцов, тап по человеку — меню действий.
  */
 @Composable
@@ -99,7 +99,7 @@ fun StatsSheet(
                 }
             }
             Text(
-                "Состоявшиеся звонки и встречи (с итогом «Состоялось»)",
+                "Состоявшиеся звонки и встречи (с итогом «Состоялось») и отправленные письма",
                 style = Palm.small, color = Palm.inkSoft,
                 modifier = Modifier.padding(top = 2.dp),
             )
@@ -107,10 +107,10 @@ fun StatsSheet(
 
             // Заголовки столбцов — по ним сортировка
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Человек", style = HeaderStyle, color = Palm.inkSoft, modifier = Modifier.weight(1f).padding(vertical = 6.dp))
+                Header("Контакт", sort == StatSort.TOTAL, Modifier.weight(1f), TextAlign.Start) { sort = StatSort.TOTAL }
                 Header("Звонки", sort == StatSort.CALLS, Modifier.width(COL_W)) { sort = StatSort.CALLS }
                 Header("Встречи", sort == StatSort.MEETINGS, Modifier.width(COL_W)) { sort = StatSort.MEETINGS }
-                Header("Всего", sort == StatSort.TOTAL, Modifier.width(COL_W)) { sort = StatSort.TOTAL }
+                Header("Письма", sort == StatSort.MAILS, Modifier.width(COL_W)) { sort = StatSort.MAILS }
             }
             Box(Modifier.fillMaxWidth().height(2.dp).background(Palm.navy))
         }
@@ -122,8 +122,8 @@ fun StatsSheet(
         }
         if (list.isEmpty()) {
             Text(
-                "За этот период нет состоявшихся звонков и встреч. Считаются события, " +
-                    "привязанные к человеку, у которых отмечен итог «Состоялось».",
+                "За этот период нет состоявшихся звонков, встреч и писем. Считаются события, " +
+                    "привязанные к человеку, у которых отмечен итог «Состоялось» (для письма — «Отправлено»).",
                 style = Palm.body, color = Palm.inkSoft, modifier = Modifier.padding(16.dp),
             )
             return@PalmSheet
@@ -133,6 +133,7 @@ fun StatsSheet(
             StatSort.TOTAL -> list.sortedWith(compareByDescending<ContactStat> { it.total }.thenBy { it.contact.name })
             StatSort.CALLS -> list.sortedWith(compareByDescending<ContactStat> { it.calls }.thenByDescending { it.total }.thenBy { it.contact.name })
             StatSort.MEETINGS -> list.sortedWith(compareByDescending<ContactStat> { it.meetings }.thenByDescending { it.total }.thenBy { it.contact.name })
+            StatSort.MAILS -> list.sortedWith(compareByDescending<ContactStat> { it.mails }.thenByDescending { it.total }.thenBy { it.contact.name })
         }
 
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 560.dp).padding(bottom = 16.dp)) {
@@ -141,7 +142,8 @@ fun StatsSheet(
                 Text(
                     "${plural(sorted.size, "человек", "человека", "человек")} · " +
                         "${plural(sorted.sumOf { it.calls }, "звонок", "звонка", "звонков")} · " +
-                        plural(sorted.sumOf { it.meetings }, "встреча", "встречи", "встреч"),
+                        plural(sorted.sumOf { it.meetings }, "встреча", "встречи", "встреч") + " · " +
+                        plural(sorted.sumOf { it.mails }, "письмо", "письма", "писем"),
                     style = Palm.small, color = Palm.inkSoft,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                 )
@@ -157,12 +159,18 @@ private val NumStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
 
 /** Заголовок столбца: нажатие — сортировать по нему; у активного — стрелка. */
 @Composable
-private fun Header(text: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun Header(
+    text: String,
+    active: Boolean,
+    modifier: Modifier,
+    align: TextAlign = TextAlign.End,
+    onClick: () -> Unit,
+) {
     Text(
         if (active) "$text ▾" else text,
         style = HeaderStyle,
         color = if (active) Palm.navy else Palm.inkSoft,
-        textAlign = TextAlign.End,
+        textAlign = align,
         maxLines = 1,
         softWrap = false,
         modifier = modifier.clickable(onClick = onClick).padding(vertical = 6.dp),
@@ -183,7 +191,7 @@ private fun StatRow(s: ContactStat, sort: StatSort, onAction: (StatAction) -> Un
             )
             Num(s.calls, sort == StatSort.CALLS)
             Num(s.meetings, sort == StatSort.MEETINGS)
-            Num(s.total, sort == StatSort.TOTAL)
+            Num(s.mails, sort == StatSort.MAILS)
         }
         Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(Palm.rule).align(Alignment.BottomCenter))
 

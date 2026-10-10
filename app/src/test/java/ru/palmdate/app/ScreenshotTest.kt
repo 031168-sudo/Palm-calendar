@@ -84,10 +84,10 @@ internal object Sample {
     )
 
     val stats = listOf(
-        ContactStat(ivan, calls = 14, meetings = 5),
-        ContactStat(olga, calls = 3, meetings = 9),
-        ContactStat(sergey, calls = 8, meetings = 0),
-        ContactStat(ContactRef("k4", "Анна Волкова"), calls = 1, meetings = 2),
+        ContactStat(ivan, calls = 14, meetings = 5, mails = 3),
+        ContactStat(olga, calls = 3, meetings = 9, mails = 0),
+        ContactStat(sergey, calls = 8, meetings = 0, mails = 6),
+        ContactStat(ContactRef("k4", "Анна Волкова"), calls = 1, meetings = 2, mails = 1),
     )
 
     fun state(mode: ViewMode, date: LocalDate = today): CalState {

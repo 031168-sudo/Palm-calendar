@@ -302,9 +302,9 @@ data class NewEvent(
     val mail: MailInfo? = null,
 )
 
-/** Строка статистики: человек и сколько с ним состоялось звонков и встреч. */
-data class ContactStat(val contact: ContactRef, val calls: Int, val meetings: Int) {
-    val total get() = calls + meetings
+/** Строка статистики: контакт и сколько с ним состоялось звонков, встреч и отправлено писем. */
+data class ContactStat(val contact: ContactRef, val calls: Int, val meetings: Int, val mails: Int = 0) {
+    val total get() = calls + meetings + mails
 }
 
 /** Что удалить у повторяющегося события. */

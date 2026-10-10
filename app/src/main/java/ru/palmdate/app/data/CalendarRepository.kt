@@ -71,11 +71,11 @@ class CalendarRepository(
     }
 
     /**
-     * Статистика по людям: сколько состоявшихся звонков и встреч с каждым с даты [from] по сейчас.
-     * Считаются только прошедшие разы с итогом «Состоялось».
+     * Статистика по людям: сколько состоявшихся звонков и встреч и отправленных писем с каждым с даты [from] по сейчас.
+     * Считаются только прошедшие разы с итогом «Состоялось» (для письма — «Отправлено»).
      */
     suspend fun contactStats(from: LocalDate): List<ContactStat> {
-        val wanted = setOf(EventType.CALL.name, EventType.MEETING.name)
+        val wanted = setOf(EventType.CALL.name, EventType.MEETING.name, EventType.MAIL.name)
         val ids = links.allLinks().filter { it.type in wanted && it.lookupKey != null }.map { it.eventId }.distinct()
         if (ids.isEmpty()) return emptyList()
         val now = LocalDateTime.now()
@@ -86,6 +86,7 @@ class CalendarRepository(
                 contact = list.last().contact!!,
                 calls = list.count { it.type == EventType.CALL },
                 meetings = list.count { it.type == EventType.MEETING },
+                mails = list.count { it.type == EventType.MAIL },
             )
         }.filter { it.total > 0 }
     }

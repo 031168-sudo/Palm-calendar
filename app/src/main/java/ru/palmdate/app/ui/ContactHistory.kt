@@ -75,15 +75,29 @@ private fun daysAhead(d: LocalDate): String {
 private fun typeCount(events: List<PalmEvent>): String {
     val calls = events.count { it.type == EventType.CALL }
     val meetings = events.count { it.type == EventType.MEETING }
-    val other = events.size - calls - meetings
+    val mails = events.count { it.type == EventType.MAIL }
+    val other = events.size - calls - meetings - mails
     return listOfNotNull(
         calls.takeIf { it > 0 }?.let { plural(it, "звонок", "звонка", "звонков") },
         meetings.takeIf { it > 0 }?.let { plural(it, "встреча", "встречи", "встреч") },
+        mails.takeIf { it > 0 }?.let { plural(it, "письмо", "письма", "писем") },
         other.takeIf { it > 0 }?.let { plural(it, "другое", "других", "других") },
     ).joinToString(", ").ifEmpty { "ничего" }
 }
 
-/** "состоялось 3, не дозвонился 2, без отметки 1". */
+/** Итоги писем: "отправлено 2, не отправлено 1, без отметки 1". */
+private fun mailCount(events: List<PalmEvent>): String {
+    val sent = events.count { it.outcome == Outcome.DONE }
+    val notSent = events.count { it.outcome != null && it.outcome != Outcome.DONE }
+    val none = events.count { it.outcome == null }
+    return listOfNotNull(
+        sent.takeIf { it > 0 }?.let { "отправлено $it" },
+        notSent.takeIf { it > 0 }?.let { "не отправлено $it" },
+        none.takeIf { it > 0 }?.let { "без отметки $it" },
+    ).joinToString(", ")
+}
+
+/** "состоялось 3, не дозвонился 2, без отметки 1". Письма сюда не входят — см. mailCount. */
 private fun outcomeCount(events: List<PalmEvent>): String {
     val done = events.count { it.outcome == Outcome.DONE }
     val noAnswer = events.count { it.outcome == Outcome.NO_ANSWER }
@@ -178,7 +192,10 @@ fun ContactHistorySheet(
             Summary("За 30 дней", typeCount(past.filter { it.start.toLocalDate() >= today.minusDays(30) }))
             val year = past.filter { it.start.toLocalDate() >= today.minusYears(1) }
             Summary("За год", typeCount(year))
-            if (year.any { it.outcome != null }) Summary("Итоги за год", outcomeCount(year))
+            val yearNoMail = year.filter { it.type != EventType.MAIL }
+            if (yearNoMail.any { it.outcome != null }) Summary("Итоги за год", outcomeCount(yearNoMail))
+            val yearMail = year.filter { it.type == EventType.MAIL }
+            if (yearMail.isNotEmpty()) Summary("Письма за год", mailCount(yearMail))
         }
         Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(Palm.rule))
 
