@@ -84,8 +84,10 @@ class Backup(private val context: Context, private val links: LinkDao) {
                 val dir = File(context.filesDir, "trips/$eventId").apply { mkdirs() }
                 val file = File(dir, UUID.randomUUID().toString() + "_" + TripFiles.safeName(name))
                 file.writeBytes(Base64.decode(o.getString("d"), Base64.DEFAULT))
-                links.insertFile(TripFile(eventId, o.getString("l"), name, file.absolutePath,
-                    o.optString("m").takeIf { it.isNotEmpty() && it != "null" }))
+                links.insertFile(TripFile(
+                    eventId = eventId, label = o.getString("l"), name = name, path = file.absolutePath,
+                    mime = o.optString("m").takeIf { it.isNotEmpty() && it != "null" },
+                ))
                 n++
             }
         }
