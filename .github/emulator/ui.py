@@ -16,8 +16,22 @@ def dump():
 
 
 mode, text = sys.argv[1], sys.argv[2]
-for attempt in range(4):
+def close_anr(root):
+    """Системное окно «… isn't responding» на медленном эмуляторе — нажать «Wait»."""
+    for n in root.iter("node"):
+        if (n.get("text") or "") in ("Wait", "Подождать"):
+            x1, y1, x2, y2 = map(int, re.findall(r"\d+", n.get("bounds")))
+            subprocess.run(["adb", "shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2)])
+            print("Закрыто системное окно «не отвечает»")
+            time.sleep(2)
+            return True
+    return False
+
+
+for attempt in range(6):
     root = ET.fromstring(dump())
+    if close_anr(root):
+        continue
     for n in root.iter("node"):
         t = (n.get("text") or "") + " " + (n.get("content-desc") or "")
         if text in t:

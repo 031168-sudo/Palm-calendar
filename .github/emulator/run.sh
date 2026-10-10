@@ -8,6 +8,10 @@ mkdir -p "$OUT"
 UI="python3 .github/emulator/ui.py"
 shot() { sleep 2; adb exec-out screencap -p > "$OUT/$1.png"; echo "Скриншот: $1"; }
 
+# Эмулятор только загрузился — даём ему успокоиться, системные окна «не отвечает» не показываем
+sleep 20
+adb shell settings put secure anr_show_background 0 || true
+adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS || true
 adb install -r -g app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 # Тестовые события в календаре
@@ -17,6 +21,8 @@ grep -q "OK (1 test)" seed.log
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 0
 adb shell am start -W -n ru.palmdate.app/.MainActivity
+sleep 3
+$UI check "Новое"   # заодно закрывает окно «не отвечает», если оно вылезло
 shot 1_start
 
 $UI tap "Повестка";             shot 2_agenda
