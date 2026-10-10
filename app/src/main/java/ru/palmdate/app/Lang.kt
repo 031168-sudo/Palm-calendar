@@ -35,7 +35,7 @@ object Lang {
     /** Запомнить контекст приложения и прочитать сохранённый выбор. Можно вызывать повторно. */
     fun init(context: Context) {
         val appCtx = context.applicationContext ?: context
-        if (app == null) app = appCtx
+        if (app !== appCtx) { app = appCtx; cache.clear() }
         mode = runCatching {
             LangMode.valueOf(appCtx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null) ?: "AUTO")
         }.getOrDefault(LangMode.AUTO)
