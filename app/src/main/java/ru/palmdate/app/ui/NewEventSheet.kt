@@ -123,6 +123,7 @@ fun NewEventSheet(
     var start by remember { mutableStateOf(initialStart) }
     var minutes by remember { mutableStateOf(60) }
     var note by remember { mutableStateOf("") }
+    var place by remember { mutableStateOf("") }
     var reminders by remember { mutableStateOf<List<Int>>(emptyList()) }
     var rrule by remember { mutableStateOf<String?>(null) }
 
@@ -179,7 +180,10 @@ fun NewEventSheet(
             val done: () -> Unit = {
                 val cal = calendarId
                 if (cal == null) step = Step.CALENDAR
-                else onCreate(NewEvent(type!!, contact, title, start, minutes, note, cal, reminders, rrule, mail))
+                else onCreate(NewEvent(
+                    type!!, contact, title, start, minutes, note, cal, reminders, rrule, mail,
+                    place = place.takeIf { type == EventType.TRIP && it.isNotBlank() },
+                ))
             }
             SheetTitle(
                 action = if (step == Step.WHEN && !presetPending) ({ PalmButton("Готово", filled = true, onClick = done) }) else null,
@@ -250,6 +254,14 @@ fun NewEventSheet(
                             singleLine = true, modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(Modifier.height(12.dp))
+                        if (t == EventType.TRIP) {
+                            OutlinedTextField(
+                                value = place, onValueChange = { place = it },
+                                label = { Text("Адрес (необязательно)") },
+                                singleLine = true, modifier = Modifier.fillMaxWidth(),
+                            )
+                            Spacer(Modifier.height(12.dp))
+                        }
                         Row { Spacer(Modifier.weight(1f)); PalmButton("Далее", filled = true, onClick = toCalendarOrWhen) }
                     }
                 }
@@ -881,7 +893,7 @@ internal fun Chip(text: String, selected: Boolean = false, onClick: () -> Unit) 
 
 /* ---------- Подробности события ---------- */
 
-private enum class DetailMode { VIEW, TYPE, CONTACT, PHONE, CALENDAR, ADDRESS }
+private enum class DetailMode { VIEW, TYPE, CONTACT, PHONE, CALENDAR, ADDRESS, PLACE_CONTACT, PLACE_ADDR }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -907,6 +919,11 @@ fun EventDetailsSheet(
     onEditTitle: (String) -> Unit = {},
     onEditTime: (LocalDateTime, Int) -> Unit = { _, _ -> },
     onEditNote: (String?) -> Unit = {},
+    loadPlace: suspend (Long) -> String? = { null },
+    onSetPlace: (String?) -> Unit = {},
+    loadFiles: suspend (Long) -> List<ru.palmdate.app.data.TripFile> = { emptyList() },
+    onAddFile: suspend (Long, android.net.Uri, String) -> Unit = { _, _, _ -> },
+    onDeleteFile: suspend (ru.palmdate.app.data.TripFile) -> Unit = {},
     asPane: Boolean = false, // на широком экране — колонка справа, а не панель снизу
 ) {
     val scope = rememberCoroutineScope()
@@ -919,9 +936,17 @@ fun EventDetailsSheet(
     var reminders by remember { mutableStateOf<List<Int>?>(null) }
     var calendars by remember { mutableStateOf<List<CalendarInfo>>(emptyList()) }
     var moveTo by remember { mutableStateOf<CalendarInfo?>(null) }
+    // Выезд: адрес и документы
+    var place by remember(event.eventId) { mutableStateOf<String?>(null) }
+    var files by remember(event.eventId) { mutableStateOf<List<ru.palmdate.app.data.TripFile>>(emptyList()) }
+    var editPlace by remember { mutableStateOf(false) }
     LaunchedEffect(event.eventId) {
         reminders = loadReminders(event.eventId)
         calendars = loadCalendars()
+        if (event.type == EventType.TRIP) {
+            place = loadPlace(event.eventId)
+            files = loadFiles(event.eventId)
+        }
     }
     // Перенести можно, только если календарь события доступен для записи и есть куда переносить
     // Править название, время и заметку можно, если календарь события доступен для записи
@@ -941,6 +966,12 @@ fun EventDetailsSheet(
     if (editNote) {
         TextEditDialog("Заметка", event.note ?: "", singleLine = false, onDismiss = { editNote = false }) {
             onEditNote(it); editNote = false
+        }
+    }
+    if (editPlace) {
+        TextEditDialog("Адрес", place ?: "", singleLine = true, onDismiss = { editPlace = false }) { v ->
+            val new = v.takeIf { it.isNotBlank() }
+            onSetPlace(new); place = new; editPlace = false
         }
     }
     if (editTime) {
@@ -1029,6 +1060,23 @@ fun EventDetailsSheet(
                     mode = DetailMode.VIEW
                 }
 
+                // Выезд: человек → его адрес → в «Место»
+                DetailMode.PLACE_CONTACT -> ContactPicker(
+                    search = searchContacts,
+                    onPick = { c ->
+                        scope.launch {
+                            addresses = addressesFor(c.lookupKey)
+                            mode = if (addresses.isEmpty()) DetailMode.VIEW else DetailMode.PLACE_ADDR
+                        }
+                    },
+                    onSkip = { mode = DetailMode.VIEW },
+                )
+
+                DetailMode.PLACE_ADDR -> AddressPicker(addresses, selected = place) { addr ->
+                    onSetPlace(addr); place = addr
+                    mode = DetailMode.VIEW
+                }
+
                 DetailMode.CALENDAR -> CalendarPicker(calendars, selected = event.calendarId) { id ->
                     mode = DetailMode.VIEW
                     if (id != event.calendarId) moveTo = calendars.firstOrNull { it.id == id }
@@ -1100,6 +1148,39 @@ fun EventDetailsSheet(
                     }
                     if (editable) SettingRow("Заметка", event.note ?: "добавить…", onClick = { editNote = true })
                     else event.note?.let { DetailLine("Заметка", it) }
+
+                    // Выезд: адрес (можно построить маршрут) и документы
+                    if (event.type == EventType.TRIP && !event.fromContacts) {
+                        val placeText = place
+                        if (editable) SettingRow("Место", placeText ?: "добавить адрес…", onClick = { editPlace = true })
+                        else placeText?.let { DetailLine("Место", it) }
+                        placeText?.let { addr -> AddressRow(address = addr, onOpen = { ctx.openMap(addr) }, onChoose = null) }
+                        if (editable) SettingRow("Адрес из контакта", "выбрать человека", onClick = { mode = DetailMode.PLACE_CONTACT })
+                        TripFilesSection(
+                            files = files,
+                            onAdd = { label, uris ->
+                                scope.launch {
+                                    uris.forEach { onAddFile(event.eventId, it, label) }
+                                    files = loadFiles(event.eventId)
+                                }
+                            },
+                            onOpen = { f ->
+                                runCatching {
+                                    ctx.startActivity(
+                                        android.content.Intent(android.content.Intent.ACTION_VIEW)
+                                            .setDataAndType(ru.palmdate.app.data.TripFiles.uriFor(ctx, f), f.mime ?: "*/*")
+                                            .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                                    )
+                                }
+                            },
+                            onDelete = { f ->
+                                scope.launch {
+                                    onDeleteFile(f)
+                                    files = loadFiles(event.eventId)
+                                }
+                            },
+                        )
+                    }
 
                     // Главные действия — сразу под данными события, до итога
                     val action = primaryActionLabel(event)
@@ -1321,3 +1402,59 @@ private fun OutcomeSection(
 
 /** Шаг времени в окнах — из настроек (15 или 30 минут). */
 private fun timeStep(): Long = ru.palmdate.app.data.SettingsStore.current.timeStep.toLong()
+
+/** Подписи документов выезда: билет, посадочный, бронь… */
+private val TRIP_LABELS = listOf("Билет", "Посадочный", "Бронь", "Документ")
+
+/** Документы выезда: список, выбор подписи и добавление файлов. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TripFilesSection(
+    files: List<ru.palmdate.app.data.TripFile>,
+    onAdd: (String, List<android.net.Uri>) -> Unit,
+    onOpen: (ru.palmdate.app.data.TripFile) -> Unit,
+    onDelete: (ru.palmdate.app.data.TripFile) -> Unit,
+) {
+    var label by remember { mutableStateOf(TRIP_LABELS.first()) }
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris -> if (uris.isNotEmpty()) onAdd(label, uris) }
+
+    Text("Документы", style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+    if (files.isEmpty()) {
+        Text("пока нет: добавьте билет, посадочный или бронь", style = Palm.small, color = Palm.inkSoft)
+    }
+    files.forEach { f ->
+        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                f.label, style = Palm.small.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                color = Palm.navy, modifier = Modifier.width(96.dp),
+            )
+            Text(
+                f.name, style = Palm.body, color = Palm.ink, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).clickable { onOpen(f) },
+            )
+            TextButton(onClick = { onDelete(f) }) { Text("удалить") }
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        TRIP_LABELS.forEach { l ->
+            val sel = l == label
+            Text(
+                l,
+                style = Palm.small.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                color = if (sel) Color.White else Palm.navy,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (sel) Palm.navy else Color.Transparent)
+                    .clickable { label = l }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    PalmButton("Добавить файл", onClick = { picker.launch(arrayOf("*/*")) })
+}
+

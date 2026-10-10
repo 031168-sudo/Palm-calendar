@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
+import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
@@ -57,8 +58,39 @@ data class MailLink(
     val draftId: String? = null,
 )
 
+/**
+ * Документ выезда: билет, посадочный, бронь. Сам файл лежит во внутренней памяти приложения
+ * (trips/<eventId>/...), здесь — подпись и путь к нему.
+ */
+@Entity(tableName = "trip_files")
+data class TripFile(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val eventId: Long,
+    val label: String,
+    val name: String,
+    val path: String,
+    val mime: String? = null,
+)
+
 @Dao
 interface LinkDao {
+    @Query("SELECT * FROM trip_files WHERE eventId = :eventId ORDER BY id")
+    suspend fun filesFor(eventId: Long): List<TripFile>
+
+    @Query("SELECT * FROM trip_files WHERE id = :id")
+    suspend fun fileById(id: Long): TripFile?
+
+    @Query("SELECT * FROM trip_files") suspend fun allFiles(): List<TripFile>
+
+    @Insert
+    suspend fun insertFile(f: TripFile): Long
+
+    @Query("DELETE FROM trip_files WHERE id = :id")
+    suspend fun deleteFile(id: Long)
+
+    @Query("DELETE FROM trip_files WHERE eventId = :eventId")
+    suspend fun deleteFilesFor(eventId: Long)
+
     @Query("SELECT * FROM mail_links WHERE eventId IN (:ids)")
     suspend fun mailByIds(ids: List<Long>): List<MailLink>
 
@@ -130,7 +162,21 @@ private val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
     }
 }
 
-@Database(entities = [EventLink::class, ContactPhone::class, OutcomeRow::class, MailLink::class], version = 4, exportSchema = false)
+/** 4 → 5: документы выезда (билеты, посадочные, брони). */
+private val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `trip_files` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`eventId` INTEGER NOT NULL, `label` TEXT NOT NULL, `name` TEXT NOT NULL, `path` TEXT NOT NULL, `mime` TEXT)",
+        )
+    }
+}
+
+@Database(
+    entities = [EventLink::class, ContactPhone::class, OutcomeRow::class, MailLink::class, TripFile::class],
+    version = 5,
+    exportSchema = false,
+)
 abstract class AppDb : RoomDatabase() {
     abstract fun links(): LinkDao
 
@@ -140,7 +186,7 @@ abstract class AppDb : RoomDatabase() {
         fun get(context: Context): AppDb = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, AppDb::class.java, "palmdate.db")
                 // Связи восстанавливаются из меток в описании событий, поэтому при смене схемы можно пересоздать
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .fallbackToDestructiveMigration()
                 .build().also { instance = it }
         }

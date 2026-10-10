@@ -4,7 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Event
-import androidx.compose.material.icons.outlined.Flight
+import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.TaskAlt
@@ -28,7 +28,7 @@ enum class EventType(
     CALL("Звонок", Icons.Outlined.Phone, Color(0xFFC0392B), 15, true, listOf(5)),
     MEETING("Встреча", Icons.Outlined.Groups, Color(0xFF1E3A6E), 60, true, listOf(15)),
     TASK("Задача", Icons.Outlined.TaskAlt, Color(0xFF2E7D32), 30, false, listOf(15)),
-    TRIP("Поездка", Icons.Outlined.Flight, Color(0xFF6A4C93), 120, false, listOf(60)),
+    TRIP("Выезд", Icons.Outlined.Place, Color(0xFF6A4C93), 120, false, listOf(60)),
     MAIL("Письмо", Icons.Outlined.Email, Color(0xFF00838F), 15, false, listOf(15)),
     OTHER("Событие", Icons.Outlined.Event, Color(0xFF546E7A), 60, false, listOf(15)),
     // Только для дней рождения из карточек контактов — выбрать его нельзя.
@@ -300,6 +300,7 @@ data class NewEvent(
     val reminders: List<Int>,
     val rrule: String? = null,
     val mail: MailInfo? = null,
+    val place: String? = null,   // адрес выезда: пишется в поле «Место» календаря
 )
 
 /** Строка статистики: контакт и сколько с ним состоялось звонков, встреч и отправлено писем. */

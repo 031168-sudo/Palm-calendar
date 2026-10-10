@@ -68,6 +68,7 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     private val contacts = ContactsRepository(app)
     private val db = AppDb.get(app)
     private val repo = CalendarRepository(app, db.links(), contacts)
+    private val trips = ru.palmdate.app.data.TripFiles(app, db.links())
     private val prefs = app.getSharedPreferences("palmdate", Context.MODE_PRIVATE)
 
     private val _state = MutableStateFlow(
@@ -313,6 +314,25 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     fun setTitle(e: PalmEvent, title: String) = launchSafe { repo.setTitle(e.eventId, title) }
     fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int) = launchSafe { repo.setTime(e, start, minutes) }
     fun setNote(e: PalmEvent, note: String?) = launchSafe { repo.setNote(e.eventId, note) }
+
+    /* ---- Выезд: адрес и документы ---- */
+
+    /** Адрес выезда (поле «Место» календаря). */
+    suspend fun place(eventId: Long): String? = withContext(Dispatchers.IO) { repo.location(eventId) }
+
+    fun setPlace(eventId: Long, place: String?) = launchSafe { repo.setLocation(eventId, place) }
+
+    /** Документы выезда: билеты, посадочные, брони. */
+    suspend fun tripFiles(eventId: Long): List<ru.palmdate.app.data.TripFile> =
+        withContext(Dispatchers.IO) { trips.list(eventId) }
+
+    suspend fun addTripFile(eventId: Long, uri: android.net.Uri, label: String) {
+        withContext(Dispatchers.IO) { trips.add(eventId, uri, label) }
+    }
+
+    suspend fun deleteTripFile(f: ru.palmdate.app.data.TripFile) {
+        withContext(Dispatchers.IO) { trips.delete(f) }
+    }
 
     /** Сменить повтор серии события. */
     fun setRepeat(e: PalmEvent, rrule: String?) = launchSafe { repo.setRepeat(e, rrule) }

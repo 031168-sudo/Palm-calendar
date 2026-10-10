@@ -71,7 +71,7 @@ internal object Sample {
             mail = MailInfo(MailKind.REPLY, subject = "Счёт за сентябрь", peerName = "Иван Петров", peerAddr = "ivan@x.ru")),
         ev(6, "Звонок: Сергей Кузнецов", at(0, 16, 30), 15, EventType.CALL, sergey, outcome = Outcome.NO_ANSWER),
         ev(7, "Планёрка", at(0, 18), 60, null, color = RED),
-        ev(8, "Поездка: Санкт-Петербург", at(1, 8), 180, EventType.TRIP, color = GREEN),
+        ev(8, "Выезд: Большой театр", at(1, 8), 180, EventType.TRIP, color = GREEN),
         ev(9, "Встреча: Иван Петров", at(1, 14), 60, EventType.MEETING, ivan),
         ev(10, "Написать: Сергей Кузнецов", at(2, 10), 15, EventType.MAIL, sergey,
             mail = MailInfo(MailKind.NEW, peerName = "Сергей Кузнецов", peerAddr = "sergey@x.ru")),
@@ -128,7 +128,10 @@ abstract class ScreenshotBase(private val device: String, private val hinge: Hin
 
     /** Подробности: на широком экране — колонкой справа, на телефоне — панелью снизу. */
     @Composable
-    private fun WithDetails(e: PalmEvent, reminders: List<Int>) {
+    private fun WithDetails(
+        e: PalmEvent, reminders: List<Int>,
+        place: String? = null, files: List<ru.palmdate.app.data.TripFile> = emptyList(),
+    ) {
         @Composable
         fun Details(pane: Boolean) = EventDetailsSheet(
             event = e,
@@ -136,6 +139,8 @@ abstract class ScreenshotBase(private val device: String, private val hinge: Hin
             phonesFor = { emptyList<ru.palmdate.app.model.PhoneNumber>() to null },
             loadReminders = { reminders },
             loadCalendars = { Sample.calendars },
+            loadPlace = { place },
+            loadFiles = { files },
             onMove = {}, onSetReminders = {}, onSetLink = { _, _ -> }, onDismiss = {}, onAction = {}, onOpen = {},
             onDelete = {}, onHistory = if (e.contact != null) ({}) else null,
             asPane = pane,
@@ -153,6 +158,17 @@ abstract class ScreenshotBase(private val device: String, private val hinge: Hin
     @Test fun details() = shot("6_details") { WithDetails(Sample.events[1], listOf(5)) }
 
     @Test fun detailsMail() = shot("7_details_mail") { WithDetails(Sample.events[4], listOf(15)) }
+
+    @Test fun detailsTrip() = shot("11_details_trip") {
+        WithDetails(
+            Sample.events[7], listOf(60),
+            place = "Театральная площадь, 1, Москва",
+            files = listOf(
+                ru.palmdate.app.data.TripFile(1, 8, "Билет", "bolshoi_6_oct.pdf", "/none", "application/pdf"),
+                ru.palmdate.app.data.TripFile(2, 8, "Бронь", "hotel_booking.pdf", "/none", "application/pdf"),
+            ),
+        )
+    }
 
     @Test fun newEvent() = shot("8_new") {
         Main(ViewMode.DAY)

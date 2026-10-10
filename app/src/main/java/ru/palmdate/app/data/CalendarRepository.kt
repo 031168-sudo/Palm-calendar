@@ -91,6 +91,20 @@ class CalendarRepository(
         }.filter { it.total > 0 }
     }
 
+    /** Адрес события (поле «Место» календаря). Пусто — null. */
+    suspend fun location(eventId: Long): String? = runCatching {
+        resolver.query(ContentUris.withAppendedId(Events.CONTENT_URI, eventId), arrayOf(Events.EVENT_LOCATION), null, null, null)
+            ?.use { if (it.moveToFirst()) it.getString(0) else null }
+    }.getOrNull()?.takeIf { it.isNotBlank() }
+
+    /** Задать адрес события (null или пусто — убрать). */
+    suspend fun setLocation(eventId: Long, place: String?) {
+        resolver.update(
+            ContentUris.withAppendedId(Events.CONTENT_URI, eventId),
+            ContentValues().apply { put(Events.EVENT_LOCATION, place?.trim().orEmpty()) }, null, null,
+        )
+    }
+
     /** Письмо события (с черновиком) — для экранов почты. */
     suspend fun mailLink(eventId: Long): MailLink? = links.mail(eventId)
 
@@ -420,6 +434,8 @@ class CalendarRepository(
                 put(Events.DURATION, if (e.minutes == 0) "P1D" else "P${e.minutes * 60}S")
             }
             put(Events.HAS_ALARM, if (e.reminders.isEmpty()) 0 else 1)
+            // Адрес выезда — в поле «Место» календаря: видно в Google и переживает переустановку
+            e.place?.takeIf { it.isNotBlank() }?.let { put(Events.EVENT_LOCATION, it.trim()) }
         }
         val eventId = resolver.insert(Events.CONTENT_URI, values)?.let { ContentUris.parseId(it) }
             ?: error("Календарь отказался сохранить событие")
@@ -736,6 +752,9 @@ class CalendarRepository(
         links.delete(eventId)
         links.clearOutcomes(eventId)
         links.deleteMail(eventId)
+        // Документы выезда: и файлы с диска, и записи
+        links.filesFor(eventId).forEach { java.io.File(it.path).delete() }
+        links.deleteFilesFor(eventId)
     }
 
     /**

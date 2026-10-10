@@ -188,6 +188,11 @@ fun DayScreen(vm: DayViewModel) {
                 vm.setNote(e, n)
                 details = e.copy(note = n?.takeIf { it.isNotBlank() })
             },
+            loadPlace = vm::place,
+            onSetPlace = { vm.setPlace(e.eventId, it) },
+            loadFiles = vm::tripFiles,
+            onAddFile = { id, uri, label -> vm.addTripFile(id, uri, label) },
+            onDeleteFile = { vm.deleteTripFile(it) },
             addressesFor = vm::addressesFor,
             onPickAddress = { addr ->
                 e.contact?.let { c ->
