@@ -1154,7 +1154,9 @@ fun EventDetailsSheet(
                         val placeText = place
                         if (editable) SettingRow("Место", placeText ?: "добавить адрес…", onClick = { editPlace = true })
                         else placeText?.let { DetailLine("Место", it) }
-                        placeText?.let { addr -> AddressRow(address = addr, onOpen = { ctx.openMap(addr) }, onChoose = null) }
+                        placeText?.let { addr ->
+                            PalmButton("Маршрут", compact = true, onClick = { ctx.openMap(addr) })
+                        }
                         if (editable) SettingRow("Адрес из контакта", "выбрать человека", onClick = { mode = DetailMode.PLACE_CONTACT })
                         TripFilesSection(
                             files = files,
