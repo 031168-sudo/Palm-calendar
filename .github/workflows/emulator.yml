@@ -46,6 +46,12 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # Какие устройства знает эмулятор — в аннотацию (для отладки профилей)
+      - name: List device profiles
+        run: |
+          AVD=$(ls -d $ANDROID_HOME/cmdline-tools/*/bin | tail -1)/avdmanager
+          echo "::notice::$($AVD list device -c | tr '\n' ' ')"
+
       - name: Run on ${{ matrix.device }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
