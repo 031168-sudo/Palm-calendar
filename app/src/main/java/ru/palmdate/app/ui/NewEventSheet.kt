@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
@@ -904,6 +907,7 @@ fun EventDetailsSheet(
     onEditTitle: (String) -> Unit = {},
     onEditTime: (LocalDateTime, Int) -> Unit = { _, _ -> },
     onEditNote: (String?) -> Unit = {},
+    asPane: Boolean = false, // на широком экране — колонка справа, а не панель снизу
 ) {
     val scope = rememberCoroutineScope()
     var mode by remember { mutableStateOf(DetailMode.VIEW) }
@@ -978,7 +982,7 @@ fun EventDetailsSheet(
         }
     }
 
-    PalmSheet(onDismissRequest = onDismiss, fixedHeight = true) {
+    val body: @Composable () -> Unit = {
         // Всегда на всю высоту экрана: когда в итоге появляются поля и кнопки, окно не прыгает
         Column(Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 16.dp).padding(bottom = 20.dp)) {
             // Тип · название (у событий с контактом — имя). Тап: правка названия или выбор контакта
@@ -1143,6 +1147,15 @@ fun EventDetailsSheet(
                 }
             }
         }
+    }
+    if (asPane) {
+        androidx.activity.compose.BackHandler(onBack = onDismiss)
+        Column(
+            Modifier.fillMaxSize().background(Palm.paper)
+                .statusBarsPadding().navigationBarsPadding().imePadding().padding(top = 14.dp),
+        ) { body() }
+    } else {
+        PalmSheet(onDismissRequest = onDismiss, fixedHeight = true) { body() }
     }
 }
 

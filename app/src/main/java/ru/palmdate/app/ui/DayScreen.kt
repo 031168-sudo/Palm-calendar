@@ -50,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -65,6 +66,7 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.EventNote
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
@@ -129,6 +131,9 @@ fun DayScreen(vm: DayViewModel) {
     // Новое событие из статистики: тип и человек выбраны заранее
     var newPreset by remember { mutableStateOf<Pair<EventType, ru.palmdate.app.model.ContactRef>?>(null) }
 
+    // Широкий экран (планшет, разложенная раскладушка): подробности события — колонкой справа
+    val wide = isWide()
+
     // Нижние панели поднимаются только до синей шапки с датой
     var headerBottom by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
@@ -136,6 +141,67 @@ fun DayScreen(vm: DayViewModel) {
 
     androidx.compose.runtime.CompositionLocalProvider(LocalSheetTop provides sheetTop) {
     Box(Modifier.fillMaxSize()) {
+    // Подробности события: на широком экране — колонка справа, на телефоне — панель снизу
+    @Composable
+    fun EventDetails(e: PalmEvent, pane: Boolean) = key(e.eventId, e.instanceStart) {
+        EventDetailsSheet(
+            event = e,
+            searchContacts = vm::searchContacts,
+            phonesFor = vm::phonesFor,
+            loadReminders = vm::reminders,
+            loadCalendars = vm::allCalendars,
+            onMove = { calId -> vm.move(e, calId); details = null },
+            onSetReminders = { vm.setReminders(e.eventId, it) },
+            onSetLink = { type, contact ->
+                vm.setLink(e, type, contact)
+                details = e.copy(type = type, contact = contact)
+            },
+            onDismiss = { details = null },
+            onAction = { if (e.type == EventType.MAIL) details = null; ctx.runPrimaryAction(e, call, mailer.open) },
+            onOpen = { ctx.openInCalendar(e) },
+            onDelete = { scope -> vm.delete(e, scope); details = null },
+            onHistory = e.contact?.let { c -> { details = null; history = c } },
+            onOutcome = { o, note ->
+                vm.setOutcome(e, o, note)
+                details = e.copy(outcome = o, outcomeNote = note?.takeIf { it.isNotBlank() })
+            },
+            onFollowUp = { start -> vm.followUp(e, start) },
+            // У повторяющегося с этого раза начинается новая часть серии — карточку закрываем
+            onRepeat = { rule -> vm.setRepeat(e, rule); if (e.recurring) details = null },
+            onEditTitle = { t ->
+                val newTitle = e.type?.let { type ->
+                    val prefix = if (type == EventType.MAIL) e.mail?.kind?.verb ?: type.label else type.label
+                    if (t.isBlank()) prefix else "$prefix: $t"
+                } ?: t
+                vm.setTitle(e, newTitle)
+                details = e.copy(title = newTitle)
+            },
+            onEditTime = { start, minutes ->
+                vm.setTime(e, start, minutes)
+                if (e.recurring) details = null else details = e.copy(
+                    start = if (minutes == 0) start.toLocalDate().atStartOfDay() else start,
+                    end = if (minutes == 0) start.toLocalDate().plusDays(1).atStartOfDay() else start.plusMinutes(minutes.toLong()),
+                    allDay = minutes == 0,
+                )
+            },
+            onEditNote = { n ->
+                vm.setNote(e, n)
+                details = e.copy(note = n?.takeIf { it.isNotBlank() })
+            },
+            addressesFor = vm::addressesFor,
+            onPickAddress = { addr ->
+                e.contact?.let { c ->
+                    vm.setAddress(c.lookupKey, addr)
+                    details = e.copy(contact = c.copy(address = addr))
+                }
+            },
+            asPane = pane,
+        )
+    }
+
+    val shown = details
+    val paneContent: (@Composable () -> Unit)? = if (wide && shown != null) ({ EventDetails(shown, pane = true) }) else null
+    AdaptiveFrame(pane = paneContent) {
     MainLayout(
         state = state,
         headerModifier = Modifier.onGloballyPositioned { headerBottom = it.boundsInWindow().bottom.toInt() },
@@ -162,6 +228,7 @@ fun DayScreen(vm: DayViewModel) {
             onMode = { vm.setMode(it) },
         ),
     )
+    }
 
     if (showSettings) {
         SettingsSheet(
@@ -228,60 +295,7 @@ fun DayScreen(vm: DayViewModel) {
         )
     }
 
-    details?.let { e ->
-        EventDetailsSheet(
-            event = e,
-            searchContacts = vm::searchContacts,
-            phonesFor = vm::phonesFor,
-            loadReminders = vm::reminders,
-            loadCalendars = vm::allCalendars,
-            onMove = { calId -> vm.move(e, calId); details = null },
-            onSetReminders = { vm.setReminders(e.eventId, it) },
-            onSetLink = { type, contact ->
-                vm.setLink(e, type, contact)
-                details = e.copy(type = type, contact = contact)
-            },
-            onDismiss = { details = null },
-            onAction = { if (e.type == EventType.MAIL) details = null; ctx.runPrimaryAction(e, call, mailer.open) },
-            onOpen = { ctx.openInCalendar(e) },
-            onDelete = { scope -> vm.delete(e, scope); details = null },
-            onHistory = e.contact?.let { c -> { details = null; history = c } },
-            onOutcome = { o, note ->
-                vm.setOutcome(e, o, note)
-                details = e.copy(outcome = o, outcomeNote = note?.takeIf { it.isNotBlank() })
-            },
-            onFollowUp = { start -> vm.followUp(e, start) },
-            // У повторяющегося с этого раза начинается новая часть серии — карточку закрываем
-            onRepeat = { rule -> vm.setRepeat(e, rule); if (e.recurring) details = null },
-            onEditTitle = { t ->
-                val newTitle = e.type?.let { type ->
-                    val prefix = if (type == EventType.MAIL) e.mail?.kind?.verb ?: type.label else type.label
-                    if (t.isBlank()) prefix else "$prefix: $t"
-                } ?: t
-                vm.setTitle(e, newTitle)
-                details = e.copy(title = newTitle)
-            },
-            onEditTime = { start, minutes ->
-                vm.setTime(e, start, minutes)
-                if (e.recurring) details = null else details = e.copy(
-                    start = if (minutes == 0) start.toLocalDate().atStartOfDay() else start,
-                    end = if (minutes == 0) start.toLocalDate().plusDays(1).atStartOfDay() else start.plusMinutes(minutes.toLong()),
-                    allDay = minutes == 0,
-                )
-            },
-            onEditNote = { n ->
-                vm.setNote(e, n)
-                details = e.copy(note = n?.takeIf { it.isNotBlank() })
-            },
-            addressesFor = vm::addressesFor,
-            onPickAddress = { addr ->
-                e.contact?.let { c ->
-                    vm.setAddress(c.lookupKey, addr)
-                    details = e.copy(contact = c.copy(address = addr))
-                }
-            },
-        )
-    }
+    if (!wide) details?.let { e -> EventDetails(e, pane = false) }
 
     history?.let { c ->
         ContactHistorySheet(
@@ -328,6 +342,43 @@ private val TabShape = GenericShape { size, _ ->
     lineTo(size.width, size.height)
     lineTo(0f, size.height)
     close()
+}
+
+/** Широкий экран: планшет или разложенная раскладушка-книжка (от 600 dp). */
+@Composable
+internal fun isWide(): Boolean = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
+
+/**
+ * Раскладка экрана: на телефоне — только main; на широком экране справа колонка подробностей (pane)
+ * или подсказка. На раскладушке колонки делят экран пополам — ровно по сгибу.
+ */
+@Composable
+internal fun AdaptiveFrame(pane: (@Composable () -> Unit)?, main: @Composable () -> Unit) {
+    if (!isWide()) { main(); return }
+    val screen = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
+    val paneWidth = if (screen < 840) (screen / 2).dp else 420.dp
+    Row(Modifier.fillMaxSize().background(Palm.paper)) {
+        Box(Modifier.weight(1f).fillMaxHeight()) { main() }
+        Box(Modifier.width(1.dp).fillMaxHeight().background(Palm.rule))
+        Box(Modifier.width(paneWidth).fillMaxHeight()) { if (pane != null) pane() else PaneHint() }
+    }
+}
+
+/** Пустая правая колонка: подсказка. */
+@Composable
+private fun PaneHint() {
+    Column(
+        Modifier.fillMaxSize().statusBarsPadding().padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(Icons.Outlined.EventNote, null, tint = Palm.rule, modifier = Modifier.size(56.dp))
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Нажмите на событие — здесь появятся подробности, итог и история человека",
+            style = Palm.body, color = Palm.inkSoft, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+    }
 }
 
 /** Что делают нажатия на главном экране. */
@@ -728,41 +779,66 @@ private fun ButtonBar(
     onSettings: () -> Unit,
     onMode: (ViewMode) -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().background(Palm.paper).navigationBarsPadding()) {
+    @Composable
+    fun ViewTab(m: ViewMode, modifier: Modifier) {
+        val sel = m == mode
+        Column(
+            modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (sel) Palm.navy else Color.Transparent)
+                .clickable { onMode(m) }
+                .padding(vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(m.icon, null, tint = if (sel) Color.White else Palm.navy, modifier = Modifier.size(20.dp))
+            Text(m.label, style = Palm.small.copy(fontSize = Palm.small.fontSize * 0.85f),
+                color = if (sel) Color.White else Palm.navy, maxLines = 1)
+        }
+    }
+
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        Modifier.fillMaxWidth().background(Palm.paper).navigationBarsPadding(),
+    ) {
+      val wideBar = maxWidth >= 720.dp
+      Column(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Palm.rule))
-        // Виды: иконка + подпись, на всю ширину
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
-            ViewMode.entries.forEach { m ->
-                val sel = m == mode
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (sel) Palm.navy else Color.Transparent)
-                        .clickable { onMode(m) }
-                        .padding(vertical = 4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Icon(m.icon, null, tint = if (sel) Color.White else Palm.navy, modifier = Modifier.size(20.dp))
-                    Text(m.label, style = Palm.small.copy(fontSize = Palm.small.fontSize * 0.85f),
-                        color = if (sel) Color.White else Palm.navy, maxLines = 1)
-                }
+        if (wideBar) {
+            // Широкий экран: виды и кнопки — одной строкой
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ViewMode.entries.forEach { m -> ViewTab(m, Modifier.width(76.dp)) }
+                Spacer(Modifier.weight(1f))
+                BarTextButton("Новое", filled = true, onClick = onNew, modifier = Modifier.width(112.dp))
+                BarTextButton("Сегодня", onClick = onToday, modifier = Modifier.width(112.dp))
+                BarTextButton("Перейти", onClick = onGoTo, modifier = Modifier.width(112.dp))
+                Spacer(Modifier.width(10.dp))
+                BarIcon(Icons.Outlined.BarChart, "Статистика", onStats)
+                BarIcon(Icons.Outlined.Settings, "Настройки", onSettings)
+            }
+        } else Column(Modifier.fillMaxWidth()) {
+            // Виды: иконка + подпись, на всю ширину
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+                ViewMode.entries.forEach { m -> ViewTab(m, Modifier.weight(1f)) }
+            }
+            // Кнопки, как на Palm
+            Row(
+                Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 8.dp, top = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Все кнопки одной высоты: три с текстом делят ширину поровну, две квадратные — справа
+                BarTextButton("Новое", filled = true, onClick = onNew, modifier = Modifier.weight(1f))
+                BarTextButton("Сегодня", onClick = onToday, modifier = Modifier.weight(1f))
+                BarTextButton("Перейти", onClick = onGoTo, modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(10.dp)) // промежуток побольше перед значками
+                BarIcon(Icons.Outlined.BarChart, "Статистика", onStats)
+                BarIcon(Icons.Outlined.Settings, "Настройки", onSettings)
             }
         }
-        // Кнопки, как на Palm
-        Row(
-            Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 8.dp, top = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Все кнопки одной высоты: три с текстом делят ширину поровну, две квадратные — справа
-            BarTextButton("Новое", filled = true, onClick = onNew, modifier = Modifier.weight(1f))
-            BarTextButton("Сегодня", onClick = onToday, modifier = Modifier.weight(1f))
-            BarTextButton("Перейти", onClick = onGoTo, modifier = Modifier.weight(1f))
-            Spacer(Modifier.width(10.dp)) // промежуток побольше перед значками
-            BarIcon(Icons.Outlined.BarChart, "Статистика", onStats)
-            BarIcon(Icons.Outlined.Settings, "Настройки", onSettings)
-        }
+      }
     }
 }
 

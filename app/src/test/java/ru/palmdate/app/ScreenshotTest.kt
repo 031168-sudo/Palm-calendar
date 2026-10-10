@@ -23,7 +23,9 @@ import ru.palmdate.app.model.MailInfo
 import ru.palmdate.app.model.MailKind
 import ru.palmdate.app.model.Outcome
 import ru.palmdate.app.model.PalmEvent
+import ru.palmdate.app.ui.AdaptiveFrame
 import ru.palmdate.app.ui.EventDetailsSheet
+import ru.palmdate.app.ui.isWide
 import ru.palmdate.app.ui.LocalSheetTop
 import ru.palmdate.app.ui.MainActions
 import ru.palmdate.app.ui.MainLayout
@@ -117,8 +119,28 @@ abstract class ScreenshotBase(private val device: String) {
         compose.onRoot().captureRoboImage("screenshots/$device/$name.png")
     }
 
+    /** Главный экран; на широком — с колонкой справа (pane), как в приложении. */
     @Composable
-    private fun Main(mode: ViewMode) = MainLayout(Sample.state(mode), MainActions())
+    private fun Main(mode: ViewMode, pane: (@Composable () -> Unit)? = null) =
+        AdaptiveFrame(pane = pane) { MainLayout(Sample.state(mode), MainActions()) }
+
+    /** Подробности: на широком экране — колонкой справа, на телефоне — панелью снизу. */
+    @Composable
+    private fun WithDetails(e: PalmEvent, reminders: List<Int>) {
+        @Composable
+        fun Details(pane: Boolean) = EventDetailsSheet(
+            event = e,
+            searchContacts = { emptyList() },
+            phonesFor = { emptyList<ru.palmdate.app.model.PhoneNumber>() to null },
+            loadReminders = { reminders },
+            loadCalendars = { Sample.calendars },
+            onMove = {}, onSetReminders = {}, onSetLink = { _, _ -> }, onDismiss = {}, onAction = {}, onOpen = {},
+            onDelete = {}, onHistory = if (e.contact != null) ({}) else null,
+            asPane = pane,
+        )
+        if (isWide()) Main(ViewMode.DAY, pane = { Details(true) })
+        else { Main(ViewMode.DAY); Details(false) }
+    }
 
     @Test fun day() = shot("1_day") { Main(ViewMode.DAY) }
     @Test fun agenda() = shot("2_agenda") { Main(ViewMode.AGENDA) }
@@ -126,31 +148,9 @@ abstract class ScreenshotBase(private val device: String) {
     @Test fun month() = shot("4_month") { Main(ViewMode.MONTH) }
     @Test fun year() = shot("5_year") { Main(ViewMode.YEAR) }
 
-    @Test fun details() = shot("6_details") {
-        Main(ViewMode.DAY)
-        EventDetailsSheet(
-            event = Sample.events[1],
-            searchContacts = { emptyList() },
-            phonesFor = { emptyList<ru.palmdate.app.model.PhoneNumber>() to null },
-            loadReminders = { listOf(5) },
-            loadCalendars = { Sample.calendars },
-            onMove = {}, onSetReminders = {}, onSetLink = { _, _ -> }, onDismiss = {}, onAction = {}, onOpen = {},
-            onDelete = {}, onHistory = {},
-        )
-    }
+    @Test fun details() = shot("6_details") { WithDetails(Sample.events[1], listOf(5)) }
 
-    @Test fun detailsMail() = shot("7_details_mail") {
-        Main(ViewMode.DAY)
-        EventDetailsSheet(
-            event = Sample.events[4],
-            searchContacts = { emptyList() },
-            phonesFor = { emptyList<ru.palmdate.app.model.PhoneNumber>() to null },
-            loadReminders = { listOf(15) },
-            loadCalendars = { Sample.calendars },
-            onMove = {}, onSetReminders = {}, onSetLink = { _, _ -> }, onDismiss = {}, onAction = {}, onOpen = {},
-            onDelete = {},
-        )
-    }
+    @Test fun detailsMail() = shot("7_details_mail") { WithDetails(Sample.events[4], listOf(15)) }
 
     @Test fun newEvent() = shot("8_new") {
         Main(ViewMode.DAY)

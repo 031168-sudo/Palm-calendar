@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -73,6 +74,8 @@ fun PalmSheet(
         ) {
             Column(
                 Modifier
+                    // На планшете и разложенной раскладушке — не во всю ширину, а по центру
+                    .widthIn(max = 640.dp)
                     .fillMaxWidth()
                     .then(if (fixedHeight) Modifier.fillMaxHeight() else Modifier)
                     .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))

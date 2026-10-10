@@ -283,10 +283,15 @@ private fun MailScreen(
             )
             actions()
         }
-        Column(Modifier.weight(1f).fillMaxWidth()) { body() }
+        // На планшете письмо не растягивается во всю ширину
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            Column(Modifier.widthIn(max = 840.dp).fillMaxSize()) { body() }
+        }
         bottom?.let {
             Box(Modifier.fillMaxWidth().height(1.dp).background(Palm.rule))
-            it()
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                Box(Modifier.widthIn(max = 840.dp).fillMaxWidth()) { it() }
+            }
         }
     }
 }
