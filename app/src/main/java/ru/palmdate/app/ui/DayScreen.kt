@@ -799,7 +799,7 @@ private fun ButtonBar(
     androidx.compose.foundation.layout.BoxWithConstraints(
         Modifier.fillMaxWidth().background(Palm.paper).navigationBarsPadding(),
     ) {
-      val wideBar = maxWidth >= 720.dp
+      val wideBar = maxWidth >= 800.dp
       Column(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Palm.rule))
         if (wideBar) {
@@ -809,11 +809,11 @@ private fun ButtonBar(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ViewMode.entries.forEach { m -> ViewTab(m, Modifier.width(76.dp)) }
+                ViewMode.entries.forEach { m -> ViewTab(m, Modifier.width(64.dp)) }
                 Spacer(Modifier.weight(1f))
-                BarTextButton("Новое", filled = true, onClick = onNew, modifier = Modifier.width(112.dp))
-                BarTextButton("Сегодня", onClick = onToday, modifier = Modifier.width(112.dp))
-                BarTextButton("Перейти", onClick = onGoTo, modifier = Modifier.width(112.dp))
+                BarTextButton("Новое", filled = true, onClick = onNew, modifier = Modifier.width(104.dp))
+                BarTextButton("Сегодня", onClick = onToday, modifier = Modifier.width(104.dp))
+                BarTextButton("Перейти", onClick = onGoTo, modifier = Modifier.width(104.dp))
                 Spacer(Modifier.width(10.dp))
                 BarIcon(Icons.Outlined.BarChart, "Статистика", onStats)
                 BarIcon(Icons.Outlined.Settings, "Настройки", onSettings)
