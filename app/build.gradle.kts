@@ -17,6 +17,7 @@ android {
         val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionCode = build
         versionName = "0.1.$build"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // Постоянный ключ подписи: без него каждая сборка в CI подписывалась бы новым ключом,
@@ -93,4 +94,9 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation("io.github.takahirom.roborazzi:roborazzi:1.32.0")
     testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.32.0")
+
+    // Прогон на эмуляторе: заполнить тестовый календарь событиями
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }
