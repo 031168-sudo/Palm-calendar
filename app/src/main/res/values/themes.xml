@@ -4,6 +4,6 @@
         <item name="android:statusBarColor">@color/palm_navy</item>
     </style>
     <color name="paper">#FFF8F7F2</color>
-    <color name="palm_navy">#FFFFFFFF</color>
-    <color name="icon_bg">#FFFFFFFF</color>
+    <color name="palm_navy">#FF1E3A6E</color>
+    <color name="icon_bg">#FF1E3A6E</color>
 </resources>
