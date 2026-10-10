@@ -81,7 +81,15 @@ object Lang {
 
     /** Контекст с выбранным языком — для строк и количеств. */
     val context: Context
-        get() = localized ?: app ?: error("Lang.init не вызван")
+        get() {
+            val c = localized ?: return app ?: error("Lang.init не вызван")
+            // Если система сбросила язык у готового контекста (бывает при смене настроек телефона) — собираем заново
+            if (c.resources.configuration.locales.get(0)?.language != locale.language) {
+                apply()
+                return localized ?: c
+            }
+            return c
+        }
 
     /** Конфигурация для окна приложения (см. MainActivity). */
     fun overrideConfiguration(): Configuration = Configuration().apply { setLocale(locale) }

@@ -101,7 +101,7 @@ class LogicTest {
     }
 
     @Test fun plurals() {
-        assertEquals("DIAG ${Lang.mode} ${Lang.locale} ${Lang.context.resources.configuration.locales} ${Lang.context.javaClass} ${Lang.strIn("ru", R.string.outcome_done_mail)}", "1 звонок", plu(R.plurals.count_calls, 1))
+        assertEquals("1 звонок", plu(R.plurals.count_calls, 1))
         assertEquals("3 звонка", plu(R.plurals.count_calls, 3))
         assertEquals("11 звонков", plu(R.plurals.count_calls, 11))
         assertEquals("21 звонок", plu(R.plurals.count_calls, 21))
