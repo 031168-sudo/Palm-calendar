@@ -138,6 +138,7 @@ data class PalmEvent(
     val fromContacts: Boolean = false, // день рождения из карточки контакта, а не событие календаря
     val rrule: String? = null,         // правило повтора серии
     val mail: MailInfo? = null,        // письмо, к которому относится событие «Письмо»
+    val place: String? = null,         // адрес выезда (поле «Место» календаря); только у выездов
 ) {
     /** Название без приставки типа: "Задача: тест" → "тест". Пусто, если названия нет. */
     val shortTitle: String

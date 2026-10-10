@@ -23,6 +23,7 @@ fun primaryActionLabel(e: PalmEvent): String? = when {
     e.fromContacts && e.contact != null -> "Поздравить"
     e.type == EventType.CALL && e.contact != null -> "Позвонить"
     e.type == EventType.MEETING && e.contact?.address != null -> "Маршрут"
+    e.type == EventType.TRIP && e.place != null -> "Маршрут"
     else -> null
 }
 
@@ -35,6 +36,8 @@ fun Context.runPrimaryAction(e: PalmEvent, call: (ru.palmdate.app.model.ContactR
         e.fromContacts -> c?.let(call)
         e.type == EventType.CALL && c != null -> call(c)
         e.type == EventType.MEETING && c?.address != null -> openMap(c.address)
+        // Выезд с адресом — сразу маршрут; без адреса — как раньше, карточка в календаре
+        e.type == EventType.TRIP && e.place != null -> e.place?.let { openMap(it) }
         else -> openInCalendar(e)
     }
 }

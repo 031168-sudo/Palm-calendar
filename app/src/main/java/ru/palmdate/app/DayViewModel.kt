@@ -320,7 +320,10 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     /** Адрес выезда (поле «Место» календаря). */
     suspend fun place(eventId: Long): String? = withContext(Dispatchers.IO) { repo.location(eventId) }
 
-    fun setPlace(eventId: Long, place: String?) = launchSafe { repo.setLocation(eventId, place) }
+    fun setPlace(eventId: Long, place: String?) = launchSafe {
+        repo.setLocation(eventId, place)
+        withContext(Dispatchers.Main) { reload() }   // список сразу покажет (или уберёт) булавку-маршрут
+    }
 
     /** Документы выезда: билеты, посадочные, брони. */
     suspend fun tripFiles(eventId: Long): List<ru.palmdate.app.data.TripFile> =

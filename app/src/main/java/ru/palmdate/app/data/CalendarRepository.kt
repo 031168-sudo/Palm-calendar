@@ -153,6 +153,16 @@ class CalendarRepository(
         val outcomeByKey = links.outcomes(ids).associateBy { it.eventId to it.instanceStart }
         val mailById = links.mailByIds(ids).associateBy { it.eventId }.toMutableMap()
         val accountByCal = calendarAccounts()
+        // Адреса выездов (поле «Место» календаря): нужны для «Маршрут» по тапу на иконку
+        val placeById = HashMap<Long, String>()
+        ids.filter { linkById[it]?.type == EventType.TRIP.name }.chunked(500).forEach { chunk ->
+            resolver.query(
+                Events.CONTENT_URI, arrayOf("_id", Events.EVENT_LOCATION),
+                "_id IN (${chunk.joinToString(",")})", null, null,
+            )?.use { c ->
+                while (c.moveToNext()) c.getString(1)?.takeIf { it.isNotBlank() }?.let { placeById[c.getLong(0)] = it }
+            }
+        }
 
         val calendarEvents = raws.map { r ->
             // Итог: из базы, а для обычных (не повторяющихся) событий — восстанавливаем из строки в описании
@@ -196,6 +206,7 @@ class CalendarRepository(
                 outcome = Outcome.parse(outcome?.status),
                 outcomeNote = outcome?.note,
                 mail = mail,
+                place = placeById[r.id],
             )
         }
         if (onlyIds != null) return calendarEvents
