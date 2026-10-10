@@ -30,6 +30,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.window.layout.FoldingFeature
+import androidx.window.layout.WindowInfoTracker
+import kotlinx.coroutines.launch
 import ru.palmdate.app.ui.DayScreen
 import ru.palmdate.app.ui.PalmButton
 import ru.palmdate.app.ui.theme.Palm
@@ -54,8 +60,25 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         ru.palmdate.app.data.SettingsStore.init(this)
         BirthdayReminder.schedule(this)
+        // Сгиб складного телефона: где он и как сложен телефон
+        val hinge = mutableStateOf<ru.palmdate.app.ui.Hinge?>(null)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                WindowInfoTracker.getOrCreate(this@MainActivity).windowLayoutInfo(this@MainActivity).collect { info ->
+                    hinge.value = info.displayFeatures.filterIsInstance<FoldingFeature>().firstOrNull()?.let { f ->
+                        ru.palmdate.app.ui.Hinge(
+                            tabletop = f.state == FoldingFeature.State.HALF_OPENED &&
+                                f.orientation == FoldingFeature.Orientation.HORIZONTAL,
+                            vertical = f.orientation == FoldingFeature.Orientation.VERTICAL,
+                            bounds = android.graphics.Rect(f.bounds),
+                        )
+                    }
+                }
+            }
+        }
         setContent {
             PalmTheme {
+              androidx.compose.runtime.CompositionLocalProvider(ru.palmdate.app.ui.LocalHinge provides hinge.value) {
                 var granted by remember { mutableStateOf(hasAll()) }
                 val launcher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestMultiplePermissions(),
@@ -67,6 +90,7 @@ class MainActivity : ComponentActivity() {
                 } else {
                     PermissionScreen { launcher.launch(PERMISSIONS) }
                 }
+              }
             }
         }
     }

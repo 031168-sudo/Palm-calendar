@@ -23,9 +23,11 @@ import ru.palmdate.app.model.MailInfo
 import ru.palmdate.app.model.MailKind
 import ru.palmdate.app.model.Outcome
 import ru.palmdate.app.model.PalmEvent
-import ru.palmdate.app.ui.AdaptiveFrame
+import ru.palmdate.app.ui.CalendarFrame
+import ru.palmdate.app.ui.Hinge
+import ru.palmdate.app.ui.LocalHinge
 import ru.palmdate.app.ui.EventDetailsSheet
-import ru.palmdate.app.ui.isWide
+import ru.palmdate.app.ui.usesPane
 import ru.palmdate.app.ui.LocalSheetTop
 import ru.palmdate.app.ui.MainActions
 import ru.palmdate.app.ui.MainLayout
@@ -104,13 +106,13 @@ internal object Sample {
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-abstract class ScreenshotBase(private val device: String) {
+abstract class ScreenshotBase(private val device: String, private val hinge: Hinge? = null) {
     @get:Rule val compose = createComposeRule()
 
     private fun shot(name: String, content: @Composable () -> Unit) {
         compose.setContent {
             PalmTheme {
-                CompositionLocalProvider(LocalSheetTop provides 96.dp) {
+                CompositionLocalProvider(LocalSheetTop provides 96.dp, LocalHinge provides hinge) {
                     Box(Modifier.fillMaxSize()) { content() }
                 }
             }
@@ -122,7 +124,7 @@ abstract class ScreenshotBase(private val device: String) {
     /** Главный экран; на широком — с колонкой справа (pane), как в приложении. */
     @Composable
     private fun Main(mode: ViewMode, pane: (@Composable () -> Unit)? = null) =
-        AdaptiveFrame(pane = pane) { MainLayout(Sample.state(mode), MainActions()) }
+        CalendarFrame(Sample.state(mode), MainActions(), pane = pane)
 
     /** Подробности: на широком экране — колонкой справа, на телефоне — панелью снизу. */
     @Composable
@@ -138,7 +140,7 @@ abstract class ScreenshotBase(private val device: String) {
             onDelete = {}, onHistory = if (e.contact != null) ({}) else null,
             asPane = pane,
         )
-        if (isWide()) Main(ViewMode.DAY, pane = { Details(true) })
+        if (usesPane()) Main(ViewMode.DAY, pane = { Details(true) })
         else { Main(ViewMode.DAY); Details(false) }
     }
 
@@ -195,7 +197,11 @@ class PhoneDarkScreens : ScreenshotBase("phone_dark")
 class FoldClosedScreens : ScreenshotBase("fold_closed")
 
 @Config(sdk = [34], qualifiers = "w673dp-h841dp-xhdpi")
-class FoldOpenScreens : ScreenshotBase("fold_open")
+class FoldOpenScreens : ScreenshotBase("fold_open", Hinge(tabletop = false, vertical = true, bounds = android.graphics.Rect(672, 0, 674, 1682)))
+
+// «Ноутбук»: раскладушка полусложена и стоит на столе, сгиб горизонтально посередине
+@Config(sdk = [34], qualifiers = "w841dp-h673dp-land-xhdpi")
+class FoldTabletopScreens : ScreenshotBase("fold_tabletop", Hinge(tabletop = true, vertical = false, bounds = android.graphics.Rect(0, 672, 1682, 674)))
 
 @Config(sdk = [34], qualifiers = "w800dp-h1280dp-xhdpi")
 class TabletScreens : ScreenshotBase("tablet")

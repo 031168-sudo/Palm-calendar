@@ -56,6 +56,13 @@ if [ "$DEV" = "fold" ]; then
   adb shell wm size reset
   shot 9_unfolded
   $UI check "Закрыть"
+  # «Ноутбук»: полусложить и положить боком (сгиб горизонтально) — для пробы, не обязательная проверка
+  adb shell cmd device_state state 2 || true
+  adb shell settings put system user_rotation 1
+  shot 9b_tabletop
+  adb shell cmd device_state state reset || true
+  adb shell settings put system user_rotation 0
+  sleep 2
 fi
 
 # Новое событие: окно открывается, «Готово» наверху

@@ -132,7 +132,7 @@ fun DayScreen(vm: DayViewModel) {
     var newPreset by remember { mutableStateOf<Pair<EventType, ru.palmdate.app.model.ContactRef>?>(null) }
 
     // Широкий экран (планшет, разложенная раскладушка): подробности события — колонкой справа
-    val wide = isWide()
+    val wide = usesPane()
 
     // Нижние панели поднимаются только до синей шапки с датой
     var headerBottom by remember { mutableIntStateOf(0) }
@@ -201,8 +201,8 @@ fun DayScreen(vm: DayViewModel) {
 
     val shown = details
     val paneContent: (@Composable () -> Unit)? = if (wide && shown != null) ({ EventDetails(shown, pane = true) }) else null
-    AdaptiveFrame(pane = paneContent) {
-    MainLayout(
+    CalendarFrame(
+        pane = paneContent,
         state = state,
         headerModifier = Modifier.onGloballyPositioned { headerBottom = it.boundsInWindow().bottom.toInt() },
         actions = MainActions(
@@ -228,7 +228,6 @@ fun DayScreen(vm: DayViewModel) {
             onMode = { vm.setMode(it) },
         ),
     )
-    }
 
     if (showSettings) {
         SettingsSheet(
@@ -356,11 +355,22 @@ internal fun isWide(): Boolean = androidx.compose.ui.platform.LocalConfiguration
 internal fun AdaptiveFrame(pane: (@Composable () -> Unit)?, main: @Composable () -> Unit) {
     if (!isWide()) { main(); return }
     val screen = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
-    val paneWidth = if (screen < 840) (screen / 2).dp else 420.dp
+    val hinge = LocalHinge.current?.takeIf { it.vertical }
+    val density = LocalDensity.current
     Row(Modifier.fillMaxSize().background(Palm.paper)) {
-        Box(Modifier.weight(1f).fillMaxHeight()) { main() }
-        Box(Modifier.width(1.dp).fillMaxHeight().background(Palm.rule))
-        Box(Modifier.width(paneWidth).fillMaxHeight()) { if (pane != null) pane() else PaneHint() }
+        if (hinge != null) {
+            // Книжка: колонки ровно по сгибу, на сам сгиб ничего не попадает
+            val left = with(density) { hinge.bounds.left.toDp() }
+            val gap = with(density) { (hinge.bounds.right - hinge.bounds.left).toDp() }
+            Box(Modifier.width(left).fillMaxHeight()) { main() }
+            if (gap > 0.dp) Spacer(Modifier.width(gap)) else Box(Modifier.width(1.dp).fillMaxHeight().background(Palm.rule))
+            Box(Modifier.weight(1f).fillMaxHeight()) { if (pane != null) pane() else PaneHint() }
+        } else {
+            val paneWidth = if (screen < 840) (screen / 2).dp else 420.dp
+            Box(Modifier.weight(1f).fillMaxHeight()) { main() }
+            Box(Modifier.width(1.dp).fillMaxHeight().background(Palm.rule))
+            Box(Modifier.width(paneWidth).fillMaxHeight()) { if (pane != null) pane() else PaneHint() }
+        }
     }
 }
 
@@ -405,7 +415,7 @@ internal class MainActions(
  * Отдельно — чтобы его можно было нарисовать в тестах со своими событиями.
  */
 @Composable
-internal fun MainLayout(state: CalState, actions: MainActions, headerModifier: Modifier = Modifier) {
+internal fun MainLayout(state: CalState, actions: MainActions, headerModifier: Modifier = Modifier, showBar: Boolean = true) {
     Column(Modifier.fillMaxSize().background(Palm.paper)) {
         Header(
             modifier = headerModifier,
@@ -466,14 +476,67 @@ internal fun MainLayout(state: CalState, actions: MainActions, headerModifier: M
             }
         }
 
-        ButtonBar(
-            mode = state.mode,
-            onNew = actions.onNew,
-            onToday = actions.onToday,
-            onGoTo = actions.onGoTo,
-            onStats = actions.onStats,
-            onSettings = actions.onSettings,
-            onMode = actions.onMode,
+        if (showBar) ActionsBar(state, actions)
+    }
+}
+
+@Composable
+private fun ActionsBar(state: CalState, actions: MainActions) = ButtonBar(
+    mode = state.mode,
+    onNew = actions.onNew,
+    onToday = actions.onToday,
+    onGoTo = actions.onGoTo,
+    onStats = actions.onStats,
+    onSettings = actions.onSettings,
+    onMode = actions.onMode,
+)
+
+/** Где события показываются колонкой/половиной, а не панелью снизу: широкий экран или «ноутбук». */
+@Composable
+internal fun usesPane(): Boolean = isWide() || LocalHinge.current?.tabletop == true
+
+/**
+ * Весь экран календаря с учётом устройства:
+ * «ноутбук» (полусложен, стоит на столе) — сверху календарь, снизу кнопки и карточка события;
+ * широкий экран — календарь слева, карточка справа (у книжки — ровно по сгибу);
+ * телефон — только календарь.
+ */
+@Composable
+internal fun CalendarFrame(
+    state: CalState,
+    actions: MainActions,
+    pane: (@Composable () -> Unit)?,
+    headerModifier: Modifier = Modifier,
+) {
+    val hinge = LocalHinge.current
+    if (hinge?.tabletop == true) {
+        val density = LocalDensity.current
+        val top = with(density) { hinge.bounds.top.toDp() }
+        val gap = with(density) { (hinge.bounds.bottom - hinge.bounds.top).toDp() }
+        Column(Modifier.fillMaxSize().background(Palm.paper)) {
+            // Верхняя половина — смотреть: шапка и выбранный вид
+            Box(Modifier.fillMaxWidth().height(top)) {
+                MainLayout(state, actions, headerModifier, showBar = false)
+            }
+            Spacer(Modifier.height(gap))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Palm.rule))
+            // Нижняя половина — нажимать: карточка события и кнопки
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (pane != null) pane() else TabletopHint()
+            }
+            ActionsBar(state, actions)
+        }
+        return
+    }
+    AdaptiveFrame(pane = pane) { MainLayout(state, actions, headerModifier) }
+}
+
+@Composable
+private fun TabletopHint() {
+    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        Text(
+            "Нажмите на событие вверху — здесь появятся подробности",
+            style = Palm.body, color = Palm.inkSoft, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }
 }
