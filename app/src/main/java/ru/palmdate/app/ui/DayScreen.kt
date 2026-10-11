@@ -831,18 +831,18 @@ internal fun EventLine(
                     }.joinToString(" · ")
                     if (sub.isNotEmpty() || e.hasFiles || e.hasAlarm != null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            // Значки в начале второй строки: документы выезда и колокольчик напоминания
-                            if (e.hasFiles) {
-                                Icon(
-                                    Icons.Outlined.Description, str(R.string.has_documents),
-                                    tint = Palm.inkSoft, modifier = Modifier.size(14.dp),
-                                )
-                                Spacer(Modifier.width(4.dp))
-                            }
+                            // Значки в начале второй строки: колокольчик напоминания, затем документы выезда
                             e.hasAlarm?.let { on ->
                                 Icon(
                                     if (on) Icons.Outlined.Notifications else Icons.Outlined.NotificationsOff,
                                     str(if (on) R.string.has_reminder else R.string.no_reminder),
+                                    tint = Palm.inkSoft, modifier = Modifier.size(14.dp),
+                                )
+                                if (e.hasFiles || sub.isNotEmpty()) Spacer(Modifier.width(4.dp))
+                            }
+                            if (e.hasFiles) {
+                                Icon(
+                                    Icons.Outlined.Description, str(R.string.has_documents),
                                     tint = Palm.inkSoft, modifier = Modifier.size(14.dp),
                                 )
                                 if (sub.isNotEmpty()) Spacer(Modifier.width(4.dp))
