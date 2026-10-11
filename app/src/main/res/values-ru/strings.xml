@@ -86,6 +86,8 @@
     <string name="error_generic">Ошибка</string>
     <string name="go_to">Перейти</string>
     <string name="has_documents">Есть документы</string>
+    <string name="has_reminder">Есть напоминание</string>
+    <string name="no_reminder">Без напоминания</string>
     <string name="hist_30_days">За 30 дней</string>
     <string name="hist_completed">Состоялся</string>
     <string name="hist_done">состоялось %d</string>

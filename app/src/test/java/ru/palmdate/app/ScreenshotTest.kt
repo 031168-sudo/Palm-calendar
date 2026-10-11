@@ -58,7 +58,7 @@ internal object Sample {
         eventId = id, title = title, start = start, end = if (allDay) start.plusDays(1) else start.plusMinutes(minutes),
         allDay = allDay, type = type, contact = contact, note = note, color = color, calendarName = "Работа",
         accountName = "me@gmail.com", calendarId = 1, outcome = outcome, mail = mail, recurring = recurring,
-        instanceStart = id * 1000,
+        instanceStart = id * 1000, hasAlarm = id % 2 == 0L,
     )
 
     val events: List<PalmEvent> = listOf(

@@ -68,6 +68,8 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.EventNote
 import androidx.compose.material.icons.outlined.BarChart
@@ -827,12 +829,20 @@ internal fun EventLine(
                         if (!e.allDay && e.end.isAfter(e.start)) add(str(R.string.until_time, e.end.format(HM)))
                         if (e.outcome == null) e.note?.let { add(it.lineSequence().first()) }
                     }.joinToString(" · ")
-                    if (sub.isNotEmpty() || e.hasFiles) {
+                    if (sub.isNotEmpty() || e.hasFiles || e.hasAlarm != null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            // Документы выезда (билеты, брони): значок в начале второй строки
+                            // Значки в начале второй строки: документы выезда и колокольчик напоминания
                             if (e.hasFiles) {
                                 Icon(
                                     Icons.Outlined.Description, str(R.string.has_documents),
+                                    tint = Palm.inkSoft, modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(Modifier.width(4.dp))
+                            }
+                            e.hasAlarm?.let { on ->
+                                Icon(
+                                    if (on) Icons.Outlined.Notifications else Icons.Outlined.NotificationsOff,
+                                    str(if (on) R.string.has_reminder else R.string.no_reminder),
                                     tint = Palm.inkSoft, modifier = Modifier.size(14.dp),
                                 )
                                 if (sub.isNotEmpty()) Spacer(Modifier.width(4.dp))

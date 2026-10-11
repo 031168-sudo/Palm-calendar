@@ -169,6 +169,15 @@ class CalendarRepository(
             }
         }
 
+        // Есть ли у события напоминание (любое) — колокольчик во второй строке
+        val alarmIds = HashSet<Long>()
+        ids.chunked(500).forEach { chunk ->
+            resolver.query(
+                Events.CONTENT_URI, arrayOf("_id", Events.HAS_ALARM),
+                "_id IN (${chunk.joinToString(",")})", null, null,
+            )?.use { c -> while (c.moveToNext()) if (c.getInt(1) != 0) alarmIds += c.getLong(0) }
+        }
+
         val calendarEvents = raws.map { r ->
             // Итог: из базы, а для обычных (не повторяющихся) событий — восстанавливаем из строки в описании
             var outcome = outcomeByKey[r.id to r.begin]
@@ -213,6 +222,7 @@ class CalendarRepository(
                 mail = mail,
                 place = placeById[r.id],
                 hasFiles = r.id in withFiles,
+                hasAlarm = r.id in alarmIds,
             )
         }
         if (onlyIds != null) return calendarEvents
