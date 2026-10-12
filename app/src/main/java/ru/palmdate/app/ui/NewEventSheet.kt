@@ -1435,7 +1435,7 @@ private fun TripFilesSection(
     ) { uris -> if (uris.isNotEmpty()) onAdd(if (withLabels) label else "", uris) }
 
     Text(str(R.string.documents), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
-    if (files.isEmpty()) {
+    if (files.isEmpty() && withLabels) {
         Text(str(R.string.documents_empty), style = Palm.small, color = Palm.inkSoft)
     }
     files.forEach { f ->
