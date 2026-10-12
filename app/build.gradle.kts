@@ -84,10 +84,7 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     // Пароль почты — в зашифрованном хранилище
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
     // Почта по IMAP/SMTP
-    implementation("com.sun.mail:android-mail:1.6.7")
-    implementation("com.sun.mail:android-activation:1.6.7")
 
     // Тесты: логика и скриншоты экранов без телефона (Robolectric + Roborazzi)
     testImplementation("junit:junit:4.13.2")

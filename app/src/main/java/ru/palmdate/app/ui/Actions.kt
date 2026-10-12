@@ -13,15 +13,8 @@ import ru.palmdate.app.model.PalmEvent
 
 /** Что делает тап по иконке события — как на Palm: звонок набирает номер, встреча ведёт на карту. */
 fun primaryActionLabel(e: PalmEvent): String? = when {
-    e.type == EventType.MAIL && e.mail != null -> {
-        val builtin = ru.palmdate.app.data.SettingsStore.current.mailMode == ru.palmdate.app.data.MailMode.BUILTIN
-        when {
-            e.mail.kind == ru.palmdate.app.model.MailKind.REPLY ->
-                if (builtin && e.mail.messageId != null) str(R.string.action_open_mail) else str(R.string.action_find_mail)
-            builtin && e.mail.hasDraft -> str(R.string.action_continue_mail)
-            else -> str(R.string.action_write_mail)
-        }
-    }
+    e.type == EventType.MAIL && e.mail != null ->
+        if (e.mail.kind == ru.palmdate.app.model.MailKind.REPLY) str(R.string.action_find_mail) else str(R.string.action_write_mail)
     e.fromContacts && e.contact != null -> str(R.string.action_congratulate)
     e.type == EventType.CALL && e.contact != null -> str(R.string.action_call)
     e.type == EventType.MEETING && e.contact?.address != null -> str(R.string.action_route)

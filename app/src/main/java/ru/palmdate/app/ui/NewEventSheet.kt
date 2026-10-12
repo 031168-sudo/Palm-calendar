@@ -114,7 +114,6 @@ fun NewEventSheet(
     searchEmails: suspend (String) -> List<ru.palmdate.app.data.ContactsRepository.EmailContact> = { emptyList() },
     contactByEmail: suspend (String) -> ContactRef? = { null },
 ) {
-    val mailer = LocalMailer.current
     var mail by remember { mutableStateOf<ru.palmdate.app.model.MailInfo?>(null) }
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(Step.TYPE) }
@@ -210,21 +209,8 @@ fun NewEventSheet(
 
                 // Письмо: ответить на пришедшее или написать новое
                 Step.MAIL_KIND -> MailKindPicker(
-                    onReply = {
-                        // Через почтовую программу писем не видно — запоминаем, от кого и что искать
-                        if (ru.palmdate.app.data.SettingsStore.current.mailMode != ru.palmdate.app.data.MailMode.BUILTIN) {
-                            step = Step.MAIL_FIND
-                        } else mailer.pick("") { h ->
-                            mail = ru.palmdate.app.model.MailInfo(
-                                ru.palmdate.app.model.MailKind.REPLY, h.messageId, h.folder, h.subject,
-                                h.from?.name, h.from?.email, h.date,
-                            )
-                            scope.launch {
-                                contact = h.from?.email?.let { contactByEmail(it) }
-                                toCalendarOrWhen()
-                            }
-                        }
-                    },
+                    // Через почтовую программу писем не видно — запоминаем, от кого и что искать
+                    onReply = { step = Step.MAIL_FIND },
                     onNew = { step = Step.MAIL_TO },
                 )
 
@@ -951,10 +937,8 @@ fun EventDetailsSheet(
     LaunchedEffect(event.eventId) {
         reminders = loadReminders(event.eventId)
         calendars = loadCalendars()
-        if (event.type == EventType.TRIP) {
-            place = loadPlace(event.eventId)
-            files = loadFiles(event.eventId)
-        }
+        if (event.type == EventType.TRIP) place = loadPlace(event.eventId)
+        if (!event.fromContacts) files = loadFiles(event.eventId)
     }
     // Перенести можно, только если календарь события доступен для записи и есть куда переносить
     // Править название, время и заметку можно, если календарь события доступен для записи
@@ -1115,7 +1099,6 @@ fun EventDetailsSheet(
                         } else {
                             SettingRow(str(R.string.mail_to_label), m.peer ?: "—", sub = m.peerAddr?.takeIf { it != m.peer }, onClick = onAction)
                         }
-                        if (m.hasDraft) DetailLine(str(R.string.draft_cap), str(R.string.draft_saved_note))
                     }
                     event.contact?.takeIf { !isMail }?.let { c ->
                         // Номер можно сменить из списка номеров контакта
@@ -1166,8 +1149,13 @@ fun EventDetailsSheet(
                             PalmButton(str(R.string.action_route), compact = true, onClick = { ctx.openMap(addr) })
                         }
                         if (editable) SettingRow(str(R.string.address_from_contact), str(R.string.choose_person), onClick = { mode = DetailMode.PLACE_CONTACT })
+                    }
+
+                    // Документы: у любого события; у выезда — с подписями (билет, бронь…)
+                    if (!event.fromContacts) {
                         TripFilesSection(
                             files = files,
+                            withLabels = event.type == EventType.TRIP,
                             onAdd = { label, uris ->
                                 scope.launch {
                                     uris.forEach { onAddFile(event.eventId, it, label) }
@@ -1436,6 +1424,7 @@ private fun tripLabelShown(stored: String): String =
 @Composable
 private fun TripFilesSection(
     files: List<ru.palmdate.app.data.TripFile>,
+    withLabels: Boolean,
     onAdd: (String, List<android.net.Uri>) -> Unit,
     onOpen: (ru.palmdate.app.data.TripFile) -> Unit,
     onDelete: (ru.palmdate.app.data.TripFile) -> Unit,
@@ -1443,7 +1432,7 @@ private fun TripFilesSection(
     var label by remember { mutableStateOf(tripLabels().first()) }
     val picker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments(),
-    ) { uris -> if (uris.isNotEmpty()) onAdd(label, uris) }
+    ) { uris -> if (uris.isNotEmpty()) onAdd(if (withLabels) label else "", uris) }
 
     Text(str(R.string.documents), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
     if (files.isEmpty()) {
@@ -1451,7 +1440,7 @@ private fun TripFilesSection(
     }
     files.forEach { f ->
         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
+            if (withLabels) Text(
                 tripLabelShown(f.label), style = Palm.small.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
                 color = Palm.navy, modifier = Modifier.width(96.dp),
             )
@@ -1464,7 +1453,7 @@ private fun TripFilesSection(
         }
     }
     Spacer(Modifier.height(8.dp))
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    if (withLabels) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         tripLabels().forEach { l ->
             val sel = l == label
             Text(

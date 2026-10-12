@@ -141,11 +141,6 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun importBackup(text: String): Int = withContext(Dispatchers.IO) { backup.import(text) }
         .also { settingsChanged() }
 
-    suspend fun checkMail(password: String): String? = withContext(Dispatchers.IO) {
-        runCatching { ru.palmdate.app.data.Mail.check(ru.palmdate.app.data.SettingsStore.current, password) }
-            .getOrElse { it.message ?: str(R.string.error_generic) }
-    }
-
     /** Номер последней сборки на GitHub (или null, если не удалось узнать). */
     suspend fun latestBuild(): Int? = withContext(Dispatchers.IO) {
         runCatching {
@@ -207,32 +202,6 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Письмо события с черновиком. */
     suspend fun mailLink(eventId: Long): ru.palmdate.app.data.MailLink? = withContext(Dispatchers.IO) { repo.mailLink(eventId) }
-
-    /** Сохранить черновик: в «Черновики» ящика и у события. */
-    suspend fun saveMailDraft(eventId: Long, o: ru.palmdate.app.data.Outgoing) {
-        val old = repo.mailLink(eventId)?.draftId
-        val id = runCatching { ru.palmdate.app.data.MailClient.saveDraft(getApplication(), o, old) }.getOrNull() ?: old
-        withContext(Dispatchers.IO) { repo.setMailDraft(eventId, o.toJson(), id) }
-        reload()
-    }
-
-    /** Отказаться от письма: черновик убрать отовсюду. */
-    suspend fun dropMailDraft(eventId: Long) {
-        val old = repo.mailLink(eventId)?.draftId
-        old?.let { ru.palmdate.app.data.MailClient.deleteDraft(it) }
-        withContext(Dispatchers.IO) { repo.setMailDraft(eventId, null, null) }
-        reload()
-    }
-
-    /** Отправить письмо события: черновик убрать, итог — «Отправлено». */
-    suspend fun sendMail(e: PalmEvent?, o: ru.palmdate.app.data.Outgoing) {
-        ru.palmdate.app.data.MailClient.send(getApplication(), o)
-        if (e != null) {
-            runCatching { dropMailDraft(e.eventId) }
-            withContext(Dispatchers.IO) { repo.setOutcome(e, Outcome.DONE, e.outcomeNote) }
-            reload()
-        }
-    }
 
     suspend fun searchContacts(q: String): List<ContactRef> =
         withContext(Dispatchers.IO) { contacts.search(q) }

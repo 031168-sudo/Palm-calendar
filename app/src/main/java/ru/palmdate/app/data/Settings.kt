@@ -26,24 +26,7 @@ enum class CallVia(@StringRes val labelRes: Int) {
     val label: String get() = str(labelRes)
 }
 
-/** Почтовые ящики с готовыми серверами. */
-enum class MailPreset(@StringRes val labelRes: Int, val imap: String, val smtp: String) {
-    GMAIL(R.string.preset_gmail, "imap.gmail.com", "smtp.gmail.com"),
-    YANDEX(R.string.preset_yandex, "imap.yandex.ru", "smtp.yandex.ru"),
-    MAILRU(R.string.preset_mailru, "imap.mail.ru", "smtp.mail.ru"),
-    CUSTOM(R.string.preset_custom, "", "");
-
-    val label: String get() = str(labelRes)
-}
-
-/** Как работать с почтой: через почтовую программу телефона или встроенной почтой (нужен пароль приложения). */
-enum class MailMode(@StringRes val labelRes: Int) {
-    APP(R.string.mailmode_app), BUILTIN(R.string.mailmode_builtin);
-
-    val label: String get() = str(labelRes)
-}
-
-/** Все настройки DateBook. Пароль почты хранится отдельно и зашифрованно. */
+/** Все настройки DateBook. */
 data class AppSettings(
     // События по умолчанию
     val durations: Map<EventType, Int> = EventType.entries.associateWith { it.defaultMinutes },
@@ -62,23 +45,12 @@ data class AppSettings(
     val birthdayNotify: Boolean = false,
     val birthdayNotifyAt: Int = 540,
     val callVia: CallVia = CallVia.PHONE,
-    // Почта
-    val mailMode: MailMode = MailMode.APP,
-    val mailPreset: MailPreset = MailPreset.GMAIL,
-    val mailEmail: String = "",
-    val mailImapHost: String = "",
-    val mailImapPort: Int = 993,
-    val mailSmtpHost: String = "",
-    val mailSmtpPort: Int = 465,
 ) {
     fun duration(t: EventType) = durations[t] ?: t.defaultMinutes
     fun remindersFor(t: EventType) = reminders[t] ?: t.defaultReminders
 
     /** Напоминание для события на весь день: минус минуты = "в этот день в ..." (так его хранит Android/Google). */
     val allDayReminders: List<Int> get() = allDayReminderAt?.let { listOf(-it) } ?: emptyList()
-
-    val imapHost get() = if (mailPreset == MailPreset.CUSTOM) mailImapHost else mailPreset.imap
-    val smtpHost get() = if (mailPreset == MailPreset.CUSTOM) mailSmtpHost else mailPreset.smtp
 
     fun toJson(): JSONObject = JSONObject().apply {
         put("durations", JSONObject().apply { durations.forEach { (k, v) -> put(k.name, v) } })
@@ -94,13 +66,6 @@ data class AppSettings(
         put("birthdayNotify", birthdayNotify)
         put("birthdayNotifyAt", birthdayNotifyAt)
         put("callVia", callVia.name)
-        put("mailMode", mailMode.name)
-        put("mailPreset", mailPreset.name)
-        put("mailEmail", mailEmail)
-        put("mailImapHost", mailImapHost)
-        put("mailImapPort", mailImapPort)
-        put("mailSmtpHost", mailSmtpHost)
-        put("mailSmtpPort", mailSmtpPort)
     }
 
     companion object {
@@ -129,13 +94,6 @@ data class AppSettings(
                 birthdayNotify = j.optBoolean("birthdayNotify", false),
                 birthdayNotifyAt = j.optInt("birthdayNotifyAt", 540),
                 callVia = runCatching { CallVia.valueOf(j.optString("callVia")) }.getOrDefault(d.callVia),
-                mailMode = runCatching { MailMode.valueOf(j.optString("mailMode")) }.getOrDefault(d.mailMode),
-                mailPreset = runCatching { MailPreset.valueOf(j.optString("mailPreset")) }.getOrDefault(d.mailPreset),
-                mailEmail = j.optString("mailEmail", ""),
-                mailImapHost = j.optString("mailImapHost", ""),
-                mailImapPort = j.optInt("mailImapPort", 993),
-                mailSmtpHost = j.optString("mailSmtpHost", ""),
-                mailSmtpPort = j.optInt("mailSmtpPort", 465),
             )
         }
     }
@@ -147,7 +105,6 @@ data class AppSettings(
  */
 object SettingsStore {
     private lateinit var prefs: SharedPreferences
-    private var secret: SharedPreferences? = null
 
     var current by mutableStateOf(AppSettings())
         private set
@@ -157,16 +114,6 @@ object SettingsStore {
         prefs = context.applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
         current = prefs.getString("json", null)
             ?.let { runCatching { AppSettings.fromJson(JSONObject(it)) }.getOrNull() } ?: AppSettings()
-        // Пароль почты — в зашифрованном хранилище (ключ в защищённом хранилище Android)
-        secret = runCatching {
-            val key = androidx.security.crypto.MasterKey.Builder(context.applicationContext)
-                .setKeyScheme(androidx.security.crypto.MasterKey.KeyScheme.AES256_GCM).build()
-            androidx.security.crypto.EncryptedSharedPreferences.create(
-                context.applicationContext, "secret", key,
-                androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-            )
-        }.getOrNull()
     }
 
     fun update(block: (AppSettings) -> AppSettings) {
@@ -175,9 +122,4 @@ object SettingsStore {
     }
 
     fun replace(s: AppSettings) = update { s }
-
-    var mailPassword: String
-        get() = (secret?.getString("mail_password", "") ?: "").filterNot { it.isWhitespace() }
-        // В паролях приложений пробелов не бывает — Google показывает пароль группами через пробел
-        set(v) { secret?.edit()?.putString("mail_password", v.filterNot { it.isWhitespace() })?.apply() }
 }

@@ -825,7 +825,6 @@ internal fun EventLine(
                                 add(str(if (m.kind == ru.palmdate.app.model.MailKind.REPLY) R.string.mail_from else R.string.mail_to_peer, m.peer ?: ""))
                             } else e.typeLabel?.let { add(it) }
                         }
-                        if (e.mail?.hasDraft == true) add(str(R.string.draft_word))
                         if (!e.allDay && e.end.isAfter(e.start)) add(str(R.string.until_time, e.end.format(HM)))
                         if (e.outcome == null) e.note?.let { add(it.lineSequence().first()) }
                     }.joinToString(" · ")

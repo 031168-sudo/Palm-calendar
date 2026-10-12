@@ -62,8 +62,6 @@ import ru.palmdate.app.DayViewModel
 import ru.palmdate.app.Lang
 import ru.palmdate.app.LangMode
 import ru.palmdate.app.data.AppSettings
-import ru.palmdate.app.data.MailPreset
-import ru.palmdate.app.data.MailMode
 import ru.palmdate.app.data.SettingsStore
 import ru.palmdate.app.data.StartView
 import ru.palmdate.app.model.CalendarInfo
@@ -243,69 +241,16 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
 
             /* ---------- Почта ---------- */
             Section(str(R.string.settings_mail))
-            Chips(MailMode.entries.map { it to it.label }, s.mailMode) { v -> set { it.copy(mailMode = v) } }
-            Spacer(Modifier.height(6.dp))
-            if (s.mailMode == MailMode.APP) {
-                val apps = remember { ru.palmdate.app.data.MailApps(ctx) }
-                var appPkg by remember { mutableStateOf(apps.remembered()) }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Label(str(R.string.settings_mail_app))
-                        Text(appPkg?.let { apps.label(it) } ?: str(R.string.settings_ask_on_open), style = Palm.body, color = Palm.ink)
-                    }
-                    if (appPkg != null) TextButton(onClick = { apps.remember(null); appPkg = null }) { Text(str(R.string.settings_reset)) }
+            val apps = remember { ru.palmdate.app.data.MailApps(ctx) }
+            var appPkg by remember { mutableStateOf(apps.remembered()) }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Label(str(R.string.settings_mail_app))
+                    Text(appPkg?.let { apps.label(it) } ?: str(R.string.settings_ask_on_open), style = Palm.body, color = Palm.ink)
                 }
-                Hint(
-                    str(R.string.settings_mail_app_hint),
-                )
-            } else {
-            Label(str(R.string.settings_mailbox))
-            Chips(MailPreset.entries.map { it to it.label }, s.mailPreset) { v -> set { it.copy(mailPreset = v) } }
-            Spacer(Modifier.height(8.dp))
-            var email by remember { mutableStateOf(s.mailEmail) }
-            OutlinedTextField(
-                value = email, onValueChange = { email = it; set { st -> st.copy(mailEmail = it.trim()) } },
-                label = { Text(str(R.string.settings_mail_address)) }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                modifier = Modifier.fillMaxWidth().keepAboveKeyboard(),
-            )
-            Spacer(Modifier.height(6.dp))
-            var password by remember { mutableStateOf(SettingsStore.mailPassword) }
-            OutlinedTextField(
-                value = password, onValueChange = { password = it; SettingsStore.mailPassword = it },
-                label = { Text(str(R.string.settings_app_password)) }, singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth().keepAboveKeyboard(),
-            )
-            if (s.mailPreset == MailPreset.CUSTOM) {
-                Spacer(Modifier.height(6.dp))
-                ServerFields("IMAP", s.mailImapHost, s.mailImapPort) { h, p -> set { it.copy(mailImapHost = h, mailImapPort = p) } }
-                Spacer(Modifier.height(6.dp))
-                ServerFields("SMTP", s.mailSmtpHost, s.mailSmtpPort) { h, p -> set { it.copy(mailSmtpHost = h, mailSmtpPort = p) } }
+                if (appPkg != null) TextButton(onClick = { apps.remember(null); appPkg = null }) { Text(str(R.string.settings_reset)) }
             }
-            Hint(
-                when (s.mailPreset) {
-                    MailPreset.GMAIL -> str(R.string.settings_hint_gmail)
-                    MailPreset.YANDEX -> str(R.string.settings_hint_yandex)
-                    MailPreset.MAILRU -> str(R.string.settings_hint_mailru)
-                    MailPreset.CUSTOM -> str(R.string.settings_hint_custom)
-                } + str(R.string.settings_hint_password_stored),
-            )
-            var mailResult by remember { mutableStateOf<String?>(null) }
-            var checking by remember { mutableStateOf(false) }
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                PalmButton(if (checking) str(R.string.settings_checking) else str(R.string.settings_check_connection), filled = true) {
-                    if (!checking) scope.launch {
-                        checking = true
-                        mailResult = vm.checkMail(password)?.let { "✗ $it" } ?: str(R.string.settings_mail_ok)
-                        checking = false
-                    }
-                }
-            }
-            mailResult?.let { Text(it, style = Palm.small, color = if (it.startsWith("✓")) Color(0xFF2E7D32) else Palm.nowLine, modifier = Modifier.padding(top = 6.dp)) }
-            }
+            Hint(str(R.string.settings_mail_app_hint))
 
             /* ---------- Данные ---------- */
             Section(str(R.string.settings_data))

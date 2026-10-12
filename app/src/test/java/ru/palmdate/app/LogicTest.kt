@@ -8,17 +8,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import ru.palmdate.app.data.Addr
 import ru.palmdate.app.data.AppSettings
 import ru.palmdate.app.data.CalendarRepository
-import ru.palmdate.app.data.ForwardFrom
-import ru.palmdate.app.data.MailAttachment
-import ru.palmdate.app.data.MailClient
-import ru.palmdate.app.data.MailException
-import ru.palmdate.app.data.MailHeader
-import ru.palmdate.app.data.MailMessage
-import ru.palmdate.app.data.MailMode
-import ru.palmdate.app.data.Outgoing
 import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.MailInfo
 import ru.palmdate.app.model.MailKind
@@ -119,70 +110,13 @@ class LogicTest {
         assertEquals("Иван", event("Звонок: Иван", EventType.CALL).shortTitle)
     }
 
-    @Test fun outgoingJson() {
-        val o = Outgoing(
-            mode = Outgoing.MODE_FORWARD, to = "Иван <ivan@mail.ru>", cc = "", subject = "Fwd: Счёт", body = "Текст\nвторая строка",
-            files = listOf("content://x/1"),
-            forward = ForwardFrom("<id@x>", "INBOX", listOf(MailAttachment("счёт.pdf", "application/pdf", 1234, listOf(1, 0)))),
-            inReplyTo = null, references = "<a@x> <b@x>",
-        )
-        assertEquals(o, Outgoing.fromJson(o.toJson()))
-    }
-
-    private fun message() = MailMessage(
-        header = MailHeader("INBOX", 5, "<m1@x.ru>", "Счёт за сентябрь", Addr("Иван Петров", "ivan@x.ru"), 0L, true, false),
-        to = listOf(Addr(null, "me@x.ru"), Addr("Олег", "oleg@x.ru")),
-        cc = listOf(Addr(null, "anna@x.ru")),
-        replyTo = emptyList(),
-        html = null,
-        text = "Добрый день!\nСчёт во вложении.",
-        attachments = listOf(MailAttachment("счёт.pdf", "application/pdf", 100, listOf(1))),
-        references = "<m0@x.ru>",
-    )
-
-    @Test fun replyAndForward() {
-        val r = MailClient.reply(message(), all = false)
-        assertEquals("Re: Счёт за сентябрь", r.subject)
-        assertEquals("Иван Петров <ivan@x.ru>", r.to)
-        assertEquals("", r.cc)
-        assertEquals("<m1@x.ru>", r.inReplyTo)
-        assertEquals("<m0@x.ru> <m1@x.ru>", r.references)
-        assertTrue(r.body.contains("> Добрый день!"))
-        assertTrue(r.body.contains("> Счёт во вложении."))
-
-        val all = MailClient.reply(message(), all = true)
-        assertTrue(all.cc.contains("oleg@x.ru"))
-        assertTrue(all.cc.contains("anna@x.ru"))
-        assertTrue(!all.cc.contains("ivan@x.ru"))
-
-        // Повторный ответ не плодит "Re: Re:"
-        val again = MailClient.reply(message().copy(header = message().header.copy(subject = "RE: Счёт")), all = false)
-        assertEquals("RE: Счёт", again.subject)
-
-        val f = MailClient.forward(message())
-        assertEquals("Fwd: Счёт за сентябрь", f.subject)
-        assertEquals(1, f.forward!!.parts.size)
-        assertTrue(f.body.contains("Пересланное сообщение"))
-    }
-
-    @Test fun addresses() {
-        val list = MailClient.parseAddresses("Иван Петров <ivan@mail.ru>; petr@x.ru")
-        assertEquals(2, list.size)
-        assertEquals("Иван Петров", list[0].personal)
-        assertEquals("petr@x.ru", list[1].address)
-        var failed = false
-        try { MailClient.parseAddresses("не адрес") } catch (_: MailException) { failed = true }
-        assertTrue(failed)
-    }
-
     @Test fun settingsJson() {
-        val s = AppSettings(mailMode = MailMode.BUILTIN, dayFrom = 7, weekStartsSunday = true)
+        val s = AppSettings(dayFrom = 7, weekStartsSunday = true)
         val back = AppSettings.fromJson(s.toJson())
-        assertEquals(MailMode.BUILTIN, back.mailMode)
         assertEquals(7, back.dayFrom)
         assertTrue(back.weekStartsSunday)
-        // Старые настройки без режима почты — «через почтовую программу»
-        val old = s.toJson().apply { remove("mailMode") }
-        assertEquals(MailMode.APP, AppSettings.fromJson(old).mailMode)
+        // Старые настройки с полями встроенной почты читаются без ошибок
+        val old = s.toJson().apply { put("mailMode", "BUILTIN"); put("mailEmail", "a@b.c") }
+        assertEquals(7, AppSettings.fromJson(old).dayFrom)
     }
 }
