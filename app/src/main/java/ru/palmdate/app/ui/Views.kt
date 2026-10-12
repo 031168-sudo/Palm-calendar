@@ -154,10 +154,9 @@ fun WeekView(
 
     val timed = events.filter { !it.allDay }
     val settings = ru.palmdate.app.data.SettingsStore.current
-    val firstHour = (timed.minOfOrNull { if (it.start.toLocalDate() < monday) 0 else it.start.hour } ?: settings.dayFrom)
-        .coerceAtMost(settings.dayFrom)
-    val lastHour = (timed.maxOfOrNull { if (it.end.toLocalDate() > it.start.toLocalDate()) 23 else it.end.hour } ?: (settings.dayTo + 1))
-        .coerceAtLeast(settings.dayTo + 1).coerceAtMost(23)
+    // Все 24 часа; нерабочие (вне рабочих часов из настроек) — бледно-зелёным пунктиром
+    val firstHour = 0
+    val lastHour = 23
     val hours = firstHour..lastHour
 
     Column(Modifier.fillMaxSize()) {
@@ -246,7 +245,7 @@ fun WeekView(
                 ) {
                     // Пунктир часов
                     Column {
-                        hours.forEach { _ -> Box(Modifier.fillMaxWidth().height(HOUR_H).dottedRule()) }
+                        hours.forEach { h -> Box(Modifier.fillMaxWidth().height(HOUR_H).dottedRule(if (h in settings.dayFrom..settings.dayTo) Palm.rule else Palm.offRule)) }
                     }
                     val colW = maxWidth
                     val dayStart = d.atTime(firstHour, 0)

@@ -676,10 +676,10 @@ private fun DayBody(
 ) {
     val timed = events.filter { !it.allDay }
     val byHour = timed.groupBy { if (it.start.toLocalDate() < date) 0 else it.start.hour }
-    // Рабочие часы — из настроек; события вне их расширяют день
+    // Показываем все 24 часа; рабочие часы (из настроек) — обычным пунктиром, нерабочие — бледно-зелёным
     val settings = ru.palmdate.app.data.SettingsStore.current
-    val first = (byHour.keys.minOrNull() ?: settings.dayFrom).coerceAtMost(settings.dayFrom)
-    val last = (byHour.keys.maxOrNull() ?: settings.dayTo).coerceAtLeast(settings.dayTo)
+    val first = 0
+    val last = 23
     val rows: List<DayRow> =
         events.filter { it.allDay }.map { DayRow.AllDay(it) } +
             (first..last).map { DayRow.Slot(it, byHour[it].orEmpty()) }
@@ -699,15 +699,16 @@ private fun DayBody(
                 is DayRow.Slot -> {
                     val label = LocalTime.of(row.hour, 0).format(HM)
                     val hl = isToday && row.hour == nowHour
+                    val rule = if (row.hour in settings.dayFrom..settings.dayTo) Palm.rule else Palm.offRule
                     if (row.events.isEmpty()) {
-                        EmptyLine(label, hl) { onSlot(row.hour) }
+                        EmptyLine(label, hl, rule) { onSlot(row.hour) }
                     } else {
                         // Если первое событие не ровно в начале часа — сам час остаётся отдельной строкой, как на Palm
                         val startsOnHour = row.events.first().start.minute == 0
-                        if (!startsOnHour) EmptyLine(label, hl) { onSlot(row.hour) }
+                        if (!startsOnHour) EmptyLine(label, hl, rule) { onSlot(row.hour) }
                         row.events.forEachIndexed { i, e ->
                             val t = if (e.start.minute == 0 && i == 0) label else e.start.format(HM)
-                            EventLine(e, t, hl && i == 0 && startsOnHour, onIcon, onEvent)
+                            EventLine(e, t, hl && i == 0 && startsOnHour, onIcon, onEvent, ruleColor = rule)
                         }
                     }
                 }
@@ -728,7 +729,7 @@ internal fun TimeLabel(text: String, highlight: Boolean) {
 }
 
 @Composable
-private fun EmptyLine(label: String, highlight: Boolean, onClick: () -> Unit) {
+private fun EmptyLine(label: String, highlight: Boolean, rule: Color, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -737,7 +738,7 @@ private fun EmptyLine(label: String, highlight: Boolean, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TimeLabel(label, highlight)
-        Box(Modifier.weight(1f).height(44.dp).padding(end = 12.dp).dottedRule())
+        Box(Modifier.weight(1f).height(44.dp).padding(end = 12.dp).dottedRule(rule))
     }
 }
 
@@ -756,6 +757,7 @@ internal fun EventLine(
     onIcon: (PalmEvent) -> Unit,
     onEvent: (PalmEvent) -> Unit,
     primary: String? = null, // свой заголовок строки (в истории контакта имя не нужно)
+    ruleColor: Color = Palm.rule,
 ) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 44.dp),
@@ -767,7 +769,7 @@ internal fun EventLine(
                 .weight(1f)
                 .heightIn(min = 44.dp)
                 .padding(end = 12.dp)
-                .dottedRule(),
+                .dottedRule(ruleColor),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val faded = e.outcome == Outcome.CANCELLED
