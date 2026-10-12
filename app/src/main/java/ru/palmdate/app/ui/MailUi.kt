@@ -1,7 +1,6 @@
 package ru.palmdate.app.ui
 
 import ru.palmdate.app.R
-import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import ru.palmdate.app.str
