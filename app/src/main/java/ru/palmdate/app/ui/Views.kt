@@ -45,6 +45,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.palmdate.app.model.EventType
+import ru.palmdate.app.model.icon
+import ru.palmdate.app.model.color
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.monthGridStart
 import ru.palmdate.app.ui.theme.Palm

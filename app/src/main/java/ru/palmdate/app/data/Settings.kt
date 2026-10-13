@@ -11,6 +11,8 @@ import androidx.annotation.StringRes
 import org.json.JSONObject
 import ru.palmdate.app.str
 import ru.palmdate.app.model.EventType
+import ru.palmdate.app.model.icon
+import ru.palmdate.app.model.color
 
 /** С какого вида открывается приложение. */
 enum class StartView(@StringRes val labelRes: Int) {

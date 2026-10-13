@@ -77,6 +77,8 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.DisabledByDefault
 import ru.palmdate.app.model.EventType
+import ru.palmdate.app.model.icon
+import ru.palmdate.app.model.color
 import ru.palmdate.app.model.Outcome
 import ru.palmdate.app.model.OutcomeKind
 import androidx.compose.ui.graphics.Color

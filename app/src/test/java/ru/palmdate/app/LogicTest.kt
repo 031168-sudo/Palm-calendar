@@ -11,6 +11,8 @@ import org.robolectric.annotation.Config
 import ru.palmdate.app.data.AppSettings
 import ru.palmdate.app.data.CalendarRepository
 import ru.palmdate.app.model.EventType
+import ru.palmdate.app.model.icon
+import ru.palmdate.app.model.color
 import ru.palmdate.app.model.MailInfo
 import ru.palmdate.app.model.MailKind
 import ru.palmdate.app.model.Outcome

@@ -35,6 +35,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.EventType
+import ru.palmdate.app.model.icon
+import ru.palmdate.app.model.color
 import ru.palmdate.app.model.Outcome
 import ru.palmdate.app.model.OutcomeKind
 import ru.palmdate.app.model.PalmEvent

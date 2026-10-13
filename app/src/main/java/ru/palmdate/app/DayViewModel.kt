@@ -22,6 +22,8 @@ import ru.palmdate.app.data.ContactsRepository
 import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.EventType
+import ru.palmdate.app.model.icon
+import ru.palmdate.app.model.color
 import ru.palmdate.app.model.NewEvent
 import ru.palmdate.app.model.Outcome
 import java.time.LocalDateTime

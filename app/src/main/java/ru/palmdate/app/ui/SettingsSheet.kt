@@ -66,6 +66,8 @@ import ru.palmdate.app.data.SettingsStore
 import ru.palmdate.app.data.StartView
 import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.EventType
+import ru.palmdate.app.model.icon
+import ru.palmdate.app.model.color
 import ru.palmdate.app.model.minutesToTime
 import ru.palmdate.app.model.reminderLabel
 import ru.palmdate.app.ui.theme.Palm

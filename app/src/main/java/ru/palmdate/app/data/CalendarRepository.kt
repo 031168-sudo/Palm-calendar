@@ -15,6 +15,8 @@ import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.ContactStat
 import ru.palmdate.app.model.EventType
+import ru.palmdate.app.model.icon
+import ru.palmdate.app.model.color
 import ru.palmdate.app.model.MailInfo
 import ru.palmdate.app.model.MailKind
 import ru.palmdate.app.model.NewEvent

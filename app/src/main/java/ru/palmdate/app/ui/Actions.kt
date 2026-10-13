@@ -9,6 +9,8 @@ import android.net.Uri
 import android.widget.Toast
 import ru.palmdate.app.data.CalendarRepository
 import ru.palmdate.app.model.EventType
+import ru.palmdate.app.model.icon
+import ru.palmdate.app.model.color
 import ru.palmdate.app.model.PalmEvent
 
 /** Что делает тап по иконке события — как на Palm: звонок набирает номер, встреча ведёт на карту. */

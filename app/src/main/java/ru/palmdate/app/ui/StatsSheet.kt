@@ -45,6 +45,8 @@ import androidx.compose.ui.unit.sp
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.ContactStat
 import ru.palmdate.app.model.EventType
+import ru.palmdate.app.model.icon
+import ru.palmdate.app.model.color
 import ru.palmdate.app.ui.theme.Palm
 import java.time.LocalDate
 
