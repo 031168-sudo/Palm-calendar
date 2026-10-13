@@ -245,7 +245,14 @@ fun WeekView(
                 ) {
                     // Пунктир часов
                     Column {
-                        hours.forEach { h -> Box(Modifier.fillMaxWidth().height(HOUR_H).dottedRule(if (h in settings.dayFrom..settings.dayTo) Palm.rule else Palm.offRule)) }
+                        hours.forEach { h ->
+                            val work = h in settings.dayFrom..settings.dayTo
+                            Box(
+                                Modifier.fillMaxWidth().height(HOUR_H)
+                                    .background(if (work) Color.Transparent else Palm.offFill)
+                                    .dottedRule(if (work) Palm.rule else Palm.offRule),
+                            )
+                        }
                     }
                     val colW = maxWidth
                     val dayStart = d.atTime(firstHour, 0)

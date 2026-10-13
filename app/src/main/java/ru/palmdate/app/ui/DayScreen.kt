@@ -699,16 +699,18 @@ private fun DayBody(
                 is DayRow.Slot -> {
                     val label = LocalTime.of(row.hour, 0).format(HM)
                     val hl = isToday && row.hour == nowHour
-                    val rule = if (row.hour in settings.dayFrom..settings.dayTo) Palm.rule else Palm.offRule
+                    val work = row.hour in settings.dayFrom..settings.dayTo
+                    val rule = if (work) Palm.rule else Palm.offRule
+                    val fill = if (work) Color.Transparent else Palm.offFill
                     if (row.events.isEmpty()) {
-                        EmptyLine(label, hl, rule) { onSlot(row.hour) }
+                        EmptyLine(label, hl, rule, fill) { onSlot(row.hour) }
                     } else {
                         // Если первое событие не ровно в начале часа — сам час остаётся отдельной строкой, как на Palm
                         val startsOnHour = row.events.first().start.minute == 0
-                        if (!startsOnHour) EmptyLine(label, hl, rule) { onSlot(row.hour) }
+                        if (!startsOnHour) EmptyLine(label, hl, rule, fill) { onSlot(row.hour) }
                         row.events.forEachIndexed { i, e ->
                             val t = if (e.start.minute == 0 && i == 0) label else e.start.format(HM)
-                            EventLine(e, t, hl && i == 0 && startsOnHour, onIcon, onEvent, ruleColor = rule)
+                            EventLine(e, t, hl && i == 0 && startsOnHour, onIcon, onEvent, ruleColor = rule, fill = fill)
                         }
                     }
                 }
@@ -729,10 +731,11 @@ internal fun TimeLabel(text: String, highlight: Boolean) {
 }
 
 @Composable
-private fun EmptyLine(label: String, highlight: Boolean, rule: Color, onClick: () -> Unit) {
+private fun EmptyLine(label: String, highlight: Boolean, rule: Color, fill: Color, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
+            .background(fill)
             .height(44.dp)
             .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
@@ -758,9 +761,10 @@ internal fun EventLine(
     onEvent: (PalmEvent) -> Unit,
     primary: String? = null, // свой заголовок строки (в истории контакта имя не нужно)
     ruleColor: Color = Palm.rule,
+    fill: Color = Color.Transparent,
 ) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 44.dp),
+        Modifier.fillMaxWidth().background(fill).heightIn(min = 44.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TimeLabel(timeLabel, highlight)

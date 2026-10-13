@@ -73,8 +73,9 @@ object Palm {
     val rule get() = colors.rule
     val nowLine get() = colors.nowLine
 
-    /** Пунктир нерабочих часов — бледно-зелёный. */
-    val offRule get() = if (dark) Color(0xFF3F6B4F) else Color(0xFFA6D4B5)
+    /** Нерабочие часы: зелёный пунктир и лёгкая зелёная заливка строки. */
+    val offRule get() = if (dark) Color(0xFF5FA67A) else Color(0xFF4FA46B)
+    val offFill get() = if (dark) Color(0xFF1D2B23) else Color(0xFFE5F2E8)
 
     /** Насыщенность подсветки строки цветом календаря: в темноте бледную не видно. */
     val tintAlpha get() = if (dark) 0.22f else 0.11f
