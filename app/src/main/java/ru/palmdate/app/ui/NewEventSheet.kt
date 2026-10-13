@@ -676,6 +676,8 @@ private fun AddressRow(address: String, onOpen: () -> Unit, onChoose: (() -> Uni
             ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, str(R.string.other_address), tint = Palm.inkSoft) }
         }
     }
+    // Везде, где есть адрес, — кнопка «Маршрут»
+    PalmButton(str(R.string.action_route), compact = true, onClick = onOpen)
 }
 
 /** Выбор адреса из всех адресов контакта. Запоминается для контакта. */
