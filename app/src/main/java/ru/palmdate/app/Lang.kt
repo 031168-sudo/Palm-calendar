@@ -6,6 +6,8 @@ import android.content.res.Configuration
 import android.content.res.Resources
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
+import ru.palmdate.app.model.L10n
+import ru.palmdate.app.model.StringProvider
 import java.util.Locale
 
 /** Язык интерфейса, как его выбирают в «Настройки → Вид → Язык». */
@@ -34,6 +36,7 @@ object Lang {
 
     /** Запомнить контекст приложения и прочитать сохранённый выбор. Можно вызывать повторно. */
     fun init(context: Context) {
+        L10n.provider = AndroidStrings
         val appCtx = context.applicationContext ?: context
         if (app !== appCtx) { app = appCtx; cache.clear() }
         mode = runCatching {
@@ -109,3 +112,20 @@ fun str(@StringRes id: Int, vararg args: Any): String =
 
 /** Строка с числом: «3 звонка» / «3 calls». В тексте ресурса число — %d. */
 fun plu(@PluralsRes id: Int, n: Int): String = Lang.context.resources.getQuantityString(id, n, n)
+
+/** Тексты для общего кода (модуль shared): ключ → строка из strings.xml на выбранном языке. */
+private object AndroidStrings : StringProvider {
+    private val ids = java.util.concurrent.ConcurrentHashMap<String, Int>()
+
+    private fun id(key: String): Int = ids.getOrPut(key) {
+        val c = Lang.context
+        c.resources.getIdentifier(key, "string", c.packageName).also { require(it != 0) { "Нет строки $key" } }
+    }
+
+    override fun str(key: String, vararg args: Any): String =
+        if (args.isEmpty()) Lang.context.getString(id(key)) else Lang.context.getString(id(key), *args)
+
+    override fun strIn(tag: String, key: String): String = Lang.strIn(tag, id(key))
+
+    override val tags: List<String> get() = Lang.TAGS
+}
