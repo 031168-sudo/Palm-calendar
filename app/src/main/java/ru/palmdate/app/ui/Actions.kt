@@ -17,7 +17,7 @@ fun primaryActionLabel(e: PalmEvent): String? = when {
         if (e.mail.kind == ru.palmdate.app.model.MailKind.REPLY) str(R.string.action_find_mail) else str(R.string.action_write_mail)
     e.fromContacts && e.contact != null -> str(R.string.action_congratulate)
     e.type == EventType.CALL && e.contact != null -> str(R.string.action_call)
-    e.type == EventType.MEETING && e.contact?.address != null -> str(R.string.action_route)
+    e.type == EventType.MEETING && (e.place ?: e.contact?.address) != null -> str(R.string.action_route)
     e.type == EventType.TRIP && e.place != null -> str(R.string.action_route)
     else -> null
 }
@@ -30,7 +30,7 @@ fun Context.runPrimaryAction(e: PalmEvent, call: (ru.palmdate.app.model.ContactR
         // День рождения из контактов — поздравить: телефон или мессенджер
         e.fromContacts -> c?.let(call)
         e.type == EventType.CALL && c != null -> call(c)
-        e.type == EventType.MEETING && c?.address != null -> openMap(c.address)
+        e.type == EventType.MEETING && (e.place ?: c?.address) != null -> (e.place ?: c?.address)?.let { openMap(it) }
         // Выезд с адресом — сразу маршрут; без адреса — как раньше, карточка в календаре
         e.type == EventType.TRIP && e.place != null -> e.place?.let { openMap(it) }
         else -> openInCalendar(e)

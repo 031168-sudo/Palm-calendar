@@ -436,4 +436,7 @@
         <item quantity="many">%d человек</item>
         <item quantity="other">%d человека</item>
     </plurals>
+    <string name="address_own">Свой адрес</string>
+    <string name="address_add_own">Добавить свой адрес…</string>
+    <string name="address_change_own">Изменить свой адрес…</string>
 </resources>

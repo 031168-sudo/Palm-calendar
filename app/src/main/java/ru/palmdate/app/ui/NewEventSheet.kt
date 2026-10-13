@@ -680,9 +680,27 @@ private fun AddressRow(address: String, onOpen: () -> Unit, onChoose: (() -> Uni
 
 /** Выбор адреса из всех адресов контакта. Запоминается для контакта. */
 @Composable
-private fun AddressPicker(addresses: List<PhoneNumber>, selected: String?, onPick: (String) -> Unit) {
+private fun AddressPicker(
+    addresses: List<PhoneNumber>, selected: String?,
+    ownAddress: String? = null, onAddOwn: (() -> Unit)? = null,
+    onPick: (String) -> Unit,
+) {
     Text(str(R.string.which_address), style = Palm.body, color = Palm.ink)
     Spacer(Modifier.height(8.dp))
+    // Свой адрес события (если задан) — первым, с галочкой
+    ownAddress?.let { own ->
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 50.dp).clickable { onAddOwn?.invoke() }.dottedRule()
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(own, style = Palm.body, color = Palm.ink)
+                Text(str(R.string.address_own), style = Palm.small, color = Palm.inkSoft)
+            }
+            Text("✓", style = Palm.title, color = Palm.navy)
+        }
+    }
     addresses.forEach { a ->
         Row(
             Modifier.fillMaxWidth().heightIn(min = 50.dp).clickable { onPick(a.number) }.dottedRule()
@@ -695,6 +713,10 @@ private fun AddressPicker(addresses: List<PhoneNumber>, selected: String?, onPic
             }
             if (a.number == selected) Text("✓", style = Palm.title, color = Palm.navy)
         }
+    }
+    onAddOwn?.let { add ->
+        Spacer(Modifier.height(8.dp))
+        PalmButton(str(if (ownAddress == null) R.string.address_add_own else R.string.address_change_own), onClick = add)
     }
 }
 
@@ -937,7 +959,7 @@ fun EventDetailsSheet(
     LaunchedEffect(event.eventId) {
         reminders = loadReminders(event.eventId)
         calendars = loadCalendars()
-        if (event.type == EventType.TRIP) place = loadPlace(event.eventId)
+        if (event.type == EventType.TRIP || event.type == EventType.MEETING) place = loadPlace(event.eventId)
         if (!event.fromContacts) files = loadFiles(event.eventId)
     }
     // Перенести можно, только если календарь события доступен для записи и есть куда переносить
@@ -1047,8 +1069,15 @@ fun EventDetailsSheet(
                     mode = DetailMode.VIEW
                 }
 
-                DetailMode.ADDRESS -> AddressPicker(addresses, selected = event.contact?.address) { addr ->
+                DetailMode.ADDRESS -> AddressPicker(
+                    addresses,
+                    selected = if (event.type == EventType.MEETING && place != null) null else event.contact?.address,
+                    ownAddress = place.takeIf { event.type == EventType.MEETING },
+                    onAddOwn = if (event.type == EventType.MEETING && editable) ({ mode = DetailMode.VIEW; editPlace = true }) else null,
+                ) { addr ->
+                    // Адрес контакта: запоминаем для контакта; свой адрес встречи при этом убираем
                     onPickAddress(addr)
+                    if (event.type == EventType.MEETING && place != null) { onSetPlace(null); place = null }
                     mode = DetailMode.VIEW
                 }
 
@@ -1127,7 +1156,7 @@ fun EventDetailsSheet(
                         // Адрес: тап — открыть в картах; стрелка справа — выбрать другой адрес контакта
                         var addrCount by remember(c.lookupKey) { mutableStateOf(0) }
                         LaunchedEffect(c.lookupKey) { addrCount = addressesFor(c.lookupKey).size }
-                        c.address?.let { addr ->
+                        c.address?.takeIf { event.type != EventType.MEETING }?.let { addr ->
                             AddressRow(
                                 address = addr,
                                 onOpen = { ctx.openMap(addr) },
@@ -1139,6 +1168,24 @@ fun EventDetailsSheet(
                     }
                     if (editable) SettingRow(str(R.string.note_label), event.note ?: str(R.string.add_ellipsis), onClick = { editNote = true })
                     else event.note?.let { DetailLine(str(R.string.note_label), it) }
+
+                    // Встреча: адрес из контакта или свой (поле «Место»); строка есть всегда
+                    if (event.type == EventType.MEETING && !event.fromContacts) {
+                        val c = event.contact
+                        val addr = place ?: c?.address
+                        if (addr != null) {
+                            AddressRow(
+                                address = addr,
+                                onOpen = { ctx.openMap(addr) },
+                                onChoose = if (!editable) null else ({
+                                    if (c == null) editPlace = true
+                                    else scope.launch { addresses = addressesFor(c.lookupKey); mode = DetailMode.ADDRESS }
+                                }),
+                            )
+                        } else if (editable) {
+                            SettingRow(str(R.string.address_label), str(R.string.add_address), onClick = { editPlace = true })
+                        }
+                    }
 
                     // Выезд: адрес (можно построить маршрут) и документы
                     if (event.type == EventType.TRIP && !event.fromContacts) {
