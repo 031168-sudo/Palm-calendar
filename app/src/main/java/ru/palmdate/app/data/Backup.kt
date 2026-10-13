@@ -44,6 +44,7 @@ class Backup(private val context: Context, private val links: LinkDao) {
         })
         val addr = context.getSharedPreferences("contact_address", Context.MODE_PRIVATE)
         j.put("addresses", JSONObject().apply { addr.all.forEach { (k, v) -> put(k, v.toString()) } })
+        j.put("ownAddresses", JSONObject().apply { OwnAddresses(context).all().forEach { (k, v) -> put(k, v) } })
         j.put("settings", SettingsStore.current.toJson())
         return j.toString(1)
     }
@@ -104,6 +105,10 @@ class Backup(private val context: Context, private val links: LinkDao) {
             val ed = context.getSharedPreferences("contact_address", Context.MODE_PRIVATE).edit()
             o.keys().forEach { k -> ed.putString(k, o.getString(k)); n++ }
             ed.apply()
+        }
+        j.optJSONObject("ownAddresses")?.let { o ->
+            OwnAddresses(context).putAll(o.keys().asSequence().associateWith { o.getString(it) })
+            n += o.length()
         }
         j.optJSONObject("settings")?.let { SettingsStore.replace(AppSettings.fromJson(it)) }
         return n

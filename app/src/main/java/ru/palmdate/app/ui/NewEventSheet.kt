@@ -682,15 +682,16 @@ private fun AddressRow(address: String, onOpen: () -> Unit, onChoose: (() -> Uni
 @Composable
 private fun AddressPicker(
     addresses: List<PhoneNumber>, selected: String?,
-    ownAddress: String? = null, onAddOwn: (() -> Unit)? = null,
+    ownAddress: String? = null, ownActive: Boolean = false,
+    onPickOwn: (() -> Unit)? = null, onEditOwn: (() -> Unit)? = null,
     onPick: (String) -> Unit,
 ) {
     Text(str(R.string.which_address), style = Palm.body, color = Palm.ink)
     Spacer(Modifier.height(8.dp))
-    // Свой адрес события (если задан) — первым, с галочкой
+    // Свой адрес события (если вводили) — первым; галочка, если он сейчас действует
     ownAddress?.let { own ->
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 50.dp).clickable { onAddOwn?.invoke() }.dottedRule()
+            Modifier.fillMaxWidth().heightIn(min = 50.dp).clickable { onPickOwn?.invoke() }.dottedRule()
                 .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -698,7 +699,7 @@ private fun AddressPicker(
                 Text(own, style = Palm.body, color = Palm.ink)
                 Text(str(R.string.address_own), style = Palm.small, color = Palm.inkSoft)
             }
-            Text("✓", style = Palm.title, color = Palm.navy)
+            if (ownActive) Text("✓", style = Palm.title, color = Palm.navy)
         }
     }
     addresses.forEach { a ->
@@ -714,9 +715,9 @@ private fun AddressPicker(
             if (a.number == selected) Text("✓", style = Palm.title, color = Palm.navy)
         }
     }
-    onAddOwn?.let { add ->
+    onEditOwn?.let { edit ->
         Spacer(Modifier.height(8.dp))
-        PalmButton(str(if (ownAddress == null) R.string.address_add_own else R.string.address_change_own), onClick = add)
+        PalmButton(str(if (ownAddress == null) R.string.address_add_own else R.string.address_change_own), onClick = edit)
     }
 }
 
@@ -956,10 +957,18 @@ fun EventDetailsSheet(
     var place by remember(event.eventId) { mutableStateOf<String?>(null) }
     var files by remember(event.eventId) { mutableStateOf<List<ru.palmdate.app.data.TripFile>>(emptyList()) }
     var editPlace by remember { mutableStateOf(false) }
+    // Свой адрес встречи хранится отдельно от «Места»: не теряется, когда выбран адрес контакта
+    val ownStore = remember { ru.palmdate.app.data.OwnAddresses(ctx) }
+    var ownSaved by remember(event.eventId) { mutableStateOf<String?>(null) }
     LaunchedEffect(event.eventId) {
         reminders = loadReminders(event.eventId)
         calendars = loadCalendars()
         if (event.type == EventType.TRIP || event.type == EventType.MEETING) place = loadPlace(event.eventId)
+        if (event.type == EventType.MEETING) {
+            // Адрес, введённый раньше (до отдельного хранения), считаем своим
+            if (ownStore.get(event.eventId) == null && place != null) ownStore.set(event.eventId, place)
+            ownSaved = ownStore.get(event.eventId)
+        }
         if (!event.fromContacts) files = loadFiles(event.eventId)
     }
     // Перенести можно, только если календарь события доступен для записи и есть куда переносить
@@ -983,8 +992,10 @@ fun EventDetailsSheet(
         }
     }
     if (editPlace) {
-        TextEditDialog(str(R.string.address_label), place ?: "", singleLine = true, onDismiss = { editPlace = false }) { v ->
+        val meeting = event.type == EventType.MEETING
+        TextEditDialog(str(R.string.address_label), (if (meeting) ownSaved else place) ?: "", singleLine = true, onDismiss = { editPlace = false }) { v ->
             val new = v.takeIf { it.isNotBlank() }
+            if (meeting) { ownStore.set(event.eventId, new); ownSaved = new }
             onSetPlace(new); place = new; editPlace = false
         }
     }
@@ -1072,10 +1083,12 @@ fun EventDetailsSheet(
                 DetailMode.ADDRESS -> AddressPicker(
                     addresses,
                     selected = if (event.type == EventType.MEETING && place != null) null else event.contact?.address,
-                    ownAddress = place.takeIf { event.type == EventType.MEETING },
-                    onAddOwn = if (event.type == EventType.MEETING && editable) ({ mode = DetailMode.VIEW; editPlace = true }) else null,
+                    ownAddress = ownSaved.takeIf { event.type == EventType.MEETING },
+                    ownActive = place != null,
+                    onPickOwn = { ownSaved?.let { o -> onSetPlace(o); place = o }; mode = DetailMode.VIEW },
+                    onEditOwn = if (event.type == EventType.MEETING && editable) ({ mode = DetailMode.VIEW; editPlace = true }) else null,
                 ) { addr ->
-                    // Адрес контакта: запоминаем для контакта; свой адрес встречи при этом убираем
+                    // Адрес контакта: запоминаем для контакта; свой адрес встречи остаётся сохранённым, но не действует
                     onPickAddress(addr)
                     if (event.type == EventType.MEETING && place != null) { onSetPlace(null); place = null }
                     mode = DetailMode.VIEW
