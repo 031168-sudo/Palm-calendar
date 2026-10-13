@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "PalmDate"
 include(":app")
+include(":shared")

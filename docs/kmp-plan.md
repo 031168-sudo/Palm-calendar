@@ -2,11 +2,23 @@
 
 Ветка `kmp`. `main` не меняется, пока шаг 1 не пройдёт тесты и скриншоты.
 
-## Что уже без Android-зависимостей (кандидаты в общий модуль `shared`)
+## Поправка после чтения кода (шаг 1)
 
-Нет ни одного импорта `android.*`, только `androidx.compose` (он переносится через Compose Multiplatform):
+Первый разбор по импортам был слишком оптимистичным. `Model.kt` и экраны не содержат `import android.*`,
+но завязаны на Android иначе:
 
-- `model/Model.kt`
+- строки интерфейса: `R.string.*`, `str(...)`, `@StringRes`, `Lang` (на `Context` и `Resources` Android);
+- даты: `java.time` (`LocalDate`, `LocalDateTime`) — на iOS его нет, нужен `kotlinx-datetime`;
+- `String.format` — только JVM.
+
+Поэтому `Model.kt` целиком в общий модуль сразу не переезжает. Сделано: чистая часть (`matchRepeat`, `minutesToTime`,
+`ContactRef`, `PhoneNumber`, `OutcomeKind`, `ContactStat`, `DeleteScope`, напоминания на весь день) вынесена в
+`shared/.../model/Rules.kt` с теми же именами пакета — вызовы в приложении не менялись.
+Остальное — по очереди: сначала строки (общий слой вместо `R.string`), потом даты, потом `EventType`/`PalmEvent`/`Outcome`.
+
+## Что уже без Android-зависимостей по импортам (кандидаты, после замены строк и дат)
+
+- `model/Model.kt` (остаток: `EventType`, `PalmEvent`, `Outcome`, `MailInfo`, `CalendarInfo`, `NewEvent`)
 - `ui/Views.kt` (повестка, неделя, месяц, год)
 - `ui/DayScreen.kt` — кроме связей с ViewModel и поворота, см. ниже
 - `ui/NewEventSheet.kt`

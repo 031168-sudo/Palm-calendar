@@ -2,7 +2,7 @@ name: Tests and screenshots
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, kmp ]
   pull_request:
   workflow_dispatch:
 
@@ -28,7 +28,7 @@ jobs:
       - name: Run tests
         run: |
           set -o pipefail
-          gradle :app:testDebugUnitTest 2>&1 | tee test.log || {
+          gradle :shared:testDebugUnitTest :app:testDebugUnitTest 2>&1 | tee test.log || {
             grep -E "^e: |error:|What went wrong|FAILED|Exception|expected:|but was|Expected" -A3 test.log | head -60 | while IFS= read -r line; do
               echo "::error::${line}"
             done
