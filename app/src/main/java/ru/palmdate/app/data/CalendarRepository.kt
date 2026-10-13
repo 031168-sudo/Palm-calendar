@@ -158,9 +158,9 @@ class CalendarRepository(
         // Есть ли у событий документы выезда — для значка в строке списка
         val withFiles = HashSet<Long>()
         ids.chunked(500).forEach { withFiles += links.eventIdsWithFiles(it) }
-        // Свои адреса выездов и встреч (поле «Место» календаря): нужны для «Маршрут» по тапу на иконку
+        // Адреса событий (поле «Место» календаря): нужны для «Маршрут» по тапу на иконку
         val placeById = HashMap<Long, String>()
-        ids.filter { linkById[it]?.type.let { t -> t == EventType.TRIP.name || t == EventType.MEETING.name } }.chunked(500).forEach { chunk ->
+        ids.chunked(500).forEach { chunk ->
             resolver.query(
                 Events.CONTENT_URI, arrayOf("_id", Events.EVENT_LOCATION),
                 "_id IN (${chunk.joinToString(",")})", null, null,

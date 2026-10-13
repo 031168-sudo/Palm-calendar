@@ -963,7 +963,7 @@ fun EventDetailsSheet(
     LaunchedEffect(event.eventId) {
         reminders = loadReminders(event.eventId)
         calendars = loadCalendars()
-        if (event.type == EventType.TRIP || event.type == EventType.MEETING) place = loadPlace(event.eventId)
+        if (!event.fromContacts && event.type != EventType.CALL && event.type != EventType.MAIL) place = loadPlace(event.eventId)
         if (event.type == EventType.MEETING) {
             // Адрес, введённый раньше (до отдельного хранения), считаем своим
             if (ownStore.get(event.eventId) == null && place != null) ownStore.set(event.eventId, place)
@@ -1194,6 +1194,20 @@ fun EventDetailsSheet(
                                     if (c == null) editPlace = true
                                     else scope.launch { addresses = addressesFor(c.lookupKey); mode = DetailMode.ADDRESS }
                                 }),
+                            )
+                        } else if (editable) {
+                            SettingRow(str(R.string.address_label), str(R.string.add_address), onClick = { editPlace = true })
+                        }
+                    }
+
+                    // Задача и обычное событие: просто свой адрес (без выбора из контакта)
+                    if ((event.type == EventType.TASK || event.type == EventType.OTHER || event.type == null) && !event.fromContacts) {
+                        val addr = place
+                        if (addr != null) {
+                            AddressRow(
+                                address = addr,
+                                onOpen = { ctx.openMap(addr) },
+                                onChoose = if (editable) ({ editPlace = true }) else null,
                             )
                         } else if (editable) {
                             SettingRow(str(R.string.address_label), str(R.string.add_address), onClick = { editPlace = true })
