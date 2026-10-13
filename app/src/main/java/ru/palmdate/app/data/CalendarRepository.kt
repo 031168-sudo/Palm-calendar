@@ -483,7 +483,7 @@ class CalendarRepository(
     suspend fun setLink(eventId: Long, type: EventType?, contact: ContactRef?) {
         if (type == null) links.delete(eventId)
         else links.upsert(EventLink(eventId, type.name, contact?.lookupKey, contact?.phone))
-        if (contact?.phone != null) links.rememberPhone(ContactPhone(contact.lookupKey, contact.phone))
+        contact?.phone?.let { links.rememberPhone(ContactPhone(contact.lookupKey, it)) }
 
         // Переписываем метку в описании, чтобы связь пережила переустановку.
         // В чужих календарях (только чтение) это не получится — тогда связь живёт только в базе.
