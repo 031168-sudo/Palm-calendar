@@ -14,6 +14,13 @@
 Поэтому `Model.kt` целиком в общий модуль сразу не переезжает. Сделано: чистая часть (`matchRepeat`, `minutesToTime`,
 `ContactRef`, `PhoneNumber`, `OutcomeKind`, `ContactStat`, `DeleteScope`, напоминания на весь день) вынесена в
 `shared/.../model/Rules.kt` с теми же именами пакета — вызовы в приложении не менялись.
+Затем (общий слой строк): общий код берёт тексты по ключу через `L10n`/`StringProvider` (`shared/.../model/L10n.kt`);
+на Android ключ — это имя строки в `strings.xml`, мост — `AndroidStrings` в `Lang.kt`, язык по-прежнему выбирается через `Lang`.
+В `shared/.../model/Types.kt` переехали `EventType`, `Outcome`, `MailKind`/`MailInfo`, `CalendarInfo`, подписи повторов и напоминаний.
+Значки и цвета типов остались в приложении: `EventType.icon` и `EventType.color` — расширения в `app/.../model/Model.kt`
+(их нужно импортировать: `import ru.palmdate.app.model.icon` / `.color`). Новые строки для общего кода добавлять
+в `strings.xml` как обычно и использовать по имени.
+В приложении (`Model.kt`) остались `PalmEvent` и `NewEvent` — они на `java.time`.
 Остальное — по очереди: сначала строки (общий слой вместо `R.string`), потом даты, потом `EventType`/`PalmEvent`/`Outcome`.
 
 ## Что уже без Android-зависимостей по импортам (кандидаты, после замены строк и дат)
