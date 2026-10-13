@@ -1227,6 +1227,16 @@ fun EventDetailsSheet(
                         if (editable) SettingRow(str(R.string.address_from_contact), str(R.string.choose_person), onClick = { mode = DetailMode.PLACE_CONTACT })
                     }
 
+                    // Главные действия — сразу после строк события, до документов
+                    val action = primaryActionLabel(event)
+                    if (action != null || onHistory != null) {
+                        Spacer(Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            action?.let { PalmButton(it, filled = true, onClick = onAction) }
+                            onHistory?.let { PalmButton(str(R.string.history_title), onClick = it) }
+                        }
+                    }
+
                     // Документы: у любого события; у выезда — с подписями (билет, бронь…)
                     if (!event.fromContacts) {
                         TripFilesSection(
@@ -1254,16 +1264,6 @@ fun EventDetailsSheet(
                                 }
                             },
                         )
-                    }
-
-                    // Главные действия — сразу под данными события, до итога
-                    val action = primaryActionLabel(event)
-                    if (action != null || onHistory != null) {
-                        Spacer(Modifier.height(10.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            action?.let { PalmButton(it, filled = true, onClick = onAction) }
-                            onHistory?.let { PalmButton(str(R.string.history_title), onClick = it) }
-                        }
                     }
 
                     Spacer(Modifier.height(10.dp))
