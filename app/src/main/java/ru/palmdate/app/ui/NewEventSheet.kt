@@ -676,8 +676,6 @@ private fun AddressRow(address: String, onOpen: () -> Unit, onChoose: (() -> Uni
             ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, str(R.string.other_address), tint = Palm.inkSoft) }
         }
     }
-    // Везде, где есть адрес, — кнопка «Маршрут»
-    PalmButton(str(R.string.action_route), compact = true, onClick = onOpen)
 }
 
 /** Выбор адреса из всех адресов контакта. Запоминается для контакта. */
@@ -1221,18 +1219,19 @@ fun EventDetailsSheet(
                         val placeText = place
                         if (editable) SettingRow(str(R.string.place_label), placeText ?: str(R.string.add_address), onClick = { editPlace = true })
                         else placeText?.let { DetailLine(str(R.string.place_label), it) }
-                        placeText?.let { addr ->
-                            PalmButton(str(R.string.action_route), compact = true, onClick = { ctx.openMap(addr) })
-                        }
                         if (editable) SettingRow(str(R.string.address_from_contact), str(R.string.choose_person), onClick = { mode = DetailMode.PLACE_CONTACT })
                     }
 
                     // Главные действия — сразу после строк события, до документов
-                    val action = primaryActionLabel(event)
-                    if (action != null || onHistory != null) {
+                    // Кнопки не заливаем; «Маршрут» один — если в карточке есть адрес
+                    val routeText = str(R.string.action_route)
+                    val action = primaryActionLabel(event)?.takeIf { it != routeText }
+                    val routeAddr = if (event.fromContacts || isMail) null else place ?: event.contact?.address
+                    if (action != null || routeAddr != null || onHistory != null) {
                         Spacer(Modifier.height(10.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            action?.let { PalmButton(it, filled = true, onClick = onAction) }
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            action?.let { PalmButton(it, onClick = onAction) }
+                            routeAddr?.let { a -> PalmButton(routeText, onClick = { ctx.openMap(a) }) }
                             onHistory?.let { PalmButton(str(R.string.history_title), onClick = it) }
                         }
                     }
