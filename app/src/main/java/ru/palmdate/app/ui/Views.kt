@@ -249,7 +249,6 @@ fun WeekView(
                             val work = h in settings.dayFrom..settings.dayTo
                             Box(
                                 Modifier.fillMaxWidth().height(HOUR_H)
-                                    .background(if (work) Color.Transparent else Palm.offFill)
                                     .dottedRule(if (work) Palm.rule else Palm.offRule),
                             )
                         }
