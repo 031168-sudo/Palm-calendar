@@ -21,6 +21,7 @@ kotlin {
         commonMain.dependencies {
             // Даты: на всех платформах одинаково (на iOS java.time нет)
             api("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
+            api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
             // Экраны на Compose Multiplatform: общие для Android и iOS
             api(compose.runtime)
             api(compose.foundation)

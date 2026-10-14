@@ -185,7 +185,7 @@ fun MailHost(vm: DayViewModel, content: @Composable () -> Unit) {
                     text = { Text(e.title, style = Palm.body, color = Palm.ink) },
                     confirmButton = {
                         TextButton(onClick = {
-                            vm.setOutcome(e, ru.palmdate.app.model.Outcome.DONE, e.outcomeNote)
+                            vm.model.setOutcome(e, ru.palmdate.app.model.Outcome.DONE, e.outcomeNote)
                             askSent = null
                         }) { Text(str(R.string.mailui_yes_sent)) }
                     },

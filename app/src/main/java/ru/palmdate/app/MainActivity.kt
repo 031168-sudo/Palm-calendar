@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
                 ) { granted = hasAll() }
 
                 if (granted) {
-                    LaunchedEffect(Unit) { vm.start() }
+                    LaunchedEffect(Unit) { vm.model.start() }
                     ru.palmdate.app.ui.CallerHost { ru.palmdate.app.ui.MailHost(vm) { DayScreen(vm) } }
                 } else {
                     PermissionScreen { launcher.launch(PERMISSIONS) }
