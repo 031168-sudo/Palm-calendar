@@ -99,7 +99,12 @@
 резервная копия, проверка обновлений) — за интерфейсом `SettingsPlatform` (`ui/SettingsPlatform.kt`, на Android — `AndroidSettings.kt`).
 Запись настроек из общего кода — `CurrentSettings.update`.
 
-Осталось в приложении: `DayScreen.kt` (склейка окон), `MailUi`, `Caller`, `RepeatDialog`/`Repeat.kt`, `DayViewModel`, `data/*`.
+Проход 11 (зелёный): `DayModel` (состояние главного экрана и все действия) — в `shared`. Граница с системой — интерфейс `AppBackend`
+(`AppBackend.kt`: календарь, контакты, документы, маленькое хранилище, слежение за изменениями снаружи). На Android — `data/AndroidBackend.kt`
+(оборачивает `CalendarRepository`, `ContactsRepository`, Room); `DayViewModel` стала тонкой обёрткой (`vm.model` — общая модель, плюс
+почта/резервная копия/обновления, которые только для Android).
+
+Осталось в приложении: `DayScreen.kt` (склейка окон), `MailUi`, `Caller`, `RepeatDialog`/`Repeat.kt`, `data/*` (Android-реализация).
 
 Дальше: `DayViewModel` за интерфейсами,
 и только после этого — iOS-оболочка (Xcode-проект, actual для iOS, EventKit, контакты), сборка на macOS в GitHub Actions, TestFlight.
