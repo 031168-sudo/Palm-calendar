@@ -48,7 +48,8 @@ import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.icon
 import ru.palmdate.app.model.color
 import ru.palmdate.app.ui.theme.Palm
-import java.time.LocalDate
+import kotlinx.datetime.LocalDate
+import ru.palmdate.app.time.*
 
 private enum class StatPeriod(@StringRes val labelRes: Int, val from: () -> LocalDate) {
     MONTH(R.string.stats_30_days, { LocalDate.now().minusDays(30) }),

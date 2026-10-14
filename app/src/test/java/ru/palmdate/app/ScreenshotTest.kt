@@ -36,8 +36,9 @@ import ru.palmdate.app.ui.MainLayout
 import ru.palmdate.app.ui.NewEventSheet
 import ru.palmdate.app.ui.StatsSheet
 import ru.palmdate.app.ui.theme.PalmTheme
-import java.time.LocalDate
-import java.time.LocalDateTime
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import ru.palmdate.app.time.*
 
 /** Тестовые события на сегодня и ближайшие дни — одинаковые для всех экранов. */
 internal object Sample {

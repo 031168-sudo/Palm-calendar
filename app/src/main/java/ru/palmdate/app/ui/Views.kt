@@ -51,8 +51,11 @@ import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.monthGridStart
 import ru.palmdate.app.ui.theme.Palm
 import ru.palmdate.app.weekStart
-import java.time.LocalDate
-import java.time.LocalTime
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.daysUntil
+import ru.palmdate.app.time.*
 import java.time.format.TextStyle
 
 private fun dayLetter(d: LocalDate) = d.dayOfWeek.getDisplayName(TextStyle.NARROW, UiLocale).uppercase()
@@ -129,7 +132,7 @@ private val HOUR_H = 40.dp
 /** Раскладка пересекающихся событий по дорожкам внутри дня. */
 private fun lanes(events: List<PalmEvent>): List<Pair<PalmEvent, Pair<Int, Int>>> {
     val sorted = events.sortedBy { it.start }
-    val laneEnds = ArrayList<java.time.LocalDateTime>()
+    val laneEnds = ArrayList<LocalDateTime>()
     val placed = sorted.map { e ->
         val lane = laneEnds.indexOfFirst { !it.isAfter(e.start) }.let { if (it < 0) laneEnds.size.also { laneEnds += e.end } else it.also { laneEnds[it] = e.end } }
         e to lane
@@ -259,9 +262,9 @@ fun WeekView(
                     val dayStart = d.atTime(firstHour, 0)
                     lanes(timed.on(d)).forEach { (e, laneInfo) ->
                         val (lane, total) = laneInfo
-                        val startMin = java.time.Duration.between(dayStart, maxOf(e.start, dayStart)).toMinutes()
+                        val startMin = minutesBetween(dayStart, maxOf(e.start, dayStart))
                             .coerceAtLeast(0)
-                        val endMin = java.time.Duration.between(dayStart, minOf(e.end, d.plusDays(1).atStartOfDay())).toMinutes()
+                        val endMin = minutesBetween(dayStart, minOf(e.end, d.plusDays(1).atStartOfDay()))
                             .coerceAtMost(hours.count() * 60L)
                         val top = HOUR_H * (startMin / 60f)
                         val h = (HOUR_H * ((endMin - startMin).coerceAtLeast(20) / 60f))
@@ -412,7 +415,7 @@ private fun MiniMonth(
             modifier = Modifier.clickable { onMonth(first) }.padding(vertical = 2.dp),
         )
         val last = first.plusMonths(1).minusDays(1)
-        val weeks = ((java.time.temporal.ChronoUnit.DAYS.between(start, last)) / 7 + 1).toInt()
+        val weeks = ((start.daysUntil(last).toLong()) / 7 + 1).toInt()
         for (week in 0 until weeks) {
             val weekStartDay = start.plusDays(week * 7L)
             Row(Modifier.fillMaxWidth().height(18.dp)) {

@@ -20,7 +20,8 @@ import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.model.matchRepeat
 import ru.palmdate.app.model.repeatLabel
 import java.time.Instant
-import java.time.LocalDateTime
+import kotlinx.datetime.LocalDateTime
+import ru.palmdate.app.time.*
 
 /** Логика без экрана: повторы, итоги, метки, письма. Robolectric — чтобы работали Uri и JSON Android. */
 @RunWith(RobolectricTestRunner::class)

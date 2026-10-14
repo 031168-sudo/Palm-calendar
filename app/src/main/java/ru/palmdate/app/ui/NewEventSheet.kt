@@ -77,7 +77,8 @@ import ru.palmdate.app.model.allDayReminderLabel
 import ru.palmdate.app.model.repeatOptions
 import ru.palmdate.app.model.matchRepeat
 import ru.palmdate.app.ui.theme.Palm
-import java.time.LocalDateTime
+import kotlinx.datetime.LocalDateTime
+import ru.palmdate.app.time.*
 
 typealias PhonesFor = suspend (String) -> Pair<List<PhoneNumber>, String?>
 
@@ -614,7 +615,7 @@ private fun TextEditDialog(title: String, initial: String, singleLine: Boolean, 
 private fun TimeEditDialog(event: PalmEvent, onDismiss: () -> Unit, onSave: (LocalDateTime, Int) -> Unit) {
     var start by remember { mutableStateOf(event.start) }
     val initialMinutes = if (event.allDay) 0
-    else java.time.Duration.between(event.start, event.end).toMinutes().toInt().coerceAtLeast(5)
+    else minutesBetween(event.start, event.end).toInt().coerceAtLeast(5)
     var minutes by remember { mutableStateOf(initialMinutes) }
     val options = (durationShortOptions() +
         (if (initialMinutes !in setOf(0, 15, 30, 60, 120)) listOf(initialMinutes to reminderLabel(initialMinutes)) else emptyList()) +

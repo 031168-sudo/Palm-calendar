@@ -16,6 +16,10 @@ kotlin {
     iosSimulatorArm64()
 
     sourceSets {
+        commonMain.dependencies {
+            // Даты: на всех платформах одинаково (на iOS java.time нет)
+            api("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }

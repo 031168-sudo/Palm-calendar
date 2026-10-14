@@ -100,18 +100,15 @@ import ru.palmdate.app.ViewMode
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.ui.theme.Palm
 import ru.palmdate.app.weekStart
-import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
+import ru.palmdate.app.time.*
 import java.time.format.TextStyle
 import java.util.Locale
 
 /** Язык интерфейса — для названий месяцев, дней недели и дат. */
 internal val UiLocale: Locale get() = ru.palmdate.app.Lang.locale
-internal val HM: DateTimeFormatter = DateTimeFormatter.ofPattern("H:mm")
 
 internal fun LocalDate.shortMonth() = month.getDisplayName(TextStyle.SHORT, UiLocale).trimEnd('.')
 internal fun LocalDate.pretty(): String {
@@ -325,14 +322,14 @@ fun DayScreen(vm: DayViewModel) {
 
     if (pickDate) {
         val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = state.date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            initialSelectedDateMillis = state.date.startOfDayUtcMillis(),
         )
         DatePickerDialog(
             onDismissRequest = { pickDate = false },
             confirmButton = {
                 TextButton(onClick = {
                     pickerState.selectedDateMillis?.let {
-                        vm.select(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate())
+                        vm.select(utcMillisToDate(it))
                     }
                     pickDate = false
                 }) { Text(str(R.string.go_to)) }

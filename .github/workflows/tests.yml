@@ -29,6 +29,8 @@ jobs:
         run: |
           set -o pipefail
           gradle :shared:testDebugUnitTest :app:testDebugUnitTest 2>&1 | tee test.log || {
+            ERR=$(grep -E "^e: " test.log | sed -e 's#file:///home/runner/work/[^/]*/[^/]*/##' -e 's/%/%25/g' | head -150 | sed ':a;N;$!ba;s/\n/%0A/g')
+            [ -n "$ERR" ] && echo "::error title=Ошибки Kotlin::$ERR"
             grep -E "^e: |error:|What went wrong|FAILED|Exception|expected:|but was|Expected" -A3 test.log | head -60 | while IFS= read -r line; do
               echo "::error::${line}"
             done

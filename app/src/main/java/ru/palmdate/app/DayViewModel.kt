@@ -26,13 +26,13 @@ import ru.palmdate.app.model.icon
 import ru.palmdate.app.model.color
 import ru.palmdate.app.model.NewEvent
 import ru.palmdate.app.model.Outcome
-import java.time.LocalDateTime
+import kotlinx.datetime.LocalDateTime
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.model.PhoneNumber
 import androidx.annotation.StringRes
-import java.time.DayOfWeek
-import java.time.LocalDate
-import java.time.temporal.TemporalAdjusters
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
+import ru.palmdate.app.time.*
 
 /** Виды, как на Palm: переключаются иконками в нижней панели. */
 enum class ViewMode(@StringRes val labelRes: Int) {
@@ -66,7 +66,7 @@ data class CalState(
 fun firstDayOfWeek(): DayOfWeek =
     if (ru.palmdate.app.data.SettingsStore.current.weekStartsSunday) DayOfWeek.SUNDAY else DayOfWeek.MONDAY
 
-fun weekStart(d: LocalDate): LocalDate = d.with(TemporalAdjusters.previousOrSame(firstDayOfWeek()))
+fun weekStart(d: LocalDate): LocalDate = d.previousOrSame(firstDayOfWeek())
 fun monthGridStart(d: LocalDate): LocalDate = weekStart(d.withDayOfMonth(1))
 
 class DayViewModel(app: Application) : AndroidViewModel(app) {
@@ -331,7 +331,7 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun followUp(e: PalmEvent, start: LocalDateTime) {
         val type = e.type ?: EventType.OTHER
-        val minutes = if (e.allDay) 0 else java.time.Duration.between(e.start, e.end).toMinutes().toInt().coerceAtLeast(5)
+        val minutes = if (e.allDay) 0 else minutesBetween(e.start, e.end).toInt().coerceAtLeast(5)
         val cal = e.calendarId.takeIf { it >= 0 } ?: lastCalendarId() ?: return
         create(
             NewEvent(

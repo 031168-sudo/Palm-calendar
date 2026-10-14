@@ -13,8 +13,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import ru.palmdate.app.R
 import ru.palmdate.app.str
 import ru.palmdate.app.ui.theme.Palm
-import java.time.LocalDate
-import java.time.LocalDateTime
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import ru.palmdate.app.time.*
 
 // Типы, итоги, повторы, напоминания, MailInfo, CalendarInfo — в модуле shared (тот же пакет).
 // Здесь остаётся то, что завязано на java.time и на оформление.

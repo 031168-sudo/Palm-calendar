@@ -41,13 +41,14 @@ import ru.palmdate.app.model.Outcome
 import ru.palmdate.app.model.OutcomeKind
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.ui.theme.Palm
-import java.time.LocalDate
-import java.time.LocalDateTime
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import java.time.format.TextStyle
-import java.time.temporal.ChronoUnit
+import kotlinx.datetime.daysUntil
+import ru.palmdate.app.time.*
 
 private fun daysAgo(d: LocalDate): String {
-    val n = ChronoUnit.DAYS.between(d, LocalDate.now()).toInt()
+    val n = d.daysUntil(LocalDate.now())
     return when (n) {
         0 -> str(R.string.today)
         1 -> str(R.string.yesterday)
@@ -56,7 +57,7 @@ private fun daysAgo(d: LocalDate): String {
 }
 
 private fun daysAhead(d: LocalDate): String {
-    val n = ChronoUnit.DAYS.between(LocalDate.now(), d).toInt()
+    val n = LocalDate.now().daysUntil(d)
     return when (n) {
         0 -> str(R.string.today)
         1 -> str(R.string.tomorrow)

@@ -23,8 +23,10 @@ import ru.palmdate.app.model.NewEvent
 import ru.palmdate.app.model.Outcome
 import ru.palmdate.app.model.PalmEvent
 import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalDateTime
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.daysUntil
+import ru.palmdate.app.time.*
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.TimeZone
@@ -43,7 +45,7 @@ class CalendarRepository(
     private val resolver = context.contentResolver
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
-    private fun LocalDate.millis() = atStartOfDay(zone).toInstant().toEpochMilli()
+    private fun LocalDate.millis() = toJava().atStartOfDay(zone).toInstant().toEpochMilli()
 
     /** Календари, которые пользователь скрыл галочками. "Невидимость" по мнению Android не учитываем. */
     @Volatile var hiddenCalendars: Set<Long> = emptySet()
@@ -206,8 +208,8 @@ class CalendarRepository(
             PalmEvent(
                 eventId = r.id,
                 title = r.title,
-                start = LocalDateTime.ofInstant(Instant.ofEpochMilli(r.begin), tz),
-                end = LocalDateTime.ofInstant(Instant.ofEpochMilli(r.end), tz),
+                start = java.time.LocalDateTime.ofInstant(Instant.ofEpochMilli(r.begin), tz).toKx(),
+                end = java.time.LocalDateTime.ofInstant(Instant.ofEpochMilli(r.end), tz).toKx(),
                 allDay = r.allDay,
                 type = type,
                 contact = contact,
@@ -252,11 +254,11 @@ class CalendarRepository(
             for (year in from.year..toExclusive.year) {
                 val date = runCatching {
                     // 29 февраля в невисокосный год — 28-го
-                    java.time.LocalDate.of(year, b.month, minOf(b.day, java.time.YearMonth.of(year, b.month).lengthOfMonth()))
+                    java.time.LocalDate.of(year, b.month, minOf(b.day, java.time.YearMonth.of(year, b.month).lengthOfMonth())).toKx()
                 }.getOrNull() ?: continue
                 if (date < from || date >= toExclusive) continue
                 val id = birthdayId(b.lookupKey)
-                val instance = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                val instance = date.startOfDayUtcMillis()
                 val age = b.year?.let { year - it }?.takeIf { it in 1..129 }
                 val o = outcomeByKey[id to instance]
                 result += PalmEvent(
@@ -410,15 +412,15 @@ class CalendarRepository(
         )?.use { c ->
             while (c.moveToNext()) {
                 val tz = if (c.getInt(2) == 1) ZoneOffset.UTC else zone
-                var d = Instant.ofEpochMilli(c.getLong(0)).atZone(tz).toLocalDate()
-                val last = Instant.ofEpochMilli(maxOf(c.getLong(0), c.getLong(1) - 1)).atZone(tz).toLocalDate()
+                var d = Instant.ofEpochMilli(c.getLong(0)).atZone(tz).toLocalDate().toKx()
+                val last = Instant.ofEpochMilli(maxOf(c.getLong(0), c.getLong(1) - 1)).atZone(tz).toLocalDate().toKx()
                 while (!d.isAfter(last) && d.isBefore(toExclusive)) { days += d; d = d.plusDays(1) }
             }
         }
         if (SettingsStore.current.birthdaysShown) contacts.birthdays().forEach { b ->
             for (year in from.year..toExclusive.year) {
                 runCatching {
-                    java.time.LocalDate.of(year, b.month, minOf(b.day, java.time.YearMonth.of(year, b.month).lengthOfMonth()))
+                    java.time.LocalDate.of(year, b.month, minOf(b.day, java.time.YearMonth.of(year, b.month).lengthOfMonth())).toKx()
                 }.getOrNull()?.takeIf { it >= from && it < toExclusive }?.let { days += it }
             }
         }
@@ -448,10 +450,10 @@ class CalendarRepository(
                 val d = e.start.toLocalDate()
                 put(Events.ALL_DAY, 1)
                 put(Events.EVENT_TIMEZONE, "UTC")
-                put(Events.DTSTART, d.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
-                put(Events.DTEND, d.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
+                put(Events.DTSTART, d.startOfDayUtcMillis())
+                put(Events.DTEND, d.plusDays(1).startOfDayUtcMillis())
             } else {
-                val start = e.start.atZone(zone).toInstant().toEpochMilli()
+                val start = e.start.toJava().atZone(zone).toInstant().toEpochMilli()
                 put(Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
                 put(Events.DTSTART, start)
                 put(Events.DTEND, start + e.minutes * 60_000L)
@@ -589,8 +591,8 @@ class CalendarRepository(
             val s = series(e.eventId)
             if (e.instanceStart > s.start) {
                 val allDay = minutes == 0
-                val newStart = if (allDay) start.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-                else start.atZone(zone).toInstant().toEpochMilli()
+                val newStart = if (allDay) start.toLocalDate().startOfDayUtcMillis()
+                else start.toJava().atZone(zone).toInstant().toEpochMilli()
                 endSeriesBefore(e.eventId, s, e.instanceStart)
                 newSeriesFrom(
                     e.eventId, s, newStart, allDay, if (allDay) 86_400_000L else minutes * 60_000L,
@@ -607,10 +609,10 @@ class CalendarRepository(
         if (!e.recurring) {
             if (allDay) {
                 val d = start.toLocalDate()
-                values.put(Events.DTSTART, d.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
-                values.put(Events.DTEND, d.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
+                values.put(Events.DTSTART, d.startOfDayUtcMillis())
+                values.put(Events.DTEND, d.plusDays(1).startOfDayUtcMillis())
             } else {
-                val ms = start.atZone(zone).toInstant().toEpochMilli()
+                val ms = start.toJava().atZone(zone).toInstant().toEpochMilli()
                 values.put(Events.DTSTART, ms)
                 values.put(Events.DTEND, ms + minutes * 60_000L)
             }
@@ -618,13 +620,13 @@ class CalendarRepository(
             val seriesStart = resolver.query(uri, arrayOf(Events.DTSTART), null, null, null)
                 ?.use { if (it.moveToFirst()) it.getLong(0) else null } ?: error(str(R.string.err_event_not_found))
             if (allDay) {
-                val days = java.time.temporal.ChronoUnit.DAYS.between(e.start.toLocalDate(), start.toLocalDate())
-                val seriesDate = Instant.ofEpochMilli(seriesStart).atZone(if (e.allDay) ZoneOffset.UTC else zone).toLocalDate()
-                values.put(Events.DTSTART, seriesDate.plusDays(days).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
+                val days = e.start.toLocalDate().daysUntil(start.toLocalDate()).toLong()
+                val seriesDate = Instant.ofEpochMilli(seriesStart).atZone(if (e.allDay) ZoneOffset.UTC else zone).toLocalDate().toKx()
+                values.put(Events.DTSTART, seriesDate.plusDays(days).startOfDayUtcMillis())
                 values.put(Events.DURATION, "P1D")
             } else {
-                val oldInstance = e.start.atZone(if (e.allDay) ZoneOffset.UTC else zone).toInstant().toEpochMilli()
-                val delta = start.atZone(zone).toInstant().toEpochMilli() - oldInstance
+                val oldInstance = e.start.toJava().atZone(if (e.allDay) ZoneOffset.UTC else zone).toInstant().toEpochMilli()
+                val delta = start.toJava().atZone(zone).toInstant().toEpochMilli() - oldInstance
                 values.put(Events.DTSTART, seriesStart + delta)
                 values.put(Events.DURATION, "P${minutes * 60}S")
             }
