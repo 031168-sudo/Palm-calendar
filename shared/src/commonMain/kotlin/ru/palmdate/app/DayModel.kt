@@ -105,10 +105,10 @@ class DayModel(private val scope: CoroutineScope, private val backend: AppBacken
             val (from, to) = s.range
             try {
                 if (s.mode == ViewMode.YEAR) {
-                    val days = withContext(Dispatchers.IO) { backend.daysWithEvents(from, to) }
+                    val days = withContext(ioDispatcher) { backend.daysWithEvents(from, to) }
                     _state.update { if (it.pageKey == s.pageKey) it.copy(yearDays = days) else it }
                 } else {
-                    val ev = withContext(Dispatchers.IO) { backend.eventsBetween(from, to) }
+                    val ev = withContext(ioDispatcher) { backend.eventsBetween(from, to) }
                     _state.update { if (it.pageKey == s.pageKey) it.copy(events = ev) else it }
                 }
             } catch (e: CancellationException) {
@@ -125,22 +125,22 @@ class DayModel(private val scope: CoroutineScope, private val backend: AppBacken
 
     /** Люди с почтой — для «Кому» и «Написать». */
     suspend fun searchEmails(q: String): List<EmailContact> =
-        withContext(Dispatchers.IO) { backend.searchEmails(q) }
+        withContext(ioDispatcher) { backend.searchEmails(q) }
 
     /** Контакт по адресу почты (чтобы письмо попало в историю человека). */
-    suspend fun contactByEmail(addr: String): ContactRef? = withContext(Dispatchers.IO) { backend.contactByEmail(addr) }
+    suspend fun contactByEmail(addr: String): ContactRef? = withContext(ioDispatcher) { backend.contactByEmail(addr) }
 
     suspend fun searchContacts(q: String): List<ContactRef> =
-        withContext(Dispatchers.IO) { backend.searchContacts(q) }
+        withContext(ioDispatcher) { backend.searchContacts(q) }
 
     /** Номера контакта и номер, выбранный для него в прошлый раз (если был). */
-    suspend fun phonesFor(lookupKey: String): Pair<List<PhoneNumber>, String?> = withContext(Dispatchers.IO) {
+    suspend fun phonesFor(lookupKey: String): Pair<List<PhoneNumber>, String?> = withContext(ioDispatcher) {
         backend.phones(lookupKey) to backend.rememberedPhone(lookupKey)
     }
 
     /** Все адреса контакта. */
     suspend fun addressesFor(lookupKey: String): List<PhoneNumber> =
-        withContext(Dispatchers.IO) { backend.addresses(lookupKey) }
+        withContext(ioDispatcher) { backend.addresses(lookupKey) }
 
     /** Выбрать адрес контакта (запоминается для всех его событий). */
     fun setAddress(lookupKey: String, address: String) {
@@ -152,7 +152,7 @@ class DayModel(private val scope: CoroutineScope, private val backend: AppBacken
 
     /** Все календари телефона с пометками (только чтение, без синхронизации, локальный). */
     suspend fun allCalendars(): List<CalendarInfo> =
-        withContext(Dispatchers.IO) { backend.allCalendars() }
+        withContext(ioDispatcher) { backend.allCalendars() }
 
     /* ---- Какие календари показывать (галочки) ---- */
 
@@ -190,13 +190,13 @@ class DayModel(private val scope: CoroutineScope, private val backend: AppBacken
 
     /** История контакта: все события с ним, прошлые и будущие. */
     suspend fun history(lookupKey: String): List<PalmEvent> =
-        withContext(Dispatchers.IO) { backend.historyFor(lookupKey) }
+        withContext(ioDispatcher) { backend.historyFor(lookupKey) }
 
     /** Статистика по людям: состоявшиеся звонки и встречи с даты [from]. */
     suspend fun contactStats(from: LocalDate): List<ContactStat> =
-        withContext(Dispatchers.IO) { backend.contactStats(from) }
+        withContext(ioDispatcher) { backend.contactStats(from) }
 
-    suspend fun reminders(eventId: Long): List<Int> = withContext(Dispatchers.IO) { backend.reminders(eventId) }
+    suspend fun reminders(eventId: Long): List<Int> = withContext(ioDispatcher) { backend.reminders(eventId) }
 
     fun setReminders(eventId: Long, minutes: List<Int>) = launchSafe { backend.setReminders(eventId, minutes) }
 
@@ -217,7 +217,7 @@ class DayModel(private val scope: CoroutineScope, private val backend: AppBacken
     /* ---- Выезд: адрес и документы ---- */
 
     /** Адрес выезда (поле «Место» календаря). */
-    suspend fun place(eventId: Long): String? = withContext(Dispatchers.IO) { backend.location(eventId) }
+    suspend fun place(eventId: Long): String? = withContext(ioDispatcher) { backend.location(eventId) }
 
     fun setPlace(eventId: Long, place: String?) = launchSafe {
         backend.setLocation(eventId, place)
@@ -226,15 +226,15 @@ class DayModel(private val scope: CoroutineScope, private val backend: AppBacken
 
     /** Документы выезда: билеты, посадочные, брони. */
     suspend fun tripFiles(eventId: Long): List<TripDoc> =
-        withContext(Dispatchers.IO) { backend.tripFiles(eventId) }
+        withContext(ioDispatcher) { backend.tripFiles(eventId) }
 
     suspend fun addTripFile(eventId: Long, uri: String, label: String) {
-        withContext(Dispatchers.IO) { backend.addTripFile(eventId, uri, label) }
+        withContext(ioDispatcher) { backend.addTripFile(eventId, uri, label) }
         reload()   // значок документов в списке
     }
 
     suspend fun deleteTripFile(d: TripDoc) {
-        withContext(Dispatchers.IO) { backend.deleteTripFile(d) }
+        withContext(ioDispatcher) { backend.deleteTripFile(d) }
         reload()
     }
 
@@ -280,7 +280,7 @@ class DayModel(private val scope: CoroutineScope, private val backend: AppBacken
     /** Выполнить изменение в фоне, показать ошибку, если что-то пошло не так, и перечитать. */
     private fun launchSafe(block: suspend () -> Unit) = scope.launch {
         try {
-            withContext(Dispatchers.IO) { block() }
+            withContext(ioDispatcher) { block() }
         } catch (c: CancellationException) {
             throw c
         } catch (err: Exception) {
