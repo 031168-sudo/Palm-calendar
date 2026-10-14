@@ -37,6 +37,21 @@ jobs:
             exit 1
           }
 
+      # Сколько тестов реально выполнилось (видно в аннотациях запуска)
+      - name: Test summary
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob, re
+          for mod in ("shared", "app"):
+              t = s = f = 0
+              for p in glob.glob(f"{mod}/build/test-results/testDebugUnitTest/*.xml"):
+                  m = re.search(r'tests="(\d+)" skipped="(\d+)" failures="(\d+)" errors="(\d+)"', open(p, encoding="utf-8").read(3000))
+                  if m:
+                      t += int(m[1]); s += int(m[2]); f += int(m[3]) + int(m[4])
+              print(f"::notice title=Tests {mod}::run {t}, skipped {s}, failed {f}")
+          PY
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
