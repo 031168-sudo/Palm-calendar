@@ -50,6 +50,17 @@ jobs:
                   if m:
                       t += int(m[1]); s += int(m[2]); f += int(m[3]) + int(m[4])
               print(f"::notice title=Tests {mod}::run {t}, skipped {s}, failed {f}")
+              # Причины падений: имя теста и начало сообщения (первые 12 штук, разные причины)
+              seen = set(); out = []
+              for p in sorted(glob.glob(f"{mod}/build/test-results/testDebugUnitTest/*.xml")):
+                  txt = open(p, encoding="utf-8").read()
+                  for m in re.finditer(r'<testcase name="([^"]+)" classname="([^"]+)"[^>]*>\s*<failure message="([^"]{0,400})', txt):
+                      key = m[3][:120]
+                      if key in seen: continue
+                      seen.add(key); out.append(f"{m[2].split('.')[-1]}.{m[1]}: {m[3]}")
+              if out:
+                  msg = "%0A".join(x.replace("%", "%25").replace("\n", " ").replace("&#10;", " ")[:500] for x in out[:12])
+                  print(f"::error title=Failures {mod}::{msg}")
           PY
 
       - name: Upload screenshots
