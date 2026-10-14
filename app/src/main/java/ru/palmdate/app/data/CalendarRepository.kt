@@ -154,6 +154,12 @@ class CalendarRepository(
             }
         }
 
+        // Починка: у повторяющегося события таблица разов (Instances) осталась с одним разом нулевой длины
+        // (так было у «Теннис»/«Показания»: Google показывает серию, у нас один раз). Перезаписываем начало и длительность —
+        // Android заново считает разы. Каждое событие чиним один раз за запуск.
+        val broken = raws.filter { it.recurring && !it.allDay && it.end <= it.begin }.map { it.id }.distinct().filter { repaired.add(it) }
+        if (broken.isNotEmpty() && broken.count { touchSeries(it) } > 0) return eventsBetween(from, toExclusive, onlyIds)
+
         val ids = raws.map { it.id }.distinct()
         val linkById = links.byIds(ids).associateBy { it.eventId }.toMutableMap()
         val outcomeByKey = links.outcomes(ids).associateBy { it.eventId to it.instanceStart }
@@ -170,6 +176,23 @@ class CalendarRepository(
                 "_id IN (${chunk.joinToString(",")})", null, null,
             )?.use { c ->
                 while (c.moveToNext()) c.getString(1)?.takeIf { it.isNotBlank() }?.let { placeById[c.getLong(0)] = it }
+            }
+        }
+
+        // Длительность из самого события: таблица Instances у некоторых событий хранит конец = началу (12:00–12:00),
+        // хотя в событии длительность верная (Google показывает её правильно)
+        val lengthById = HashMap<Long, Long>()
+        ids.chunked(500).forEach { chunk ->
+            resolver.query(
+                Events.CONTENT_URI, arrayOf("_id", Events.DTSTART, Events.DTEND, Events.DURATION),
+                "_id IN (${chunk.joinToString(",")})", null, null,
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val st = c.getLong(1)
+                    val en = if (c.isNull(2)) 0L else c.getLong(2)
+                    val len = if (en > st) en - st else c.getString(3)?.let { parseDuration(it) } ?: 0L
+                    if (len > 0) lengthById[c.getLong(0)] = len
+                }
             }
         }
 
@@ -209,7 +232,7 @@ class CalendarRepository(
                 eventId = r.id,
                 title = r.title,
                 start = java.time.LocalDateTime.ofInstant(Instant.ofEpochMilli(r.begin), tz).toKx(),
-                end = java.time.LocalDateTime.ofInstant(Instant.ofEpochMilli(r.end), tz).toKx(),
+                end = java.time.LocalDateTime.ofInstant(Instant.ofEpochMilli(if (!r.allDay && r.end <= r.begin) r.begin + (lengthById[r.id] ?: 0L) else r.end), tz).toKx(),
                 allDay = r.allDay,
                 type = type,
                 contact = contact,
@@ -378,7 +401,7 @@ class CalendarRepository(
             if (!values.containsKey(Events.DURATION)) {
                 val start = values.getAsLong(Events.DTSTART)
                 val end = values.getAsLong(Events.DTEND)
-                if (start != null && end != null) values.put(Events.DURATION, "P${(end - start) / 1000}S")
+                if (start != null && end != null) values.put(Events.DURATION, secDuration(end - start))
             }
             values.remove(Events.DTEND)
         } else {
@@ -549,7 +572,7 @@ class CalendarRepository(
         } else {
             values.put(Events.RRULE, rrule)
             values.putNull(Events.DTEND)
-            values.put(Events.DURATION, if (allDay) "P${maxOf(1L, lengthMs / 86_400_000L)}D" else "P${lengthMs / 1000}S")
+            values.put(Events.DURATION, if (allDay) "P${maxOf(1L, lengthMs / 86_400_000L)}D" else secDuration(lengthMs))
         }
         if (resolver.update(uri, values, null, null) <= 0) error(str(R.string.err_change_repeat))
     }
@@ -586,6 +609,49 @@ class CalendarRepository(
      * У повторяющегося события сдвигается вся серия на ту же разницу, что и этот раз.
      */
     suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int) {
+        try {
+            setTimeRaw(e, start, minutes)
+        } catch (t: Exception) {
+            throw IllegalStateException("${t.message} [${eventDump(e.eventId)}]", t)
+        }
+    }
+
+    private val repaired = HashSet<Long>()
+
+    /** Переписывает начало/длительность/правило серии теми же значениями, чтобы провайдер заново построил разы. */
+    private fun touchSeries(id: Long): Boolean = runCatching {
+        val uri = ContentUris.withAppendedId(Events.CONTENT_URI, id)
+        val v = resolver.query(
+            uri, arrayOf(Events.DTSTART, Events.DTEND, Events.DURATION, Events.RRULE, Events.EVENT_TIMEZONE), null, null, null,
+        )?.use { c ->
+            if (!c.moveToFirst()) return@use null
+            val st = c.getLong(0)
+            val en = if (c.isNull(1)) 0L else c.getLong(1)
+            val len = if (en > st) en - st else c.getString(2)?.let { parseDuration(it) } ?: 0L
+            ContentValues().apply {
+                put(Events.DTSTART, st)
+                putNull(Events.DTEND)
+                put(Events.DURATION, secDuration(len))
+                put(Events.RRULE, c.getString(3))
+                c.getString(4)?.let { put(Events.EVENT_TIMEZONE, it) }
+            }
+        }
+        v != null && resolver.update(uri, v, null, null) > 0
+    }.getOrDefault(false)
+
+    /** Сырые поля события — чтобы по тексту ошибки было видно, что хранит календарь. */
+    private fun eventDump(id: Long): String = runCatching {
+        resolver.query(
+            ContentUris.withAppendedId(Events.CONTENT_URI, id),
+            arrayOf(Events.DTSTART, Events.DTEND, Events.DURATION, Events.RRULE, Events.ALL_DAY, Events.EVENT_TIMEZONE, Events.DIRTY, Events.ORIGINAL_ID, Events.CALENDAR_ID),
+            null, null, null,
+        )?.use { c ->
+            if (!c.moveToFirst()) "нет события"
+            else "id=$id s=${c.getLong(0)} e=${c.getString(1)} dur=${c.getString(2)} rr=${c.getString(3)} ad=${c.getInt(4)} tz=${c.getString(5)} dirty=${c.getInt(6)} orig=${c.getString(7)} cal=${c.getLong(8)}"
+        } ?: "нет данных"
+    }.getOrElse { "dump: ${it.message}" }
+
+    private suspend fun setTimeRaw(e: PalmEvent, start: LocalDateTime, minutes: Int) {
         // Повторяющееся, открыт не первый раз: прошлое не трогаем, с этого раза — новое время
         if (e.recurring) {
             val s = series(e.eventId)
@@ -628,7 +694,7 @@ class CalendarRepository(
                 val oldInstance = e.start.toJava().atZone(if (e.allDay) ZoneOffset.UTC else zone).toInstant().toEpochMilli()
                 val delta = start.toJava().atZone(zone).toInstant().toEpochMilli() - oldInstance
                 values.put(Events.DTSTART, seriesStart + delta)
-                values.put(Events.DURATION, "P${minutes * 60}S")
+                values.put(Events.DURATION, secDuration(minutes * 60_000L))
             }
             values.putNull(Events.DTEND)
         }
@@ -689,6 +755,9 @@ class CalendarRepository(
     /* ---------- Повторяющиеся события: изменения «с этого раза» ---------- */
 
     /** Серия: начало, правило, весь день ли, длительность раза и поля для копии. */
+    /** DURATION в секундах; ноль Android не принимает (событие 12:00–12:00) — минимум 1 секунда. */
+    private fun secDuration(ms: Long) = "P${maxOf(1L, ms / 1000)}S"
+
     private class Series(val start: Long, val rrule: String?, val allDay: Boolean, val lengthMs: Long, val values: ContentValues)
 
     private fun series(eventId: Long): Series {
@@ -732,7 +801,7 @@ class CalendarRepository(
             // начало, длительность и пояс — чтобы Android пересчитал разы серии
             put(Events.DTSTART, s.start)
             putNull(Events.DTEND)
-            put(Events.DURATION, if (s.allDay) "P${maxOf(1L, s.lengthMs / 86_400_000L)}D" else "P${s.lengthMs / 1000}S")
+            put(Events.DURATION, if (s.allDay) "P${maxOf(1L, s.lengthMs / 86_400_000L)}D" else secDuration(s.lengthMs))
             put(Events.ALL_DAY, if (s.allDay) 1 else 0)
             s.values.getAsString(Events.EVENT_TIMEZONE)?.let { put(Events.EVENT_TIMEZONE, it) }
         }
@@ -761,7 +830,7 @@ class CalendarRepository(
                 put(Events.DTEND, start + lengthMs)
             } else {
                 put(Events.RRULE, rrule)
-                put(Events.DURATION, if (allDay) "P${maxOf(1L, lengthMs / 86_400_000L)}D" else "P${lengthMs / 1000}S")
+                put(Events.DURATION, if (allDay) "P${maxOf(1L, lengthMs / 86_400_000L)}D" else secDuration(lengthMs))
             }
         }
         val reminders = reminders(oldId)

@@ -27,7 +27,7 @@ jobs:
       - name: Build debug APK
         run: |
           set -o pipefail
-          gradle :app:assembleDebug 2>&1 | tee build.log || {
+          gradle :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee build.log || {
             # Ошибки компиляции — в аннотации, чтобы их было видно без скачивания логов
             ERR=$(grep -E "^e: " build.log | sed -e 's#file:///home/runner/work/[^/]*/[^/]*/##' -e 's/%/%25/g' | head -150 | sed ':a;N;$!ba;s/\n/%0A/g')
             [ -n "$ERR" ] && echo "::error title=Ошибки Kotlin::$ERR"

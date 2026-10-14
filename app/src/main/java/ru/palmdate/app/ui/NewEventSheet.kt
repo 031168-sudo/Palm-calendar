@@ -633,12 +633,25 @@ private fun TimeEditDialog(event: PalmEvent, onDismiss: () -> Unit, onSave: (Loc
                     StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowRight) { start = start.plusDays(1) }
                 }
                 if (minutes != 0) {
+                    val end = start.plusMinutes(minutes.toLong())
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(str(R.string.time_start), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.width(72.dp))
                         StepIcon(Icons.Filled.Remove) { start = start.minusMinutes(timeStep()) }
                         Text(start.format(HM), style = Palm.title, color = Palm.navy,
                             modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                         StepIcon(Icons.Filled.Add) { start = start.plusMinutes(timeStep()) }
+                    }
+                    // Конец: меняет длительность; начало не двигается
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(str(R.string.time_end), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.width(72.dp))
+                        StepIcon(Icons.Filled.Remove) { minutes = maxOf(5, minutes - timeStep().toInt()) }
+                        Text(
+                            end.format(HM) + if (end.toLocalDate() != start.toLocalDate()) " · " + end.toLocalDate().pretty() else "",
+                            style = Palm.title, color = Palm.navy,
+                            modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
+                        )
+                        StepIcon(Icons.Filled.Add) { minutes += timeStep().toInt() }
                     }
                 }
                 Spacer(Modifier.height(10.dp))
@@ -827,6 +840,17 @@ private fun WhenPicker(
             Text(start.format(HM), style = Palm.title.copy(fontSize = Palm.title.fontSize * 1.6f),
                 color = Palm.navy, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
             StepIcon(Icons.Filled.Add) { onStart(start.plusMinutes(timeStep())) }
+        }
+        // Конец (меняет длительность, начало не двигается)
+        val end = start.plusMinutes(minutes.toLong())
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(str(R.string.time_end), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.width(72.dp))
+            StepIcon(Icons.Filled.Remove) { onMinutes(maxOf(5, minutes - timeStep().toInt())) }
+            Text(
+                end.format(HM) + if (end.toLocalDate() != start.toLocalDate()) " · " + end.toLocalDate().pretty() else "",
+                style = Palm.title, color = Palm.navy, modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
+            )
+            StepIcon(Icons.Filled.Add) { onMinutes(minutes + timeStep().toInt()) }
         }
         Spacer(Modifier.height(10.dp))
     }

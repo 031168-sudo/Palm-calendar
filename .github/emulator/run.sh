@@ -17,6 +17,13 @@ adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 # Тестовые события в календаре
 adb shell am instrument -w -e class ru.palmdate.app.SeedCalendar ru.palmdate.app.test/androidx.test.runner.AndroidJUnitRunner | tee seed.log
 grep -q "OK (1 test)" seed.log
+# Проверка: события с нулевой длительностью можно поправить (не валит прогон, но пишет ошибку в аннотации)
+adb shell am instrument -w -e class ru.palmdate.app.ZeroDurationTest ru.palmdate.app.test/androidx.test.runner.AndroidJUnitRunner | tee zero.log || true
+if ! grep -q "OK (2 tests)" zero.log; then
+  echo "::error::ZeroDurationTest: $(head -c 1500 zero.log | tr '\n' ' ')"
+else
+  echo "ZeroDurationTest OK"
+fi
 
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 0

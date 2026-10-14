@@ -307,6 +307,9 @@
     <string name="settings_data_hint">Копия всего, что DateBook хранит сам: типы и контакты событий, итоги, выбранные номера и адреса, настройки. Сами события и так в Google.</string>
     <string name="settings_defaults">События по умолчанию</string>
     <string name="settings_download">Скачать</string>
+    <string name="time_start">Начало</string>
+    <string name="time_end">Конец</string>
+    <string name="err_time_not_applied">Календарь не принял новое время</string>
     <string name="settings_duration">Длительность</string>
     <string name="settings_from">с</string>
     <string name="settings_hint_custom">Обычно IMAP — порт 993, SMTP — порт 465 (SSL).</string>
