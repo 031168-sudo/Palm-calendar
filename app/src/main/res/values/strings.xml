@@ -311,6 +311,7 @@
     <string name="time_start">Start</string>
     <string name="time_end">End</string>
     <string name="err_time_not_applied">The calendar did not accept the new time</string>
+    <string name="settings_duration_band">Shade event duration in Day view</string>
     <string name="settings_duration">Duration</string>
     <string name="settings_from">from</string>
     <string name="settings_hint_custom">Usually IMAP uses port 993 and SMTP uses port 465 (SSL).</string>
@@ -429,4 +430,35 @@
     <string name="address_own">Own address</string>
     <string name="address_add_own">Add your own address…</string>
     <string name="address_change_own">Change own address…</string>
+
+    <!-- Свои повторения -->
+    <string name="rep_custom_btn">Custom…</string>
+    <string name="rep_title">Repeat</string>
+    <string name="rep_every">Repeat every</string>
+    <string name="rep_unit_day">day</string>
+    <string name="rep_unit_week">week</string>
+    <string name="rep_unit_month">month</string>
+    <string name="rep_unit_year">year</string>
+    <string name="rep_ends">Ends</string>
+    <string name="rep_end_never">Never</string>
+    <string name="rep_end_date">On date</string>
+    <string name="rep_end_count">After</string>
+    <string name="rep_on_days">%1$s on %2$s</string>
+    <string name="rep_join">%1$s, %2$s</string>
+    <string name="rep_until">until %s</string>
+    <string name="rep_month_day">Monthly on day %d</string>
+    <string name="rep_month_nth">Monthly on the %2$s %3$s</string>
+    <plurals name="rep_every_days"><item quantity="one">Every day</item><item quantity="other">Every %d days</item></plurals>
+    <plurals name="rep_every_weeks"><item quantity="one">Every week</item><item quantity="other">Every %d weeks</item></plurals>
+    <plurals name="rep_every_months"><item quantity="one">Every month</item><item quantity="other">Every %d months</item></plurals>
+    <plurals name="rep_every_years"><item quantity="one">Every year</item><item quantity="other">Every %d years</item></plurals>
+    <plurals name="rep_times"><item quantity="one">%d time</item><item quantity="other">%d times</item></plurals>
+    <string-array name="wd_short"><item>Mon</item><item>Tue</item><item>Wed</item><item>Thu</item><item>Fri</item><item>Sat</item><item>Sun</item></string-array>
+    <string-array name="wd_letter"><item>M</item><item>T</item><item>W</item><item>T</item><item>F</item><item>S</item><item>S</item></string-array>
+    <string-array name="wd_acc"><item>Monday</item><item>Tuesday</item><item>Wednesday</item><item>Thursday</item><item>Friday</item><item>Saturday</item><item>Sunday</item></string-array>
+    <integer-array name="wd_gender"><item>0</item><item>0</item><item>0</item><item>0</item><item>0</item><item>0</item><item>0</item></integer-array>
+    <string-array name="rep_each_g"><item>Every</item><item>Every</item><item>Every</item></string-array>
+    <string-array name="rep_ord_m"><item>first</item><item>second</item><item>third</item><item>fourth</item><item>fifth</item><item>last</item></string-array>
+    <string-array name="rep_ord_f"><item>first</item><item>second</item><item>third</item><item>fourth</item><item>fifth</item><item>last</item></string-array>
+    <string-array name="rep_ord_n"><item>first</item><item>second</item><item>third</item><item>fourth</item><item>fifth</item><item>last</item></string-array>
 </resources>

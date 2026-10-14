@@ -20,6 +20,7 @@ fun AppSettings.toJson(): JSONObject = JSONObject().apply {
     put("weekStartsSunday", weekStartsSunday)
     put("dayFrom", dayFrom)
     put("dayTo", dayTo)
+    put("durationBand", durationBand)
     put("birthdaysShown", birthdaysShown)
     put("birthdayNotify", birthdayNotify)
     put("birthdayNotifyAt", birthdayNotifyAt)
@@ -47,6 +48,7 @@ fun AppSettings.Companion.fromJson(j: JSONObject): AppSettings {
         weekStartsSunday = j.optBoolean("weekStartsSunday", false),
         dayFrom = j.optInt("dayFrom", 8),
         dayTo = j.optInt("dayTo", 18),
+        durationBand = j.optBoolean("durationBand", true),
         birthdaysShown = j.optBoolean("birthdaysShown", true),
         birthdayNotify = j.optBoolean("birthdayNotify", false),
         birthdayNotifyAt = j.optInt("birthdayNotifyAt", 540),

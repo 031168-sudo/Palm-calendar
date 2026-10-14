@@ -448,25 +448,59 @@ private fun DayBody(
         if (target > 0) listState.scrollToItem((target - 1).coerceAtLeast(0))
     }
 
+    // Длительность событий: дорожки слева от плашек и бледная заливка (как скобка длительности в Palm)
+    val band = settings.durationBand
+    val dayStart = date.atStartOfDay()
+    fun minutesOf(dt: LocalDateTime) = minutesBetween(dayStart, dt).toInt().coerceIn(0, 1440)
+    class Ev(val e: PalmEvent, val s: Int, val en: Int, val lane: Int)
+    val laneEnds = ArrayList<Int>()
+    val evs = timed.sortedBy { it.start }.map { e ->
+        val st = minutesOf(e.start)
+        val en = minutesOf(e.end)
+        var lane = laneEnds.indexOfFirst { it <= st }
+        if (lane < 0) { laneEnds += 0; lane = laneEnds.size - 1 }
+        laneEnds[lane] = maxOf(en, st + 1)
+        Ev(e, st, en, minOf(lane, 3))
+    }.filter { it.en > it.s }
+    val laneCount = if (evs.isEmpty()) 0 else evs.maxOf { it.lane } + 1
+    fun decorFor(t: Int, tNext: Int): LaneDecor {
+        val spans = evs.mapNotNull { v ->
+            if (tNext <= t) {
+                if (v.s <= t && v.en > t) LaneSpan(v.lane, Color(v.e.color), 0f, 1f, false, false) else null
+            } else {
+                val a = maxOf(v.s, t)
+                val b = minOf(v.en, tNext)
+                if (b > a) LaneSpan(
+                    v.lane, Color(v.e.color), (a - t).toFloat() / (tNext - t), (b - t).toFloat() / (tNext - t),
+                    startsHere = v.s in t until tNext, endsHere = v.en in (t + 1)..tNext,
+                ) else null
+            }
+        }
+        return LaneDecor(spans, laneCount, band)
+    }
+
     LazyColumn(modifier.fillMaxWidth(), state = listState) {
         items(rows) { row ->
             when (row) {
-                is DayRow.AllDay -> EventLine(row.e, timeLabel = "•", highlight = false, onIcon, onEvent)
+                is DayRow.AllDay -> EventLine(row.e, timeLabel = "•", highlight = false, onIcon, onEvent, decor = LaneDecor(emptyList(), laneCount, band))
                 is DayRow.Slot -> {
                     val label = LocalTime.of(row.hour, 0).format(HM)
                     val hl = isToday && row.hour == nowHour
                     val work = row.hour in settings.dayFrom..settings.dayTo
                     val rule = if (work) Palm.rule else Palm.offRule
-                    if (row.events.isEmpty()) {
-                        EmptyLine(label, hl, rule) { onSlot(row.hour) }
-                    } else {
-                        // Если первое событие не ровно в начале часа — сам час остаётся отдельной строкой, как на Palm
-                        val startsOnHour = row.events.first().start.minute == 0
-                        if (!startsOnHour) EmptyLine(label, hl, rule) { onSlot(row.hour) }
-                        row.events.forEachIndexed { i, e ->
-                            val t = if (e.start.minute == 0 && i == 0) label else e.start.format(HM)
-                            EventLine(e, t, hl && i == 0 && startsOnHour, onIcon, onEvent, ruleColor = rule)
-                        }
+                    val hourStart = row.hour * 60
+                    val hourEnd = hourStart + 60
+                    // Время начала каждой строки часа: сама «пустая» строка часа (если нужна) и события
+                    val startsOnHour = row.events.firstOrNull()?.start?.minute == 0
+                    val needEmpty = row.events.isEmpty() || !startsOnHour
+                    val evTimes = row.events.map { if (it.start.toLocalDate() < date) hourStart else it.start.hour * 60 + it.start.minute }
+                    val times = (if (needEmpty) listOf(hourStart) else emptyList()) + evTimes
+                    fun next(i: Int) = if (i + 1 < times.size) times[i + 1] else hourEnd
+                    if (needEmpty) EmptyLine(label, hl, rule, decorFor(times[0], next(0))) { onSlot(row.hour) }
+                    row.events.forEachIndexed { i, e ->
+                        val ti = i + (if (needEmpty) 1 else 0)
+                        val t = if (e.start.minute == 0 && i == 0) label else e.start.format(HM)
+                        EventLine(e, t, hl && i == 0 && startsOnHour, onIcon, onEvent, ruleColor = rule, decor = decorFor(times[ti], next(ti)))
                     }
                 }
             }
@@ -475,15 +509,17 @@ private fun DayBody(
 }
 
 @Composable
-private fun EmptyLine(label: String, highlight: Boolean, rule: Color, onClick: () -> Unit) {
+private fun EmptyLine(label: String, highlight: Boolean, rule: Color, decor: LaneDecor? = null, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
             .height(44.dp)
+            .laneDraw(decor)
             .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TimeLabel(label, highlight)
+        decor?.let { Spacer(Modifier.width(it.gutter)) }
         Box(Modifier.weight(1f).height(44.dp).padding(end = 12.dp).dottedRule(rule))
     }
 }

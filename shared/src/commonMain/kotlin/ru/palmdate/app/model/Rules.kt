@@ -37,6 +37,8 @@ fun matchRepeat(rrule: String?): String? {
         .associate { it.substringBefore("=") to it.substringAfter("=") }
     if (parts.keys.any { it !in setOf("FREQ", "BYDAY", "BYMONTHDAY", "BYMONTH") }) return ""
     val byDay = parts["BYDAY"]
+    // «Каждый второй вторник» и т.п. — не наша кнопка «Каждый месяц»
+    if (parts["FREQ"] == "MONTHLY" && (byDay != null || parts["BYMONTHDAY"]?.toIntOrNull()?.let { it < 1 } == true)) return ""
     return when (parts["FREQ"]) {
         "DAILY" -> if (byDay == null) "FREQ=DAILY" else ""
         "WEEKLY" -> when {

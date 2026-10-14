@@ -74,6 +74,7 @@ internal object Sample {
             mail = MailInfo(MailKind.REPLY, subject = "Счёт за сентябрь", peerName = "Иван Петров", peerAddr = "ivan@x.ru")),
         ev(6, "Звонок: Сергей Кузнецов", at(0, 16, 30), 15, EventType.CALL, sergey, outcome = Outcome.NO_ANSWER),
         ev(7, "Планёрка", at(0, 18), 60, null, color = RED),
+        ev(12, "Конференция", at(0, 12, 30), 300, null, color = GREEN),   // длинное: дорожки длительности и наложение
         ev(8, "Выезд: Большой театр", at(1, 8), 180, EventType.TRIP, color = GREEN),
         ev(9, "Встреча: Иван Петров", at(1, 14), 60, EventType.MEETING, ivan),
         ev(10, "Написать: Сергей Кузнецов", at(2, 10), 15, EventType.MAIL, sergey,

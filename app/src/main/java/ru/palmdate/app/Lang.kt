@@ -37,6 +37,9 @@ object Lang {
     /** Запомнить контекст приложения и прочитать сохранённый выбор. Можно вызывать повторно. */
     fun init(context: Context) {
         L10n.provider = AndroidStrings
+        ru.palmdate.app.model.RepeatHooks.describe = { r ->
+            ru.palmdate.app.model.RepeatSpec.parse(r, java.time.LocalDate.now())?.describe()
+        }
         val appCtx = context.applicationContext ?: context
         if (app !== appCtx) { app = appCtx; cache.clear() }
         mode = runCatching {

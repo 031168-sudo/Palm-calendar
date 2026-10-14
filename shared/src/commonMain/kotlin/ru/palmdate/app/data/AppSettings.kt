@@ -31,6 +31,7 @@ data class AppSettings(
     val weekStartsSunday: Boolean = false,
     val dayFrom: Int = 8,
     val dayTo: Int = 18,
+    val durationBand: Boolean = true,   // бледная заливка длительности событий в «Дне»
     // Контакты
     val birthdaysShown: Boolean = true,
     val birthdayNotify: Boolean = false,

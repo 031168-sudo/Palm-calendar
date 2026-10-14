@@ -162,8 +162,13 @@ fun repeatOptions(): List<Pair<String?, String>> = listOf(
     "FREQ=YEARLY" to str("repeat_yearly"),
 )
 
+/** Подпись для «своего» правила повтора словами; платформа может её подключить (на Android — RepeatSpec). */
+object RepeatHooks {
+    var describe: (String?) -> String? = { null }
+}
+
 fun repeatLabel(rrule: String?): String = when (val m = matchRepeat(rrule)) {
-    "" -> str("repeat_custom")
+    "" -> RepeatHooks.describe(rrule) ?: str("repeat_custom")
     else -> repeatOptions().first { it.first == m }.second
 }
 

@@ -34,6 +34,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -62,6 +65,33 @@ fun TimeLabel(text: String, highlight: Boolean) {
 }
 
 
+/** Отрезок длительности события в одной строке: доли высоты строки, дорожка, где начинается/кончается. */
+class LaneSpan(val lane: Int, val color: Color, val from: Float, val to: Float, val startsHere: Boolean, val endsHere: Boolean)
+
+/** Дорожки длительности дня: отрезки этой строки, число дорожек, заливка. */
+class LaneDecor(val spans: List<LaneSpan>, val lanes: Int, val band: Boolean) {
+    val gutter get() = if (lanes == 0) 0.dp else (lanes * 6 + 4).dp
+}
+
+/** Рисует за строкой: бледную заливку на ширину строки и вертикальные линии длительности в своей дорожке. */
+fun Modifier.laneDraw(d: LaneDecor?): Modifier = if (d == null || d.spans.isEmpty()) this else drawBehind {
+    val labelW = 52.dp.toPx()
+    d.spans.forEach { sp ->
+        val y0 = sp.from * size.height
+        val y1 = sp.to * size.height
+        if (d.band) {
+            drawRect(
+                sp.color.copy(alpha = Palm.tintAlpha * 0.9f),
+                Offset(labelW, y0), Size(size.width - labelW, y1 - y0),
+            )
+        }
+        val x = labelW + 2.dp.toPx() + sp.lane * 6.dp.toPx() + 3.dp.toPx()
+        drawLine(sp.color, Offset(x, y0), Offset(x, y1), strokeWidth = 3.dp.toPx())
+        if (sp.startsHere) drawCircle(sp.color, 3.dp.toPx(), Offset(x, y0 + 3.dp.toPx()))
+        if (sp.endsHere) drawCircle(sp.color, 3.dp.toPx(), Offset(x, y1 - 3.dp.toPx()))
+    }
+}
+
 /** Бледная подсветка цветом календаря — как пастельные категории на Palm. */
 fun calTint(color: Int) = Color(color).copy(alpha = Palm.tintAlpha)
 
@@ -78,12 +108,14 @@ fun EventLine(
     onEvent: (PalmEvent) -> Unit,
     primary: String? = null, // свой заголовок строки (в истории контакта имя не нужно)
     ruleColor: Color = Palm.rule,
+    decor: LaneDecor? = null,
 ) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 44.dp),
+        Modifier.fillMaxWidth().heightIn(min = 44.dp).laneDraw(decor),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TimeLabel(timeLabel, highlight)
+        decor?.let { Spacer(Modifier.width(it.gutter)) }
         Row(
             Modifier
                 .weight(1f)
