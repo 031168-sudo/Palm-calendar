@@ -1,6 +1,5 @@
 package ru.palmdate.app.ui
 
-import ru.palmdate.app.R
 import ru.palmdate.app.str
 import ru.palmdate.app.plu
 import androidx.compose.foundation.background
@@ -31,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.EventType
@@ -43,25 +41,24 @@ import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.ui.theme.Palm
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
-import java.time.format.TextStyle
 import kotlinx.datetime.daysUntil
 import ru.palmdate.app.time.*
 
 private fun daysAgo(d: LocalDate): String {
     val n = d.daysUntil(LocalDate.now())
     return when (n) {
-        0 -> str(R.string.today)
-        1 -> str(R.string.yesterday)
-        else -> plu(R.plurals.count_days_ago, n)
+        0 -> str("today")
+        1 -> str("yesterday")
+        else -> plu("count_days_ago", n)
     }
 }
 
 private fun daysAhead(d: LocalDate): String {
     val n = LocalDate.now().daysUntil(d)
     return when (n) {
-        0 -> str(R.string.today)
-        1 -> str(R.string.tomorrow)
-        else -> plu(R.plurals.count_in_days, n)
+        0 -> str("today")
+        1 -> str("tomorrow")
+        else -> plu("count_in_days", n)
     }
 }
 
@@ -71,11 +68,11 @@ private fun typeCount(events: List<PalmEvent>): String {
     val mails = events.count { it.type == EventType.MAIL }
     val other = events.size - calls - meetings - mails
     return listOfNotNull(
-        calls.takeIf { it > 0 }?.let { plu(R.plurals.count_calls, it) },
-        meetings.takeIf { it > 0 }?.let { plu(R.plurals.count_meetings, it) },
-        mails.takeIf { it > 0 }?.let { plu(R.plurals.count_mails, it) },
-        other.takeIf { it > 0 }?.let { plu(R.plurals.count_other, it) },
-    ).joinToString(", ").ifEmpty { str(R.string.hist_nothing) }
+        calls.takeIf { it > 0 }?.let { plu("count_calls", it) },
+        meetings.takeIf { it > 0 }?.let { plu("count_meetings", it) },
+        mails.takeIf { it > 0 }?.let { plu("count_mails", it) },
+        other.takeIf { it > 0 }?.let { plu("count_other", it) },
+    ).joinToString(", ").ifEmpty { str("hist_nothing") }
 }
 
 /** Итоги писем: "отправлено 2, не отправлено 1, без отметки 1". */
@@ -84,9 +81,9 @@ private fun mailCount(events: List<PalmEvent>): String {
     val notSent = events.count { it.outcome != null && it.outcome != Outcome.DONE }
     val none = events.count { it.outcome == null }
     return listOfNotNull(
-        sent.takeIf { it > 0 }?.let { str(R.string.hist_sent, it) },
-        notSent.takeIf { it > 0 }?.let { str(R.string.hist_not_sent, it) },
-        none.takeIf { it > 0 }?.let { str(R.string.hist_no_outcome, it) },
+        sent.takeIf { it > 0 }?.let { str("hist_sent", it) },
+        notSent.takeIf { it > 0 }?.let { str("hist_not_sent", it) },
+        none.takeIf { it > 0 }?.let { str("hist_no_outcome", it) },
     ).joinToString(", ")
 }
 
@@ -98,11 +95,11 @@ private fun outcomeCount(events: List<PalmEvent>): String {
     val failed = events.count { it.outcome?.kind == OutcomeKind.BAD } - noAnswer
     val none = events.count { it.outcome == null }
     return listOfNotNull(
-        done.takeIf { it > 0 }?.let { str(R.string.hist_done, it) },
-        noAnswer.takeIf { it > 0 }?.let { str(R.string.hist_no_answer, it) },
-        moved.takeIf { it > 0 }?.let { str(R.string.hist_moved, it) },
-        failed.takeIf { it > 0 }?.let { str(R.string.hist_failed, it) },
-        none.takeIf { it > 0 }?.let { str(R.string.hist_no_outcome, it) },
+        done.takeIf { it > 0 }?.let { str("hist_done", it) },
+        noAnswer.takeIf { it > 0 }?.let { str("hist_no_answer", it) },
+        moved.takeIf { it > 0 }?.let { str("hist_moved", it) },
+        failed.takeIf { it > 0 }?.let { str("hist_failed", it) },
+        none.takeIf { it > 0 }?.let { str("hist_no_outcome", it) },
     ).joinToString(", ")
 }
 
@@ -124,7 +121,6 @@ fun ContactHistorySheet(
     onEvent: (PalmEvent) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val ctx = LocalContext.current
     var events by remember { mutableStateOf<List<PalmEvent>?>(null) }
     LaunchedEffect(contact.lookupKey) { events = load(contact.lookupKey) }
 
@@ -142,7 +138,7 @@ fun ContactHistorySheet(
                     contact.phone?.let { Text(it, style = Palm.small, color = Palm.inkSoft) }
                 }
                 val call = LocalCaller.current
-                PalmButton(str(R.string.action_call), filled = true) { call(contact) }
+                PalmButton(str("action_call"), filled = true) { call(contact) }
             }
             Spacer(Modifier.height(8.dp))
             Box(Modifier.fillMaxWidth().height(2.dp).background(Palm.navy))
@@ -150,12 +146,12 @@ fun ContactHistorySheet(
 
         val list = events
         if (list == null) {
-            Text(str(R.string.loading), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(16.dp))
+            Text(str("loading"), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(16.dp))
             return@PalmSheet
         }
         if (list.isEmpty()) {
             Text(
-                str(R.string.hist_empty),
+                str("hist_empty"),
                 style = Palm.body, color = Palm.inkSoft, modifier = Modifier.padding(16.dp),
             )
             return@PalmSheet
@@ -170,24 +166,24 @@ fun ContactHistorySheet(
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             past.firstOrNull()?.let { e ->
                 val res = e.outcome?.let { ", " + it.label(e.type).lowercase() } ?: ""
-                Summary(str(R.string.hist_last), "${(e.typeLabel ?: str(R.string.type_other)).lowercase()}, ${daysAgo(e.start.toLocalDate())}$res")
-            } ?: Summary(str(R.string.hist_last), str(R.string.hist_none_yet))
+                Summary(str("hist_last"), "${(e.typeLabel ?: str("type_other")).lowercase()}, ${daysAgo(e.start.toLocalDate())}$res")
+            } ?: Summary(str("hist_last"), str("hist_none_yet"))
             // Последний состоявшийся — если последний был неудачным
             if (past.firstOrNull()?.outcome != Outcome.DONE) {
                 past.firstOrNull { it.outcome == Outcome.DONE }?.let { e ->
-                    Summary(str(R.string.hist_completed), "${(e.typeLabel ?: str(R.string.type_other)).lowercase()}, ${daysAgo(e.start.toLocalDate())}")
+                    Summary(str("hist_completed"), "${(e.typeLabel ?: str("type_other")).lowercase()}, ${daysAgo(e.start.toLocalDate())}")
                 }
             }
             future.firstOrNull()?.let { e ->
-                Summary(str(R.string.hist_next), "${(e.typeLabel ?: str(R.string.type_other)).lowercase()}, ${daysAhead(e.start.toLocalDate())}")
+                Summary(str("hist_next"), "${(e.typeLabel ?: str("type_other")).lowercase()}, ${daysAhead(e.start.toLocalDate())}")
             }
-            Summary(str(R.string.hist_30_days), typeCount(past.filter { it.start.toLocalDate() >= today.minusDays(30) }))
+            Summary(str("hist_30_days"), typeCount(past.filter { it.start.toLocalDate() >= today.minusDays(30) }))
             val year = past.filter { it.start.toLocalDate() >= today.minusYears(1) }
-            Summary(str(R.string.hist_year), typeCount(year))
+            Summary(str("hist_year"), typeCount(year))
             val yearNoMail = year.filter { it.type != EventType.MAIL }
-            if (yearNoMail.any { it.outcome != null }) Summary(str(R.string.hist_year_outcomes), outcomeCount(yearNoMail))
+            if (yearNoMail.any { it.outcome != null }) Summary(str("hist_year_outcomes"), outcomeCount(yearNoMail))
             val yearMail = year.filter { it.type == EventType.MAIL }
-            if (yearMail.isNotEmpty()) Summary(str(R.string.hist_year_mails), mailCount(yearMail))
+            if (yearMail.isNotEmpty()) Summary(str("hist_year_mails"), mailCount(yearMail))
         }
         Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(Palm.rule))
 
@@ -204,8 +200,8 @@ fun ContactHistorySheet(
                     add(HRow.Item(e))
                 }
             }
-            addGroup(str(R.string.hist_upcoming), future)
-            addGroup(str(R.string.hist_past), past)
+            addGroup(str("hist_upcoming"), future)
+            addGroup(str("hist_past"), past)
         }
 
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp).padding(bottom = 16.dp)) {
@@ -221,7 +217,7 @@ fun ContactHistorySheet(
                     )
                     is HRow.Item -> {
                         val d = r.e.start.toLocalDate()
-                        val dow = d.dayOfWeek.getDisplayName(TextStyle.SHORT, UiLocale)
+                        val dow = dayOfWeekName(d.dayOfWeek, NameStyle.SHORT)
                         val title = (if (r.e.type == EventType.MAIL) r.e.displayTitle else r.e.typeLabel ?: r.e.title) +
                             if (r.e.allDay) "" else ", " + r.e.start.format(HM)
                         EventLine(

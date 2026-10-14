@@ -1,9 +1,7 @@
 package ru.palmdate.app.ui
 
 import ru.palmdate.app.plu
-import ru.palmdate.app.R
 import ru.palmdate.app.str
-import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,12 +49,12 @@ import ru.palmdate.app.ui.theme.Palm
 import kotlinx.datetime.LocalDate
 import ru.palmdate.app.time.*
 
-private enum class StatPeriod(@StringRes val labelRes: Int, val from: () -> LocalDate) {
-    MONTH(R.string.stats_30_days, { LocalDate.now().minusDays(30) }),
-    YEAR(R.string.stats_year, { LocalDate.now().minusYears(1) }),
-    ALL(R.string.stats_all, { LocalDate.now().minusYears(10) });
+private enum class StatPeriod(val labelKey: String, val from: () -> LocalDate) {
+    MONTH("stats_30_days", { LocalDate.now().minusDays(30) }),
+    YEAR("stats_year", { LocalDate.now().minusYears(1) }),
+    ALL("stats_all", { LocalDate.now().minusYears(10) });
 
-    val label: String get() = str(labelRes)
+    val label: String get() = str(labelKey)
 }
 
 private enum class StatSort { TOTAL, CALLS, MEETINGS, MAILS }
@@ -89,7 +87,7 @@ fun StatsSheet(
     PalmSheet(onDismissRequest = onDismiss, fixedHeight = false) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(str(R.string.stats_title), style = Palm.title, color = Palm.navy, modifier = Modifier.weight(1f))
+                Text(str("stats_title"), style = Palm.title, color = Palm.navy, modifier = Modifier.weight(1f))
                 // Период
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     StatPeriod.entries.forEach { p ->
@@ -108,7 +106,7 @@ fun StatsSheet(
                 }
             }
             Text(
-                str(R.string.stats_subtitle),
+                str("stats_subtitle"),
                 style = Palm.small, color = Palm.inkSoft,
                 modifier = Modifier.padding(top = 2.dp),
             )
@@ -116,22 +114,22 @@ fun StatsSheet(
 
             // Заголовки столбцов — по ним сортировка
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Header(str(R.string.stats_col_contact), sort == StatSort.TOTAL, Modifier.weight(1f), TextAlign.Start) { sort = StatSort.TOTAL }
-                Header(str(R.string.stats_col_calls), sort == StatSort.CALLS, Modifier.width(COL_W)) { sort = StatSort.CALLS }
-                Header(str(R.string.stats_col_meetings), sort == StatSort.MEETINGS, Modifier.width(COL_W)) { sort = StatSort.MEETINGS }
-                Header(str(R.string.stats_col_mails), sort == StatSort.MAILS, Modifier.width(COL_W)) { sort = StatSort.MAILS }
+                Header(str("stats_col_contact"), sort == StatSort.TOTAL, Modifier.weight(1f), TextAlign.Start) { sort = StatSort.TOTAL }
+                Header(str("stats_col_calls"), sort == StatSort.CALLS, Modifier.width(COL_W)) { sort = StatSort.CALLS }
+                Header(str("stats_col_meetings"), sort == StatSort.MEETINGS, Modifier.width(COL_W)) { sort = StatSort.MEETINGS }
+                Header(str("stats_col_mails"), sort == StatSort.MAILS, Modifier.width(COL_W)) { sort = StatSort.MAILS }
             }
             Box(Modifier.fillMaxWidth().height(2.dp).background(Palm.navy))
         }
 
         val list = rows
         if (list == null) {
-            Text(str(R.string.stats_counting), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(16.dp))
+            Text(str("stats_counting"), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(16.dp))
             return@PalmSheet
         }
         if (list.isEmpty()) {
             Text(
-                str(R.string.stats_empty),
+                str("stats_empty"),
                 style = Palm.body, color = Palm.inkSoft, modifier = Modifier.padding(16.dp),
             )
             return@PalmSheet
@@ -148,10 +146,10 @@ fun StatsSheet(
             items(sorted, key = { it.contact.lookupKey }) { s -> StatRow(s, sort, onAction) }
             item {
                 Text(
-                    "${plu(R.plurals.count_people, sorted.size)} · " +
-                        "${plu(R.plurals.count_calls, sorted.sumOf { it.calls })} · " +
-                        plu(R.plurals.count_meetings, sorted.sumOf { it.meetings }) + " · " +
-                        plu(R.plurals.count_mails, sorted.sumOf { it.mails }),
+                    "${plu("count_people", sorted.size)} · " +
+                        "${plu("count_calls", sorted.sumOf { it.calls })} · " +
+                        plu("count_meetings", sorted.sumOf { it.meetings }) + " · " +
+                        plu("count_mails", sorted.sumOf { it.mails }),
                     style = Palm.small, color = Palm.inkSoft,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                 )
@@ -205,10 +203,10 @@ private fun StatRow(s: ContactStat, sort: StatSort, onAction: (StatAction) -> Un
 
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             val c = s.contact
-            MenuItem(str(R.string.stats_menu_call_now), Icons.Outlined.Phone) { menu = false; onAction(StatAction.CallNow(c)) }
-            MenuItem(str(R.string.stats_menu_new_call), EventType.CALL.icon) { menu = false; onAction(StatAction.Create(EventType.CALL, c)) }
-            MenuItem(str(R.string.stats_menu_new_meeting), EventType.MEETING.icon) { menu = false; onAction(StatAction.Create(EventType.MEETING, c)) }
-            MenuItem(str(R.string.stats_menu_history), Icons.Outlined.History) { menu = false; onAction(StatAction.History(c)) }
+            MenuItem(str("stats_menu_call_now"), Icons.Outlined.Phone) { menu = false; onAction(StatAction.CallNow(c)) }
+            MenuItem(str("stats_menu_new_call"), EventType.CALL.icon) { menu = false; onAction(StatAction.Create(EventType.CALL, c)) }
+            MenuItem(str("stats_menu_new_meeting"), EventType.MEETING.icon) { menu = false; onAction(StatAction.Create(EventType.MEETING, c)) }
+            MenuItem(str("stats_menu_history"), Icons.Outlined.History) { menu = false; onAction(StatAction.History(c)) }
         }
     }
 }
