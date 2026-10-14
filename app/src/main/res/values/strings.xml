@@ -308,6 +308,8 @@
     <string name="settings_data_hint">A copy of everything DateBook stores itself: event types and contacts, outcomes, chosen numbers and addresses, settings. The events themselves are already in Google.</string>
     <string name="settings_defaults">Event defaults</string>
     <string name="settings_download">Download</string>
+    <string name="time_start">Start</string>
+    <string name="time_end">End</string>
     <string name="settings_duration">Duration</string>
     <string name="settings_from">from</string>
     <string name="settings_hint_custom">Usually IMAP uses port 993 and SMTP uses port 465 (SSL).</string>

@@ -374,7 +374,7 @@ class CalendarRepository(
             if (!values.containsKey(Events.DURATION)) {
                 val start = values.getAsLong(Events.DTSTART)
                 val end = values.getAsLong(Events.DTEND)
-                if (start != null && end != null) values.put(Events.DURATION, "P${(end - start) / 1000}S")
+                if (start != null && end != null) values.put(Events.DURATION, secDuration(end - start))
             }
             values.remove(Events.DTEND)
         } else {
@@ -545,7 +545,7 @@ class CalendarRepository(
         } else {
             values.put(Events.RRULE, rrule)
             values.putNull(Events.DTEND)
-            values.put(Events.DURATION, if (allDay) "P${maxOf(1L, lengthMs / 86_400_000L)}D" else "P${lengthMs / 1000}S")
+            values.put(Events.DURATION, if (allDay) "P${maxOf(1L, lengthMs / 86_400_000L)}D" else secDuration(lengthMs))
         }
         if (resolver.update(uri, values, null, null) <= 0) error(str(R.string.err_change_repeat))
     }
@@ -624,7 +624,7 @@ class CalendarRepository(
                 val oldInstance = e.start.atZone(if (e.allDay) ZoneOffset.UTC else zone).toInstant().toEpochMilli()
                 val delta = start.atZone(zone).toInstant().toEpochMilli() - oldInstance
                 values.put(Events.DTSTART, seriesStart + delta)
-                values.put(Events.DURATION, "P${minutes * 60}S")
+                values.put(Events.DURATION, secDuration(minutes * 60_000L))
             }
             values.putNull(Events.DTEND)
         }
@@ -685,6 +685,9 @@ class CalendarRepository(
     /* ---------- Повторяющиеся события: изменения «с этого раза» ---------- */
 
     /** Серия: начало, правило, весь день ли, длительность раза и поля для копии. */
+    /** DURATION в секундах; ноль Android не принимает (событие 12:00–12:00) — минимум 1 секунда. */
+    private fun secDuration(ms: Long) = "P${maxOf(1L, ms / 1000)}S"
+
     private class Series(val start: Long, val rrule: String?, val allDay: Boolean, val lengthMs: Long, val values: ContentValues)
 
     private fun series(eventId: Long): Series {
@@ -728,7 +731,7 @@ class CalendarRepository(
             // начало, длительность и пояс — чтобы Android пересчитал разы серии
             put(Events.DTSTART, s.start)
             putNull(Events.DTEND)
-            put(Events.DURATION, if (s.allDay) "P${maxOf(1L, s.lengthMs / 86_400_000L)}D" else "P${s.lengthMs / 1000}S")
+            put(Events.DURATION, if (s.allDay) "P${maxOf(1L, s.lengthMs / 86_400_000L)}D" else secDuration(s.lengthMs))
             put(Events.ALL_DAY, if (s.allDay) 1 else 0)
             s.values.getAsString(Events.EVENT_TIMEZONE)?.let { put(Events.EVENT_TIMEZONE, it) }
         }
@@ -757,7 +760,7 @@ class CalendarRepository(
                 put(Events.DTEND, start + lengthMs)
             } else {
                 put(Events.RRULE, rrule)
-                put(Events.DURATION, if (allDay) "P${maxOf(1L, lengthMs / 86_400_000L)}D" else "P${lengthMs / 1000}S")
+                put(Events.DURATION, if (allDay) "P${maxOf(1L, lengthMs / 86_400_000L)}D" else secDuration(lengthMs))
             }
         }
         val reminders = reminders(oldId)
