@@ -1,6 +1,5 @@
 package ru.palmdate.app.ui
 
-import ru.palmdate.app.R
 import ru.palmdate.app.str
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -56,9 +55,8 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.daysUntil
 import ru.palmdate.app.time.*
-import java.time.format.TextStyle
 
-private fun dayLetter(d: LocalDate) = d.dayOfWeek.getDisplayName(TextStyle.NARROW, UiLocale).uppercase()
+private fun dayLetter(d: LocalDate) = dayOfWeekName(d.dayOfWeek, NameStyle.NARROW).uppercase()
 
 private fun List<PalmEvent>.on(d: LocalDate) = filter { d in it.days() }
 
@@ -93,7 +91,7 @@ fun AgendaView(
                     if (d == today) {
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            str(R.string.today), style = Palm.small, color = Color.White,
+                            str("today"), style = Palm.small, color = Color.White,
                             modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Palm.navy)
                                 .padding(horizontal = 6.dp, vertical = 1.dp),
                         )
@@ -105,7 +103,7 @@ fun AgendaView(
             if (dayEvents.isEmpty()) {
                 item(key = "e$d") {
                     Text(
-                        str(R.string.views_no_events), style = Palm.small, color = Palm.rule,
+                        str("views_no_events"), style = Palm.small, color = Palm.rule,
                         modifier = Modifier.padding(start = 52.dp, top = 4.dp, bottom = 4.dp),
                     )
                 }
@@ -158,7 +156,7 @@ fun WeekView(
     var selected by remember(monday) { mutableStateOf<PalmEvent?>(null) }
 
     val timed = events.filter { !it.allDay }
-    val settings = ru.palmdate.app.data.SettingsStore.current
+    val settings = ru.palmdate.app.data.CurrentSettings.current
     // Все 24 часа; нерабочие (вне рабочих часов из настроек) — бледно-зелёным пунктиром
     val firstHour = 0
     val lastHour = 23
@@ -174,7 +172,7 @@ fun WeekView(
         ) {
             val s = selected
             if (s == null) {
-                Text(str(R.string.views_tap_event), style = Palm.small, color = Palm.inkSoft)
+                Text(str("views_tap_event"), style = Palm.small, color = Palm.inkSoft)
             } else {
                 s.type?.let { Icon(it.icon, null, tint = it.color, modifier = Modifier.size(18.dp)) }
                     ?: Box(Modifier.size(9.dp).clip(CircleShape).background(Color(s.color)))
@@ -366,7 +364,6 @@ private val MiniDay = androidx.compose.ui.text.TextStyle(
     fontSize = 10.sp,
     lineHeight = 10.sp,
     textAlign = TextAlign.Center,
-    platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
     lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
         alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
         trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,

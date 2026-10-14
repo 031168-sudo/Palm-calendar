@@ -110,19 +110,6 @@ import java.util.Locale
 /** Язык интерфейса — для названий месяцев, дней недели и дат. */
 internal val UiLocale: Locale get() = ru.palmdate.app.Lang.locale
 
-internal fun LocalDate.shortMonth() = month.getDisplayName(TextStyle.SHORT, UiLocale).trimEnd('.')
-internal fun LocalDate.pretty(): String {
-    val dow = dayOfWeek.getDisplayName(TextStyle.SHORT, UiLocale).replaceFirstChar { it.uppercase() }
-    // По-русски «Сб, 10 окт», по-английски «Sat, Oct 10»
-    return if (UiLocale.language == "ru") "$dow, $dayOfMonth ${shortMonth()}" else "$dow, ${shortMonth()} $dayOfMonth"
-}
-/** День и месяц: «10 окт» / «Oct 10». */
-internal fun LocalDate.dayMonth(): String =
-    if (UiLocale.language == "ru") "$dayOfMonth ${shortMonth()}" else "${shortMonth()} $dayOfMonth"
-
-internal fun LocalDate.monthTitle() =
-    month.getDisplayName(TextStyle.FULL_STANDALONE, UiLocale).replaceFirstChar { it.uppercase() }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DayScreen(vm: DayViewModel) {
@@ -718,17 +705,6 @@ private fun DayBody(
 }
 
 @Composable
-internal fun TimeLabel(text: String, highlight: Boolean) {
-    Text(
-        text,
-        style = Palm.time,
-        color = if (highlight) Palm.nowLine else Palm.inkSoft,
-        textAlign = TextAlign.End,
-        modifier = Modifier.width(52.dp).padding(end = 10.dp),
-    )
-}
-
-@Composable
 private fun EmptyLine(label: String, highlight: Boolean, rule: Color, onClick: () -> Unit) {
     Row(
         Modifier
@@ -739,123 +715,6 @@ private fun EmptyLine(label: String, highlight: Boolean, rule: Color, onClick: (
     ) {
         TimeLabel(label, highlight)
         Box(Modifier.weight(1f).height(44.dp).padding(end = 12.dp).dottedRule(rule))
-    }
-}
-
-/** Бледная подсветка цветом календаря — как пастельные категории на Palm. */
-internal fun calTint(color: Int) = Color(color).copy(alpha = Palm.tintAlpha)
-
-/**
- * Строка события: время · [полоска календаря | иконка типа | имя и подпись].
- * Иконка — в цвете типа, полоска и подсветка — в цвете календаря Google.
- */
-@Composable
-internal fun EventLine(
-    e: PalmEvent,
-    timeLabel: String,
-    highlight: Boolean,
-    onIcon: (PalmEvent) -> Unit,
-    onEvent: (PalmEvent) -> Unit,
-    primary: String? = null, // свой заголовок строки (в истории контакта имя не нужно)
-    ruleColor: Color = Palm.rule,
-) {
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 44.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        TimeLabel(timeLabel, highlight)
-        Row(
-            Modifier
-                .weight(1f)
-                .heightIn(min = 44.dp)
-                .padding(end = 12.dp)
-                .dottedRule(ruleColor),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            val faded = e.outcome == Outcome.CANCELLED
-            Row(
-                Modifier
-                    .weight(1f)
-                    .padding(vertical = 3.dp)
-                    .height(IntrinsicSize.Min)
-                    .alpha(if (faded) 0.5f else 1f)
-                    .clip(RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp))
-                    .background(calTint(e.color)),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Полоска календаря
-                Box(Modifier.width(3.dp).fillMaxHeight().background(Color(e.color)))
-                // Иконка типа — тап по ней сразу выполняет действие (позвонить / маршрут / отметить задачу)
-                Box(
-                    Modifier.size(34.dp).clip(CircleShape).clickable { onIcon(e) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val type = e.type
-                    when {
-                        // Задача — чекбокс, как в Palm To Do
-                        type == EventType.TASK -> Icon(
-                            when (e.outcome) {
-                                Outcome.DONE -> Icons.Outlined.CheckBox
-                                Outcome.NOT_DONE -> Icons.Outlined.DisabledByDefault
-                                else -> Icons.Outlined.CheckBoxOutlineBlank
-                            },
-                            type.label, tint = type.color, modifier = Modifier.size(22.dp),
-                        )
-                        e.fromContacts -> Icon(Icons.Outlined.Cake, str(R.string.type_birthday), tint = EventType.BIRTHDAY.color, modifier = Modifier.size(20.dp))
-                        type != null -> Icon(type.icon, type.label, tint = type.color, modifier = Modifier.size(20.dp))
-                        else -> Box(Modifier.size(9.dp).clip(CircleShape).background(Color(e.color)))
-                    }
-                    if (type != EventType.TASK) e.outcome?.let { OutcomeBadge(it, Modifier.align(Alignment.BottomEnd)) }
-                }
-                Column(
-                    Modifier.weight(1f).clickable { onEvent(e) }.padding(vertical = 5.dp).padding(end = 6.dp),
-                ) {
-                    val struck = e.outcome == Outcome.CANCELLED || (e.type == EventType.TASK && e.outcome == Outcome.DONE)
-                    Text(
-                        primary ?: (if (e.type == EventType.MAIL) e.displayTitle else e.contact?.name ?: e.displayTitle),
-                        style = Palm.body.copy(textDecoration = if (struck) TextDecoration.LineThrough else null),
-                        color = if (struck) Palm.inkSoft else Palm.ink,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                    val sub = buildList {
-                        // Итог важнее типа: "Не дозвонился — перезвонить после обеда"
-                        e.outcome?.let { o -> add(o.label(e.type) + (e.outcomeNote?.let { " — $it" } ?: "")) }
-                        if (primary == null && e.outcome == null) {
-                            // У письма вместо типа — от кого / кому
-                            val m = e.mail
-                            if (e.type == EventType.MAIL && m?.peer != null) {
-                                add(str(if (m.kind == ru.palmdate.app.model.MailKind.REPLY) R.string.mail_from else R.string.mail_to_peer, m.peer ?: ""))
-                            } else e.typeLabel?.let { add(it) }
-                        }
-                        if (!e.allDay && e.end.isAfter(e.start)) add(str(R.string.until_time, e.end.format(HM)))
-                        if (e.outcome == null) e.note?.let { add(it.lineSequence().first()) }
-                    }.joinToString(" · ")
-                    if (sub.isNotEmpty() || e.hasFiles || e.hasAlarm != null) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            // Значки в начале второй строки: колокольчик напоминания, затем документы выезда
-                            e.hasAlarm?.let { on ->
-                                Icon(
-                                    if (on) Icons.Outlined.Notifications else Icons.Outlined.NotificationsOff,
-                                    str(if (on) R.string.has_reminder else R.string.no_reminder),
-                                    tint = Palm.inkSoft, modifier = Modifier.size(14.dp),
-                                )
-                                if (e.hasFiles || sub.isNotEmpty()) Spacer(Modifier.width(4.dp))
-                            }
-                            if (e.hasFiles) {
-                                Icon(
-                                    Icons.Outlined.Description, str(R.string.has_documents),
-                                    tint = Palm.inkSoft, modifier = Modifier.size(14.dp),
-                                )
-                                if (sub.isNotEmpty()) Spacer(Modifier.width(4.dp))
-                            }
-                            if (sub.isNotEmpty()) {
-                                Text(sub, style = Palm.small, color = Palm.inkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -969,19 +828,4 @@ private fun BarIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, label
             .border(1.dp, Palm.navy, RoundedCornerShape(10.dp)).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, label, tint = Palm.navy, modifier = Modifier.size(22.dp)) }
-}
-
-/** Значок итога на иконке события: галочка, крестик или стрелка переноса. */
-@Composable
-internal fun OutcomeBadge(o: Outcome, modifier: Modifier = Modifier) {
-    val (bg, icon) = when (o.kind) {
-        OutcomeKind.GOOD -> Color(0xFF2E7D32) to Icons.Filled.Check
-        OutcomeKind.BAD -> Color(0xFFC0392B) to Icons.Filled.Close
-        OutcomeKind.MOVED -> Palm.navy to Icons.AutoMirrored.Filled.Redo
-    }
-    Box(
-        modifier.padding(1.dp).size(14.dp).clip(CircleShape).background(Palm.paper).padding(1.5.dp)
-            .clip(CircleShape).background(bg),
-        contentAlignment = Alignment.Center,
-    ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(9.dp)) }
 }

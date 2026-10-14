@@ -13,6 +13,12 @@ interface StringProvider {
 
     /** Языки, на которых могли быть записаны заголовки и итоги. */
     val tags: List<String>
+
+    /** Выбранный язык интерфейса: "ru" или "en". */
+    val language: String
+
+    /** Строка с числом: «3 звонка» / «3 calls»; число подставляется в %d. */
+    fun plural(key: String, n: Int): String
 }
 
 object L10n {
@@ -23,4 +29,6 @@ object L10n {
     fun str(key: String, vararg args: Any): String = p().str(key, *args)
     fun strIn(tag: String, key: String): String = p().strIn(tag, key)
     val tags: List<String> get() = p().tags
+    val language: String get() = p().language
+    fun plural(key: String, n: Int): String = p().plural(key, n)
 }

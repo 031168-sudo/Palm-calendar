@@ -128,4 +128,14 @@ private object AndroidStrings : StringProvider {
     override fun strIn(tag: String, key: String): String = Lang.strIn(tag, id(key))
 
     override val tags: List<String> get() = Lang.TAGS
+
+    override val language: String get() = Lang.locale.language
+
+    private val pluralIds = java.util.concurrent.ConcurrentHashMap<String, Int>()
+
+    override fun plural(key: String, n: Int): String {
+        val c = Lang.context
+        val id = pluralIds.getOrPut(key) { c.resources.getIdentifier(key, "plurals", c.packageName).also { require(it != 0) { "Нет строки $key" } } }
+        return c.resources.getQuantityString(id, n, n)
+    }
 }

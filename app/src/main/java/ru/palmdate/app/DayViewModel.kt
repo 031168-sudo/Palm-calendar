@@ -63,11 +63,6 @@ data class CalState(
 }
 
 /** Начало недели — из настроек: понедельник или воскресенье. */
-fun firstDayOfWeek(): DayOfWeek =
-    if (ru.palmdate.app.data.SettingsStore.current.weekStartsSunday) DayOfWeek.SUNDAY else DayOfWeek.MONDAY
-
-fun weekStart(d: LocalDate): LocalDate = d.previousOrSame(firstDayOfWeek())
-fun monthGridStart(d: LocalDate): LocalDate = weekStart(d.withDayOfMonth(1))
 
 class DayViewModel(app: Application) : AndroidViewModel(app) {
     private val contacts = ContactsRepository(app)
