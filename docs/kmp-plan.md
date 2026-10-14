@@ -85,6 +85,12 @@
 `CalState.kt` (`ViewMode`, `CalState`), `ui/Hinge.kt` (сгиб без Android-типов), `ui/WindowSize.kt` (`expect/actual`, для iOS actual ещё нет).
 В `DayScreen.kt` остались окна и связка с `DayViewModel`.
 
-Дальше: карточка события и «Новое», история, статистика, настройки; потом `DayViewModel` за интерфейсами,
+Проход 8 (зелёный): `ui/NewEventSheet.kt` («Новое» + карточка события), `ui/PalmSheet.kt`, `ui/EmailList.kt`, `ui/ActionLabels.kt`.
+Всё Android-ское спрятано за `ui/Platform.kt`: `PlatformActions` (карты, открыть документ, «свой адрес», запомненный способ связи,
+окно «Настроить повтор»; на Android — `AndroidPlatform`, подключается в `MainActivity` через `LocalPlatform`), `expect`:
+`PlatformBackHandler`, `keepAboveKeyboard`, `rememberDocumentPicker`, `longDate`, `windowWidthDp`, `dayOfWeekName/monthName`.
+**Для iOS нужны `actual` ко всем этим `expect` и своя `PlatformActions`.** `RepeatSpec`/`RepeatDialog` пока остаются в приложении (java.time).
+
+Дальше: история контакта, статистика, настройки, календари; потом `DayViewModel` за интерфейсами,
 и только после этого — iOS-оболочка (Xcode-проект, actual для iOS, EventKit, контакты), сборка на macOS в GitHub Actions, TestFlight.
 Android-вещи (Context, Uri, диалоги выбора файлов, поворот и складной экран) прячем за интерфейсами.
