@@ -169,6 +169,23 @@ class CalendarRepository(
             }
         }
 
+        // Длительность из самого события: таблица Instances у некоторых событий хранит конец = началу (12:00–12:00),
+        // хотя в событии длительность верная (Google показывает её правильно)
+        val lengthById = HashMap<Long, Long>()
+        ids.chunked(500).forEach { chunk ->
+            resolver.query(
+                Events.CONTENT_URI, arrayOf("_id", Events.DTSTART, Events.DTEND, Events.DURATION),
+                "_id IN (${chunk.joinToString(",")})", null, null,
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val st = c.getLong(1)
+                    val en = if (c.isNull(2)) 0L else c.getLong(2)
+                    val len = if (en > st) en - st else c.getString(3)?.let { parseDuration(it) } ?: 0L
+                    if (len > 0) lengthById[c.getLong(0)] = len
+                }
+            }
+        }
+
         // Есть ли у события напоминание (любое) — колокольчик во второй строке
         val alarmIds = HashSet<Long>()
         ids.chunked(500).forEach { chunk ->
@@ -205,7 +222,7 @@ class CalendarRepository(
                 eventId = r.id,
                 title = r.title,
                 start = LocalDateTime.ofInstant(Instant.ofEpochMilli(r.begin), tz),
-                end = LocalDateTime.ofInstant(Instant.ofEpochMilli(r.end), tz),
+                end = LocalDateTime.ofInstant(Instant.ofEpochMilli(if (!r.allDay && r.end <= r.begin) r.begin + (lengthById[r.id] ?: 0L) else r.end), tz),
                 allDay = r.allDay,
                 type = type,
                 contact = contact,
@@ -586,19 +603,6 @@ class CalendarRepository(
             setTimeRaw(e, start, minutes)
         } catch (t: Exception) {
             throw IllegalStateException("${t.message} [${eventDump(e.eventId)}]", t)
-        }
-        // Проверяем, что календарь действительно принял время (а не молча оставил старое)
-        if (minutes > 0) {
-            val ms = start.atZone(zone).toInstant().toEpochMilli()
-            val ok = resolver.query(
-                instancesUri(ms - 60_000L, ms + 60_000L),
-                arrayOf(Instances.BEGIN, Instances.END, Instances.TITLE), "${Instances.TITLE} = ?", arrayOf(e.title), null,
-            )?.use { c ->
-                var found = false
-                while (c.moveToNext()) if (c.getLong(0) == ms && c.getLong(1) - ms == minutes * 60_000L) found = true
-                found
-            } ?: true
-            if (!ok) error(str(R.string.err_time_not_applied) + " [${eventDump(e.eventId)}]")
         }
     }
 
