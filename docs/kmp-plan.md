@@ -20,7 +20,13 @@
 Значки и цвета типов остались в приложении: `EventType.icon` и `EventType.color` — расширения в `app/.../model/Model.kt`
 (их нужно импортировать: `import ru.palmdate.app.model.icon` / `.color`). Новые строки для общего кода добавлять
 в `strings.xml` как обычно и использовать по имени.
-В приложении (`Model.kt`) остались `PalmEvent` и `NewEvent` — они на `java.time`.
+Даты: слой `shared/.../time/Time.kt` на `kotlinx-datetime` с теми же именами методов, что в `java.time`
+(`plusDays`, `atStartOfDay`, `LocalDate.now()`, `format(HM)`…): в файлах с датами нужен `import ru.palmdate.app.time.*`.
+Экраны, `DayViewModel`, `PalmEvent`, тесты — уже на `kotlinx.datetime`. Репозиторий календаря (Android) внутри считает
+зоны и миллисекунды на `java.time`, перевод на границе — `data/TimeBridge.kt`. Названия месяцев и дней недели —
+пока через `java.time` (`ui/DateNames.kt`), для iOS потребуется своя реализация.
+В приложении (`Model.kt`) остались `PalmEvent` и `NewEvent` — следующим проходом переезжают в `shared`
+(там понадобится убрать «умные приведения» типов у их полей, т.к. класс будет в другом модуле).
 Остальное — по очереди: сначала строки (общий слой вместо `R.string`), потом даты, потом `EventType`/`PalmEvent`/`Outcome`.
 
 ## Что уже без Android-зависимостей по импортам (кандидаты, после замены строк и дат)
