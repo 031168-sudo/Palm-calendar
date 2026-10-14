@@ -432,7 +432,7 @@ class CalendarRepository(
         val title = when {
             // Письмо: "Ответить: тема" / "Написать: Иван Петров"
             e.type == EventType.MAIL && e.mail != null -> {
-                val m: MailInfo = e.mail
+                val m: MailInfo = e.mail!!   // выше проверено: не null
                 val what = e.title?.takeIf { it.isNotBlank() }
                     ?: if (m.kind == MailKind.REPLY) m.subject?.takeIf { it.isNotBlank() } ?: m.peer else e.contact?.name ?: m.peer
                 if (what != null) "${m.kind.verb}: $what" else m.kind.verb
