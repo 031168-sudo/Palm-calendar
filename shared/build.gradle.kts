@@ -3,6 +3,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // Общий код для Android и iOS: чистая логика без Android и без строк интерфейса.
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.compose")
     id("com.android.library")
 }
 
@@ -19,6 +21,11 @@ kotlin {
         commonMain.dependencies {
             // Даты: на всех платформах одинаково (на iOS java.time нет)
             api("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
+            // Экраны на Compose Multiplatform: общие для Android и iOS
+            api(compose.runtime)
+            api(compose.foundation)
+            api(compose.material3)
+            api(compose.ui)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
