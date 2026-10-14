@@ -45,7 +45,6 @@ import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.ui.theme.Palm
 
 /** "Позвонить человеку": показывает выбор — телефон или мессенджер. */
-val LocalCaller = staticCompositionLocalOf<(ContactRef) -> Unit> { {} }
 
 /**
  * Держатель выбора способа звонка. Оборачивает экран; любое место внутри
