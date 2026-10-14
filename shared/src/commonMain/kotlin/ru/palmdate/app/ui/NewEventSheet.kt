@@ -1193,7 +1193,7 @@ fun EventDetailsSheet(
                         val callPrefs = platform.callPrefs
                         var callVia by remember(c.lookupKey) { mutableStateOf<String?>(null) }
                         LaunchedEffect(c.lookupKey) {
-                            callVia = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            callVia = kotlinx.coroutines.withContext(ru.palmdate.app.ioDispatcher) {
                                 callPrefs.rememberedLabel(c.lookupKey)
                             }
                         }
