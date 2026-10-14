@@ -221,6 +221,8 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
                 HourStepper(s.dayTo, (s.dayFrom + 1)..23) { v -> set { it.copy(dayTo = v) } }
             }
 
+            Toggle(str(R.string.settings_duration_band), s.durationBand) { v -> set { it.copy(durationBand = v) } }
+
             /* ---------- Календари и контакты ---------- */
             Section(str(R.string.settings_cal_contacts))
             SettingRow(str(R.string.calendars_title), str(R.string.settings_which_show), onClick = onCalendars)

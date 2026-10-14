@@ -311,6 +311,7 @@
     <string name="time_start">Start</string>
     <string name="time_end">End</string>
     <string name="err_time_not_applied">The calendar did not accept the new time</string>
+    <string name="settings_duration_band">Shade event duration in Day view</string>
     <string name="settings_duration">Duration</string>
     <string name="settings_from">from</string>
     <string name="settings_hint_custom">Usually IMAP uses port 993 and SMTP uses port 465 (SSL).</string>

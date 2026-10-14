@@ -40,6 +40,7 @@ data class AppSettings(
     val weekStartsSunday: Boolean = false,
     val dayFrom: Int = 8,
     val dayTo: Int = 18,
+    val durationBand: Boolean = true,   // бледная заливка длительности событий в «Дне»
     // Контакты
     val birthdaysShown: Boolean = true,
     val birthdayNotify: Boolean = false,
@@ -62,6 +63,7 @@ data class AppSettings(
         put("weekStartsSunday", weekStartsSunday)
         put("dayFrom", dayFrom)
         put("dayTo", dayTo)
+        put("durationBand", durationBand)
         put("birthdaysShown", birthdaysShown)
         put("birthdayNotify", birthdayNotify)
         put("birthdayNotifyAt", birthdayNotifyAt)
@@ -90,6 +92,7 @@ data class AppSettings(
                 weekStartsSunday = j.optBoolean("weekStartsSunday", false),
                 dayFrom = j.optInt("dayFrom", 8),
                 dayTo = j.optInt("dayTo", 18),
+                durationBand = j.optBoolean("durationBand", true),
                 birthdaysShown = j.optBoolean("birthdaysShown", true),
                 birthdayNotify = j.optBoolean("birthdayNotify", false),
                 birthdayNotifyAt = j.optInt("birthdayNotifyAt", 540),
