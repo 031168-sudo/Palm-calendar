@@ -41,6 +41,7 @@ actual fun longDate(ms: Long): String {
     return f.stringFromDate(NSDate.dateWithTimeIntervalSince1970(ms / 1000.0))
 }
 
+@OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
 @Composable
 actual fun windowWidthDp(): Int = UIScreen.mainScreen.bounds.useContents { size.width }.toInt()
 
