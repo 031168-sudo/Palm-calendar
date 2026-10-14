@@ -106,6 +106,13 @@
 
 Осталось в приложении: `DayScreen.kt` (склейка окон), `MailUi`, `Caller`, `RepeatDialog`/`Repeat.kt`, `data/*` (Android-реализация).
 
-Дальше: `DayViewModel` за интерфейсами,
-и только после этого — iOS-оболочка (Xcode-проект, actual для iOS, EventKit, контакты), сборка на macOS в GitHub Actions, TestFlight.
-Android-вещи (Context, Uri, диалоги выбора файлов, поворот и складной экран) прячем за интерфейсами.
+Проход 12 (зелёный): `.github/workflows/ios.yml` — компиляция `shared` под iOS на macOS-раннере (`:shared:compileKotlinIosSimulatorArm64`).
+Общий код собирается под iOS; потребовалось только: `ioDispatcher` (expect/actual вместо `Dispatchers.IO`) и `actual` для iOS в
+`shared/src/iosMain/.../ui/Platform.ios.kt` (названия дат через NSDateFormatter, ширина окна, заглушки «Назад»/клавиатуры/выбора файла).
+Выбор файла на iOS — пока заглушка (UIDocumentPicker).
+
+Дальше (iOS):
+1. Оболочка: iOS-фреймворк из `shared` (`ComposeUIViewController`), Xcode-проект, `AppBackend`/`PlatformActions`/`SettingsPlatform` для iOS
+   (на первом шаге — с тестовыми данными, чтобы увидеть экраны).
+2. Сборка приложения на macOS в GitHub Actions (`xcodebuild`, сначала без подписи, на симулятор).
+3. EventKit (календарь), Contacts, почта/мессенджеры; подпись и TestFlight (понадобятся данные аккаунта Apple).
