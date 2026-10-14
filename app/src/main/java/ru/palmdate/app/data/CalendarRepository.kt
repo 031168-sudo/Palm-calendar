@@ -582,6 +582,39 @@ class CalendarRepository(
      * У повторяющегося события сдвигается вся серия на ту же разницу, что и этот раз.
      */
     suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int) {
+        try {
+            setTimeRaw(e, start, minutes)
+        } catch (t: Exception) {
+            throw IllegalStateException("${t.message} [${eventDump(e.eventId)}]", t)
+        }
+        // Проверяем, что календарь действительно принял время (а не молча оставил старое)
+        if (minutes > 0) {
+            val ms = start.atZone(zone).toInstant().toEpochMilli()
+            val ok = resolver.query(
+                instancesUri(ms - 60_000L, ms + 60_000L),
+                arrayOf(Instances.BEGIN, Instances.END, Instances.TITLE), "${Instances.TITLE} = ?", arrayOf(e.title), null,
+            )?.use { c ->
+                var found = false
+                while (c.moveToNext()) if (c.getLong(0) == ms && c.getLong(1) - ms == minutes * 60_000L) found = true
+                found
+            } ?: true
+            if (!ok) error(str(R.string.err_time_not_applied) + " [${eventDump(e.eventId)}]")
+        }
+    }
+
+    /** Сырые поля события — чтобы по тексту ошибки было видно, что хранит календарь. */
+    private fun eventDump(id: Long): String = runCatching {
+        resolver.query(
+            ContentUris.withAppendedId(Events.CONTENT_URI, id),
+            arrayOf(Events.DTSTART, Events.DTEND, Events.DURATION, Events.RRULE, Events.ALL_DAY, Events.EVENT_TIMEZONE, Events.DIRTY, Events.ORIGINAL_ID, Events.CALENDAR_ID),
+            null, null, null,
+        )?.use { c ->
+            if (!c.moveToFirst()) "нет события"
+            else "id=$id s=${c.getLong(0)} e=${c.getString(1)} dur=${c.getString(2)} rr=${c.getString(3)} ad=${c.getInt(4)} tz=${c.getString(5)} dirty=${c.getInt(6)} orig=${c.getString(7)} cal=${c.getLong(8)}"
+        } ?: "нет данных"
+    }.getOrElse { "dump: ${it.message}" }
+
+    private suspend fun setTimeRaw(e: PalmEvent, start: LocalDateTime, minutes: Int) {
         // Повторяющееся, открыт не первый раз: прошлое не трогаем, с этого раза — новое время
         if (e.recurring) {
             val s = series(e.eventId)
