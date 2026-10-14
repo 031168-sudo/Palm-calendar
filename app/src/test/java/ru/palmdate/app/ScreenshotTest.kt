@@ -226,11 +226,11 @@ class PhoneDarkScreens : ScreenshotBase("phone_dark")
 class FoldClosedScreens : ScreenshotBase("fold_closed")
 
 @Config(sdk = [34], qualifiers = "w673dp-h841dp-xhdpi")
-class FoldOpenScreens : ScreenshotBase("fold_open", Hinge(tabletop = false, vertical = true, bounds = android.graphics.Rect(672, 0, 674, 1682)))
+class FoldOpenScreens : ScreenshotBase("fold_open", Hinge(tabletop = false, vertical = true, bounds = ru.palmdate.app.ui.HingeBounds(672, 0, 674, 1682)))
 
 // «Ноутбук»: раскладушка полусложена и стоит на столе, сгиб горизонтально посередине
 @Config(sdk = [34], qualifiers = "w841dp-h673dp-land-xhdpi")
-class FoldTabletopScreens : ScreenshotBase("fold_tabletop", Hinge(tabletop = true, vertical = false, bounds = android.graphics.Rect(0, 672, 1682, 674)))
+class FoldTabletopScreens : ScreenshotBase("fold_tabletop", Hinge(tabletop = true, vertical = false, bounds = ru.palmdate.app.ui.HingeBounds(0, 672, 1682, 674)))
 
 @Config(sdk = [34], qualifiers = "w800dp-h1280dp-xhdpi")
 class TabletScreens : ScreenshotBase("tablet")

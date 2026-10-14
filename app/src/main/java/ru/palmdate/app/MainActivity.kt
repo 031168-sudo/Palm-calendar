@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
                             tabletop = f.state == FoldingFeature.State.HALF_OPENED &&
                                 f.orientation == FoldingFeature.Orientation.HORIZONTAL,
                             vertical = f.orientation == FoldingFeature.Orientation.VERTICAL,
-                            bounds = android.graphics.Rect(f.bounds),
+                            bounds = f.bounds.let { ru.palmdate.app.ui.HingeBounds(it.left, it.top, it.right, it.bottom) },
                         )
                     }
                 }
