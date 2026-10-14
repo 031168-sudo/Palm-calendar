@@ -43,9 +43,6 @@ data class AppSettings(
     /** Напоминание для события на весь день: минус минуты = "в этот день в ..." (так его хранит Android/Google). */
     val allDayReminders: List<Int> get() = allDayReminderAt?.let { listOf(-it) } ?: emptyList()
 
-
-}
-
     companion object
 }
 
