@@ -91,6 +91,10 @@
 `PlatformBackHandler`, `keepAboveKeyboard`, `rememberDocumentPicker`, `longDate`, `windowWidthDp`, `dayOfWeekName/monthName`.
 **Для iOS нужны `actual` ко всем этим `expect` и своя `PlatformActions`.** `RepeatSpec`/`RepeatDialog` пока остаются в приложении (java.time).
 
-Дальше: история контакта, статистика, настройки, календари; потом `DayViewModel` за интерфейсами,
+Проход 9 (зелёный): `ContactHistory`, `StatsSheet`, `CalendarsSheet`, `LocalCaller` — в `shared`.
+В приложении остались: `DayScreen.kt` (склейка окон), `SettingsSheet` (обновления, разрешения, резервная копия, смена языка — очень «андроидные»),
+`MailUi`, `Caller`, `RepeatDialog`/`Repeat.kt`, `DayViewModel` и всё `data/`.
+
+Дальше: настройки (разделить общую часть и андроидную), потом `DayViewModel` за интерфейсами,
 и только после этого — iOS-оболочка (Xcode-проект, actual для iOS, EventKit, контакты), сборка на macOS в GitHub Actions, TestFlight.
 Android-вещи (Context, Uri, диалоги выбора файлов, поворот и складной экран) прячем за интерфейсами.
