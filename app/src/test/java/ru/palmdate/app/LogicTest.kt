@@ -9,6 +9,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import ru.palmdate.app.data.AppSettings
+import ru.palmdate.app.data.fromJson
+import ru.palmdate.app.data.toJson
 import ru.palmdate.app.data.CalendarRepository
 import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.icon
