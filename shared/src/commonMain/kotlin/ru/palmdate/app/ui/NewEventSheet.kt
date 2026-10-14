@@ -525,7 +525,7 @@ private fun PhonePicker(phones: List<PhoneNumber>, selected: String?, onPick: (S
 }
 
 /** Как показывать название календаря: основной календарь аккаунта называется его адресом. */
-internal fun CalendarInfo.displayName(): String = when {
+fun CalendarInfo.displayName(): String = when {
     name == accountName && isPrimary -> str("my_calendar")
     name == accountName && local -> str("main_calendar")
     else -> name
@@ -767,7 +767,7 @@ private fun RepeatChips(
 /** Напоминания: можно выбрать несколько, str("settings_without") — снять все. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun ReminderChips(selected: List<Int>, allDay: Boolean = false, onChange: (List<Int>) -> Unit) {
+fun ReminderChips(selected: List<Int>, allDay: Boolean = false, onChange: (List<Int>) -> Unit) {
     Text(str("reminder_title"), style = Palm.small, color = Palm.inkSoft)
     Spacer(Modifier.height(6.dp))
     // У событий на весь день — "в этот день в 9:00", "накануне в 18:00"; у остальных — "за N минут"
@@ -797,7 +797,7 @@ internal fun ReminderChips(selected: List<Int>, allDay: Boolean = false, onChang
 }
 
 @Composable
-internal fun SettingRow(label: String, value: String, sub: String? = null, dot: Color? = null, onClick: (() -> Unit)?) {
+fun SettingRow(label: String, value: String, sub: String? = null, dot: Color? = null, onClick: (() -> Unit)?) {
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
@@ -926,7 +926,7 @@ private fun WhenPicker(
 }
 
 @Composable
-internal fun StepIcon(icon: ImageVector, onClick: () -> Unit) {
+fun StepIcon(icon: ImageVector, onClick: () -> Unit) {
     Box(
         Modifier.size(40.dp).clip(CircleShape).border(1.dp, Palm.navy, CircleShape).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -934,7 +934,7 @@ internal fun StepIcon(icon: ImageVector, onClick: () -> Unit) {
 }
 
 @Composable
-internal fun Chip(text: String, selected: Boolean = false, onClick: () -> Unit) {
+fun Chip(text: String, selected: Boolean = false, onClick: () -> Unit) {
     val shape = RoundedCornerShape(8.dp)
     Box(
         Modifier
