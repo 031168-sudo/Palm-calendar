@@ -196,11 +196,6 @@ fun MailHost(vm: DayViewModel, content: @Composable () -> Unit) {
     }
 }
 
-private val LONG_DATE: DateTimeFormatter get() = DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", UiLocale)
-
-internal fun longDate(ms: Long): String =
-    if (ms <= 0) "" else Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(LONG_DATE)
-
 /** Выбор почтовой программы: Gmail, Яндекс Почта… С галочкой «всегда в ней». */
 @Composable
 private fun MailAppChooser(apps: ru.palmdate.app.data.MailApps, onDismiss: () -> Unit, onPick: (String) -> Unit) {
