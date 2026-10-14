@@ -141,7 +141,7 @@ abstract class ScreenshotBase(
     @Composable
     private fun WithDetails(
         e: PalmEvent, reminders: List<Int>,
-        place: String? = null, files: List<ru.palmdate.app.data.TripFile> = emptyList(),
+        place: String? = null, files: List<ru.palmdate.app.ui.TripDoc> = emptyList(),
     ) {
         @Composable
         fun Details(pane: Boolean) = EventDetailsSheet(
@@ -175,8 +175,8 @@ abstract class ScreenshotBase(
             Sample.events[7], listOf(60),
             place = "Театральная площадь, 1, Москва",
             files = listOf(
-                ru.palmdate.app.data.TripFile(1, 8, "Билет", "bolshoi_6_oct.pdf", "/none", "application/pdf"),
-                ru.palmdate.app.data.TripFile(2, 8, "Бронь", "hotel_booking.pdf", "/none", "application/pdf"),
+                ru.palmdate.app.ui.TripDoc(1, 8, "Билет", "bolshoi_6_oct.pdf", "/none", "application/pdf"),
+                ru.palmdate.app.ui.TripDoc(2, 8, "Бронь", "hotel_booking.pdf", "/none", "application/pdf"),
             ),
         )
     }

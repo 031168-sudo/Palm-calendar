@@ -39,7 +39,7 @@ private val MESSENGERS = listOf(
     Messenger("ru.oneme.app", "MAX", "oneme", null),
 )
 
-class CallOptions(private val context: Context) {
+class CallOptions(private val context: Context) : ru.palmdate.app.ui.CallPrefsStore {
     private val resolver = context.contentResolver
     private val pm = context.packageManager
     private val prefs = context.getSharedPreferences("call_choice", Context.MODE_PRIVATE)
@@ -91,12 +91,12 @@ class CallOptions(private val context: Context) {
     /** Запомненный способ для контакта ("PHONE" или пакет мессенджера), или null. */
     fun remembered(lookupKey: String): String? = prefs.getString(lookupKey, null)
 
-    fun remember(lookupKey: String, key: String?) {
+    override fun remember(lookupKey: String, key: String?) {
         prefs.edit().apply { if (key == null) remove(lookupKey) else putString(lookupKey, key) }.apply()
     }
 
     /** Подпись запомненного способа: "WhatsApp" / "Телефон". */
-    fun rememberedLabel(lookupKey: String): String? {
+    override fun rememberedLabel(lookupKey: String): String? {
         val key = remembered(lookupKey) ?: return null
         if (key == "PHONE") return str(R.string.call_phone)
         return MESSENGERS.firstOrNull { it.pkg == key }?.name

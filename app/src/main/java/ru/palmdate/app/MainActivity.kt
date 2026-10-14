@@ -85,7 +85,10 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             PalmTheme {
-              androidx.compose.runtime.CompositionLocalProvider(ru.palmdate.app.ui.LocalHinge provides hinge.value) {
+              androidx.compose.runtime.CompositionLocalProvider(
+                  ru.palmdate.app.ui.LocalHinge provides hinge.value,
+                  ru.palmdate.app.ui.LocalPlatform provides remember { ru.palmdate.app.ui.AndroidPlatform(this@MainActivity) },
+              ) {
                 var granted by remember { mutableStateOf(hasAll()) }
                 val launcher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestMultiplePermissions(),

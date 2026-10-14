@@ -162,7 +162,7 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     /* ---- Почта ---- */
 
     /** Люди с почтой — для «Кому» и «Написать». */
-    suspend fun searchEmails(q: String): List<ru.palmdate.app.data.ContactsRepository.EmailContact> =
+    suspend fun searchEmails(q: String): List<ru.palmdate.app.model.EmailContact> =
         withContext(Dispatchers.IO) { contacts.searchEmails(q) }
 
     /** Контакт по адресу почты (чтобы письмо попало в историю человека). */
@@ -266,15 +266,18 @@ class DayViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Документы выезда: билеты, посадочные, брони. */
-    suspend fun tripFiles(eventId: Long): List<ru.palmdate.app.data.TripFile> =
-        withContext(Dispatchers.IO) { trips.list(eventId) }
+    suspend fun tripFiles(eventId: Long): List<ru.palmdate.app.ui.TripDoc> =
+        withContext(Dispatchers.IO) {
+            trips.list(eventId).map { ru.palmdate.app.ui.TripDoc(it.id, it.eventId, it.label, it.name, it.path, it.mime) }
+        }
 
     suspend fun addTripFile(eventId: Long, uri: android.net.Uri, label: String) {
         withContext(Dispatchers.IO) { trips.add(eventId, uri, label) }
         withContext(Dispatchers.Main) { reload() }   // значок документов в списке
     }
 
-    suspend fun deleteTripFile(f: ru.palmdate.app.data.TripFile) {
+    suspend fun deleteTripFile(d: ru.palmdate.app.ui.TripDoc) {
+        val f = ru.palmdate.app.data.TripFile(d.id, d.eventId, d.label, d.name, d.path, d.mime)
         withContext(Dispatchers.IO) { trips.delete(f) }
         withContext(Dispatchers.Main) { reload() }
     }

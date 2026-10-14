@@ -84,7 +84,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ru.palmdate.app.DayViewModel
-import ru.palmdate.app.data.ContactsRepository.EmailContact
+import ru.palmdate.app.model.EmailContact
 import ru.palmdate.app.model.MailKind
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.ui.theme.Palm
@@ -200,25 +200,6 @@ private val LONG_DATE: DateTimeFormatter get() = DateTimeFormatter.ofPattern("d 
 
 internal fun longDate(ms: Long): String =
     if (ms <= 0) "" else Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(LONG_DATE)
-
-/** Список "имя — адрес" (для «Кому» и для шага «Написать»). */
-@Composable
-internal fun EmailList(list: List<EmailContact>, modifier: Modifier, onPick: (EmailContact) -> Unit) {
-    if (list.isEmpty()) {
-        Text(str(R.string.mailui_no_people), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.padding(vertical = 8.dp))
-        return
-    }
-    LazyColumn(modifier.fillMaxWidth()) {
-        items(list, key = { it.email }) { p ->
-            Column(Modifier.fillMaxWidth().clickable { onPick(p) }.padding(vertical = 7.dp)) {
-                Text(p.name, style = Palm.body, color = Palm.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(p.email, style = Palm.small, color = Palm.inkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Palm.rule))
-        }
-    }
-}
-
 
 /** Выбор почтовой программы: Gmail, Яндекс Почта… С галочкой «всегда в ней». */
 @Composable

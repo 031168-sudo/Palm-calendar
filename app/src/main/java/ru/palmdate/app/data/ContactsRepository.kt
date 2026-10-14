@@ -1,5 +1,6 @@
 package ru.palmdate.app.data
 
+import ru.palmdate.app.model.EmailContact
 import android.content.Context
 import android.net.Uri
 import android.provider.ContactsContract
@@ -36,9 +37,6 @@ class ContactsRepository(private val context: Context) {
         }
         return result
     }
-
-    /** Человек с адресом почты — для поля «Кому» и для «Написать». */
-    data class EmailContact(val lookupKey: String, val name: String, val email: String)
 
     /** Поиск людей с почтой по имени или адресу. */
     fun searchEmails(query: String, limit: Int = 50): List<EmailContact> {

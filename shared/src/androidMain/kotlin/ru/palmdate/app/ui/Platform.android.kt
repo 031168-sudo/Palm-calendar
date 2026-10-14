@@ -1,6 +1,11 @@
 package ru.palmdate.app.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -11,18 +16,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusEvent
 
-// Зависит от клавиатуры Android — остаётся в приложении (на iOS будет своя версия).
+@Composable
+actual fun PlatformBackHandler(onBack: () -> Unit) = BackHandler(onBack = onBack)
 
-/**
- * Поле ввода уезжает над клавиатурой: когда поле в фокусе и клавиатура открылась,
- * прокручиваемый родитель сдвигает его в видимую область.
- */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun Modifier.keepAboveKeyboard(): Modifier {
-    val requester = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+actual fun Modifier.keepAboveKeyboard(): Modifier {
+    val requester = remember { BringIntoViewRequester() }
     var focused by remember { mutableStateOf(false) }
-    val imeVisible = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+    val imeVisible = WindowInsets.isImeVisible
     LaunchedEffect(focused, imeVisible) {
         if (focused && imeVisible) {
             kotlinx.coroutines.delay(250) // дождаться, пока окно ужмётся под клавиатуру
@@ -32,4 +34,12 @@ fun Modifier.keepAboveKeyboard(): Modifier {
     return this
         .then(Modifier.bringIntoViewRequester(requester))
         .onFocusEvent { focused = it.isFocused }
+}
+
+@Composable
+actual fun rememberDocumentPicker(onPicked: (List<String>) -> Unit): () -> Unit {
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) onPicked(uris.map { it.toString() })
+    }
+    return { launcher.launch(arrayOf("*/*")) }
 }

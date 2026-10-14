@@ -1,6 +1,5 @@
 package ru.palmdate.app.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -54,7 +53,7 @@ fun PalmSheet(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val top = LocalSheetTop.current
-    BackHandler(onBack = onDismissRequest)
+    PlatformBackHandler(onBack = onDismissRequest)
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
     val dismissDistance = with(LocalDensity.current) { 96.dp.toPx() }

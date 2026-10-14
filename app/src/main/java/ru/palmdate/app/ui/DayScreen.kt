@@ -188,7 +188,7 @@ fun DayScreen(vm: DayViewModel) {
             loadPlace = vm::place,
             onSetPlace = { vm.setPlace(e.eventId, it) },
             loadFiles = vm::tripFiles,
-            onAddFile = { id, uri, label -> vm.addTripFile(id, uri, label) },
+            onAddFile = { id, uri, label -> vm.addTripFile(id, android.net.Uri.parse(uri), label) },
             onDeleteFile = { vm.deleteTripFile(it) },
             addressesFor = vm::addressesFor,
             onPickAddress = { addr ->

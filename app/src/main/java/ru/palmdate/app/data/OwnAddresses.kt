@@ -6,12 +6,12 @@ import android.content.Context
  * Свой адрес события (встречи), введённый вручную. Хранится отдельно от поля «Место» календаря,
  * чтобы он не пропадал, когда для встречи выбран адрес контакта: «Место» — это адрес, который сейчас действует.
  */
-class OwnAddresses(context: Context) {
+class OwnAddresses(context: Context) : ru.palmdate.app.ui.OwnAddressStore {
     private val prefs = context.applicationContext.getSharedPreferences(NAME, Context.MODE_PRIVATE)
 
-    fun get(eventId: Long): String? = prefs.getString(eventId.toString(), null)?.takeIf { it.isNotBlank() }
+    override fun get(eventId: Long): String? = prefs.getString(eventId.toString(), null)?.takeIf { it.isNotBlank() }
 
-    fun set(eventId: Long, address: String?) {
+    override fun set(eventId: Long, address: String?) {
         prefs.edit().apply {
             if (address.isNullOrBlank()) remove(eventId.toString()) else putString(eventId.toString(), address.trim())
         }.apply()
