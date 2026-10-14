@@ -95,6 +95,12 @@
 В приложении остались: `DayScreen.kt` (склейка окон), `SettingsSheet` (обновления, разрешения, резервная копия, смена языка — очень «андроидные»),
 `MailUi`, `Caller`, `RepeatDialog`/`Repeat.kt`, `DayViewModel` и всё `data/`.
 
-Дальше: настройки (разделить общую часть и андроидную), потом `DayViewModel` за интерфейсами,
+Проход 10 (зелёный): `SettingsSheet` — в `shared`; андроидное (язык с пересозданием окна, разрешение на уведомления, почтовая программа,
+резервная копия, проверка обновлений) — за интерфейсом `SettingsPlatform` (`ui/SettingsPlatform.kt`, на Android — `AndroidSettings.kt`).
+Запись настроек из общего кода — `CurrentSettings.update`.
+
+Осталось в приложении: `DayScreen.kt` (склейка окон), `MailUi`, `Caller`, `RepeatDialog`/`Repeat.kt`, `DayViewModel`, `data/*`.
+
+Дальше: `DayViewModel` за интерфейсами,
 и только после этого — iOS-оболочка (Xcode-проект, actual для iOS, EventKit, контакты), сборка на macOS в GitHub Actions, TestFlight.
 Android-вещи (Context, Uri, диалоги выбора файлов, поворот и складной экран) прячем за интерфейсами.
