@@ -46,6 +46,7 @@ import ru.palmdate.app.model.RepeatSpec
 import ru.palmdate.app.model.nthWeekdayLabel
 import ru.palmdate.app.str
 import ru.palmdate.app.ui.theme.Palm
+import ru.palmdate.app.data.toKx
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -153,7 +154,7 @@ internal fun RepeatDialog(
                 }
                 if (spec.end == RepEnd.DATE) {
                     Spacer(Modifier.height(8.dp))
-                    Chip((spec.until ?: anchor).pretty()) { pickDate = true }
+                    Chip((spec.until ?: anchor).toKx().pretty()) { pickDate = true }
                 }
                 if (spec.end == RepEnd.COUNT) {
                     Spacer(Modifier.height(8.dp))
