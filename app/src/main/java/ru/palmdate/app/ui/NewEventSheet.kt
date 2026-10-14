@@ -74,7 +74,10 @@ import ru.palmdate.app.model.ALLDAY_REMINDER_OPTIONS
 import ru.palmdate.app.model.allDayReminderLabel
 import ru.palmdate.app.model.repeatOptions
 import ru.palmdate.app.model.matchRepeat
+import ru.palmdate.app.model.repeatLabel
+import ru.palmdate.app.model.RepeatSpec
 import ru.palmdate.app.ui.theme.Palm
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 typealias PhonesFor = suspend (String) -> Pair<List<PhoneNumber>, String?>
@@ -737,16 +740,28 @@ private fun AddressPicker(
 /** Повтор: не повторяется, каждый день, по будням, каждую неделю/месяц/год. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RepeatChips(rrule: String?, title: String = str(R.string.repeat_title), onChange: (String?) -> Unit) {
+private fun RepeatChips(
+    rrule: String?, anchor: LocalDate, allDay: Boolean,
+    title: String = str(R.string.repeat_title), onChange: (String?) -> Unit,
+) {
     val current = matchRepeat(rrule)
+    var custom by remember { mutableStateOf(false) }
     Text(title, style = Palm.small, color = Palm.inkSoft)
     Spacer(Modifier.height(6.dp))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         repeatOptions().forEach { (rule, label) ->
             Chip(label, selected = current == rule) { if (current != rule) onChange(rule) }
         }
-        // Правило из Google, которого нет среди вариантов, — показываем, чтобы было видно, что повтор есть
-        if (current == "") Chip(str(R.string.repeat_custom), selected = true) {}
+        // Своё правило (из Google или заданное здесь) — словами; тап открывает окно настройки
+        if (current == "") Chip(repeatLabel(rrule), selected = true) { custom = true }
+        else Chip(str(R.string.rep_custom_btn)) { custom = true }
+    }
+    if (custom) {
+        RepeatDialog(
+            initial = RepeatSpec.parse(rrule, anchor) ?: RepeatSpec.defaultFor(anchor),
+            anchor = anchor, allDay = allDay,
+            onDismiss = { custom = false },
+        ) { rule -> custom = false; if (rule != rrule) onChange(rule) }
     }
 }
 
@@ -880,7 +895,7 @@ private fun WhenPicker(
     }
     Spacer(Modifier.height(12.dp))
 
-    RepeatChips(rrule, onChange = onRrule)
+    RepeatChips(rrule, start.toLocalDate(), allDay, onChange = onRrule)
     Spacer(Modifier.height(12.dp))
 
     ReminderChips(reminders, allDay = minutes == 0, onChange = onReminders)
@@ -1296,7 +1311,7 @@ fun EventDetailsSheet(
                     var repeat by remember(event.eventId) { mutableStateOf(event.rrule) }
                     if (!event.fromContacts && calendars.any { it.id == event.calendarId && it.writable }) {
                         Spacer(Modifier.height(10.dp))
-                        RepeatChips(repeat, title = if (event.recurring) str(R.string.repeat_from_this) else str(R.string.repeat_title)) { rule ->
+                        RepeatChips(repeat, event.start.toLocalDate(), event.allDay, title = if (event.recurring) str(R.string.repeat_from_this) else str(R.string.repeat_title)) { rule ->
                             repeat = rule
                             onRepeat(rule)
                         }

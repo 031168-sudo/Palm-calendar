@@ -36,8 +36,52 @@ class LogicTest {
         assertEquals("FREQ=WEEKLY", matchRepeat("FREQ=WEEKLY;BYDAY=TU;WKST=MO"))
         assertEquals("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", matchRepeat("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"))
         assertEquals("", matchRepeat("FREQ=DAILY;COUNT=5"))
-        assertEquals("Своё правило", repeatLabel("FREQ=DAILY;INTERVAL=2"))
+        assertEquals("Каждые 2 дня", repeatLabel("FREQ=DAILY;INTERVAL=2"))
+        assertEquals("Своё правило", repeatLabel("FREQ=DAILY;BYSETPOS=1"))
+        assertEquals("", matchRepeat("FREQ=MONTHLY;BYDAY=2WE"))
         assertEquals("Каждый месяц", repeatLabel("FREQ=MONTHLY"))
+    }
+
+    @Test fun customRepeatRules() {
+        val wed = java.time.LocalDate.of(2026, 10, 14)   // среда, вторая в месяце
+        val z = java.time.ZoneId.of("Europe/Moscow")
+        fun rr(spec: ru.palmdate.app.model.RepeatSpec, allDay: Boolean = false) = spec.toRrule(wed, allDay, z)
+        val base = ru.palmdate.app.model.RepeatSpec.defaultFor(wed)
+        // как наши кнопки
+        assertEquals("FREQ=WEEKLY", rr(base))
+        assertEquals("FREQ=MONTHLY", rr(base.copy(freq = ru.palmdate.app.model.RepFreq.MONTHLY)))
+        // каждые 2 недели по пн, ср
+        val s2 = base.copy(interval = 2, days = setOf(java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.WEDNESDAY))
+        assertEquals("FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE", rr(s2))
+        assertEquals("Каждые 2 недели по пн, ср", s2.describe())
+        // вторая среда месяца и последняя
+        val nth = base.copy(freq = ru.palmdate.app.model.RepFreq.MONTHLY, monthMode = ru.palmdate.app.model.MonthMode.NTH, nth = 2, weekday = java.time.DayOfWeek.WEDNESDAY)
+        assertEquals("FREQ=MONTHLY;BYDAY=2WE", rr(nth))
+        assertEquals("Каждую вторую среду", nth.describe())
+        assertEquals("FREQ=MONTHLY;BYDAY=-1WE", rr(nth.copy(nth = -1)))
+        assertEquals("Каждое последнее воскресенье", nth.copy(nth = -1, weekday = java.time.DayOfWeek.SUNDAY).describe())
+        assertEquals("Каждый первый понедельник", nth.copy(nth = 1, weekday = java.time.DayOfWeek.MONDAY).describe())
+        // окончание
+        val cnt = base.copy(end = ru.palmdate.app.model.RepEnd.COUNT, count = 5)
+        assertEquals("FREQ=WEEKLY;BYDAY=WE;COUNT=5", rr(cnt))
+        assertEquals("Каждую неделю по ср, 5 раз", cnt.describe())
+        val until = base.copy(end = ru.palmdate.app.model.RepEnd.DATE, until = java.time.LocalDate.of(2026, 12, 31))
+        assertEquals("FREQ=WEEKLY;BYDAY=WE;UNTIL=20261231", rr(until, allDay = true))
+        // обычное событие: UNTIL — конец дня по Москве в UTC
+        assertEquals("FREQ=WEEKLY;BYDAY=WE;UNTIL=20261231T205959Z", rr(until))
+        // разбор обратно
+        listOf(
+            "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE", "FREQ=MONTHLY;BYDAY=2WE", "FREQ=MONTHLY;BYDAY=-1WE",
+            "FREQ=WEEKLY;BYDAY=WE;COUNT=5", "FREQ=DAILY;INTERVAL=3", "FREQ=YEARLY;INTERVAL=2", "FREQ=MONTHLY;BYMONTHDAY=5",
+        ).forEach { r ->
+            val sp = ru.palmdate.app.model.RepeatSpec.parse(r, wed, z)!!
+            assertEquals(r, sp.toRrule(wed, false, z))
+        }
+        val parsedUntil = ru.palmdate.app.model.RepeatSpec.parse("FREQ=WEEKLY;BYDAY=WE;UNTIL=20261231T205959Z", wed, z)!!
+        assertEquals(java.time.LocalDate.of(2026, 12, 31), parsedUntil.until)
+        // правило Google с WKST — тоже понимаем; незнакомые части — нет
+        assertEquals("Каждые 2 недели по вт", ru.palmdate.app.model.RepeatSpec.parse("FREQ=WEEKLY;WKST=MO;INTERVAL=2;BYDAY=TU", wed, z)!!.describe())
+        assertEquals(null, ru.palmdate.app.model.RepeatSpec.parse("FREQ=MONTHLY;BYSETPOS=2;BYDAY=WE", wed, z))
     }
 
     @Test fun seriesSplitRules() {

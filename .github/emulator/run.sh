@@ -24,6 +24,13 @@ if ! grep -q "OK (2 tests)" zero.log; then
 else
   echo "ZeroDurationTest OK"
 fi
+# Проверка: свои правила повтора (каждые 2 недели, до даты, n-й день недели) принимает календарь Android
+adb shell am instrument -w -e class ru.palmdate.app.RepeatRuleTest ru.palmdate.app.test/androidx.test.runner.AndroidJUnitRunner | tee repeat.log || true
+if ! grep -q "OK (3 tests)" repeat.log; then
+  echo "::error::RepeatRuleTest: $(head -c 1500 repeat.log | tr '\n' ' ')"
+else
+  echo "RepeatRuleTest OK"
+fi
 
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 0

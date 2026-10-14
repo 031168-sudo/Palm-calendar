@@ -443,4 +443,35 @@
     <string name="address_own">Свой адрес</string>
     <string name="address_add_own">Добавить свой адрес…</string>
     <string name="address_change_own">Изменить свой адрес…</string>
+
+    <!-- Свои повторения -->
+    <string name="rep_custom_btn">Настроить…</string>
+    <string name="rep_title">Повтор</string>
+    <string name="rep_every">Повторять каждые</string>
+    <string name="rep_unit_day">день</string>
+    <string name="rep_unit_week">неделю</string>
+    <string name="rep_unit_month">месяц</string>
+    <string name="rep_unit_year">год</string>
+    <string name="rep_ends">Окончание</string>
+    <string name="rep_end_never">Никогда</string>
+    <string name="rep_end_date">В дату</string>
+    <string name="rep_end_count">После</string>
+    <string name="rep_on_days">%1$s по %2$s</string>
+    <string name="rep_join">%1$s, %2$s</string>
+    <string name="rep_until">до %s</string>
+    <string name="rep_month_day">Каждое %d-е число</string>
+    <string name="rep_month_nth">%1$s %2$s %3$s</string>
+    <plurals name="rep_every_days"><item quantity="one">Каждый %d день</item><item quantity="few">Каждые %d дня</item><item quantity="many">Каждые %d дней</item><item quantity="other">Каждые %d дня</item></plurals>
+    <plurals name="rep_every_weeks"><item quantity="one">Каждую %d неделю</item><item quantity="few">Каждые %d недели</item><item quantity="many">Каждые %d недель</item><item quantity="other">Каждые %d недели</item></plurals>
+    <plurals name="rep_every_months"><item quantity="one">Каждый %d месяц</item><item quantity="few">Каждые %d месяца</item><item quantity="many">Каждые %d месяцев</item><item quantity="other">Каждые %d месяца</item></plurals>
+    <plurals name="rep_every_years"><item quantity="one">Каждый %d год</item><item quantity="few">Каждые %d года</item><item quantity="many">Каждые %d лет</item><item quantity="other">Каждые %d года</item></plurals>
+    <plurals name="rep_times"><item quantity="one">%d раз</item><item quantity="few">%d раза</item><item quantity="many">%d раз</item><item quantity="other">%d раза</item></plurals>
+    <string-array name="wd_short"><item>пн</item><item>вт</item><item>ср</item><item>чт</item><item>пт</item><item>сб</item><item>вс</item></string-array>
+    <string-array name="wd_letter"><item>П</item><item>В</item><item>С</item><item>Ч</item><item>П</item><item>С</item><item>В</item></string-array>
+    <string-array name="wd_acc"><item>понедельник</item><item>вторник</item><item>среду</item><item>четверг</item><item>пятницу</item><item>субботу</item><item>воскресенье</item></string-array>
+    <integer-array name="wd_gender"><item>0</item><item>0</item><item>1</item><item>0</item><item>1</item><item>1</item><item>2</item></integer-array>
+    <string-array name="rep_each_g"><item>Каждый</item><item>Каждую</item><item>Каждое</item></string-array>
+    <string-array name="rep_ord_m"><item>первый</item><item>второй</item><item>третий</item><item>четвёртый</item><item>пятый</item><item>последний</item></string-array>
+    <string-array name="rep_ord_f"><item>первую</item><item>вторую</item><item>третью</item><item>четвёртую</item><item>пятую</item><item>последнюю</item></string-array>
+    <string-array name="rep_ord_n"><item>первое</item><item>второе</item><item>третье</item><item>четвёртое</item><item>пятое</item><item>последнее</item></string-array>
 </resources>
