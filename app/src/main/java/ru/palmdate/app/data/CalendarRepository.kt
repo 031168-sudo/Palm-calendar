@@ -150,6 +150,12 @@ class CalendarRepository(
             }
         }
 
+        // Починка: у повторяющегося события таблица разов (Instances) осталась с одним разом нулевой длины
+        // (так было у «Теннис»/«Показания»: Google показывает серию, у нас один раз). Перезаписываем начало и длительность —
+        // Android заново считает разы. Каждое событие чиним один раз за запуск.
+        val broken = raws.filter { it.recurring && !it.allDay && it.end <= it.begin }.map { it.id }.distinct().filter { repaired.add(it) }
+        if (broken.isNotEmpty() && broken.count { touchSeries(it) } > 0) return eventsBetween(from, toExclusive, onlyIds)
+
         val ids = raws.map { it.id }.distinct()
         val linkById = links.byIds(ids).associateBy { it.eventId }.toMutableMap()
         val outcomeByKey = links.outcomes(ids).associateBy { it.eventId to it.instanceStart }
@@ -605,6 +611,29 @@ class CalendarRepository(
             throw IllegalStateException("${t.message} [${eventDump(e.eventId)}]", t)
         }
     }
+
+    private val repaired = HashSet<Long>()
+
+    /** Переписывает начало/длительность/правило серии теми же значениями, чтобы провайдер заново построил разы. */
+    private fun touchSeries(id: Long): Boolean = runCatching {
+        val uri = ContentUris.withAppendedId(Events.CONTENT_URI, id)
+        val v = resolver.query(
+            uri, arrayOf(Events.DTSTART, Events.DTEND, Events.DURATION, Events.RRULE, Events.EVENT_TIMEZONE), null, null, null,
+        )?.use { c ->
+            if (!c.moveToFirst()) return@use null
+            val st = c.getLong(0)
+            val en = if (c.isNull(1)) 0L else c.getLong(1)
+            val len = if (en > st) en - st else c.getString(2)?.let { parseDuration(it) } ?: 0L
+            ContentValues().apply {
+                put(Events.DTSTART, st)
+                putNull(Events.DTEND)
+                put(Events.DURATION, secDuration(len))
+                put(Events.RRULE, c.getString(3))
+                c.getString(4)?.let { put(Events.EVENT_TIMEZONE, it) }
+            }
+        }
+        v != null && resolver.update(uri, v, null, null) > 0
+    }.getOrDefault(false)
 
     /** Сырые поля события — чтобы по тексту ошибки было видно, что хранит календарь. */
     private fun eventDump(id: Long): String = runCatching {
