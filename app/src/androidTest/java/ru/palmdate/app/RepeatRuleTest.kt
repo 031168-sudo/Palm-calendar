@@ -1,5 +1,6 @@
 package ru.palmdate.app
 
+import ru.palmdate.app.data.toKx
 import android.Manifest
 import android.content.ContentUris
 import android.content.ContentValues
@@ -45,7 +46,7 @@ class RepeatRuleTest {
         })!!)
         try {
             val repo = CalendarRepository(ctx, AppDb.get(ctx).links(), ContactsRepository(ctx))
-            val e = repo.eventsBetween(today, today.plusDays(1)).first { it.eventId == id }
+            val e = repo.eventsBetween(today.toKx(), today.plusDays(1).toKx()).first { it.eventId == id }
             repo.setRepeat(e, rule(today))
             val uri = Instances.CONTENT_URI.buildUpon().let {
                 ContentUris.appendId(it, start - 1000); ContentUris.appendId(it, start + 200L * 86_400_000L); it.build()
