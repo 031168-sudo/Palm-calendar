@@ -76,5 +76,10 @@
 Проверка: `comm -12 <(cd app/src/main/java && find . -name '*.kt'|sort) <(cd shared/src/commonMain/kotlin && find . -name '*.kt'|sort)`
 не должна ничего выводить.
 
-Дальше: простые виджеты и строки списка, затем повестка/неделя/месяц/год, затем карточка и «Новое».
+Ещё переехало (проход 6, build+тесты зелёные): `ui/Views.kt` (повестка/неделя/месяц/год), `ui/EventRows.kt` (`EventLine`, `TimeLabel`,
+`OutcomeBadge`), `ui/DateTitles.kt` (подписи дат), `ui/DayNames.kt` (`expect/actual` названий дней и месяцев; actual для Android готов,
+**для iOS — ещё нет**), `data/AppSettings.kt` (настройки без JSON; JSON и хранилище остались в приложении), `WeekMath.kt`, значки типов
+(`model/EventStyle.kt`), `str("ключ")`/`plu("ключ", n)` в общем коде.
+
+Дальше: DayScreen (шапка, день, панель кнопок), затем карточка и «Новое», история, статистика, настройки.
 Android-вещи (Context, Uri, диалоги выбора файлов, поворот и складной экран) прячем за интерфейсами.
