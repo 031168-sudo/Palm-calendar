@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import ru.palmdate.app.data.AppSettings
 import ru.palmdate.app.data.CurrentSettings
-import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.data.StartView
 import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.EventType
