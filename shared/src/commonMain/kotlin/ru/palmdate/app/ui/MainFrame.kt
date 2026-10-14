@@ -118,12 +118,6 @@ private val TabShape = GenericShape { size, _ ->
 @Composable
 fun isWide(): Boolean = windowWidthDp() >= 600
 
-/** Ширина окна в dp. */
-@Composable
-fun windowWidthDp(): Int {
-    val w = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.width
-    return (w / LocalDensity.current.density).toInt()
-}
 
 /**
  * Раскладка экрана: на телефоне — только main; на широком экране справа колонка подробностей (pane)
@@ -372,7 +366,7 @@ private fun Header(
                         val d = monday.plusDays(i)
                         // В виде "Неделя" подсвечена вся неделя, в остальных — выбранный день
                         val selected = if (state.mode == ViewMode.WEEK) false else d == date
-                        val letter = d.dayOfWeek.getDisplayName(TextStyle.NARROW, UiLocale).uppercase()
+                        val letter = dayOfWeekName(d.dayOfWeek, NameStyle.NARROW).uppercase()
                         Box(
                             Modifier
                                 .size(width = 24.dp, height = 28.dp)
