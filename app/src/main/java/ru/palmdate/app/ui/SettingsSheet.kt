@@ -221,6 +221,7 @@ fun SettingsSheet(vm: DayViewModel, onCalendars: () -> Unit, onDismiss: () -> Un
                 HourStepper(s.dayTo, (s.dayFrom + 1)..23) { v -> set { it.copy(dayTo = v) } }
             }
 
+            Spacer(Modifier.height(10.dp))
             Toggle(str(R.string.settings_duration_band), s.durationBand) { v -> set { it.copy(durationBand = v) } }
 
             /* ---------- Календари и контакты ---------- */
