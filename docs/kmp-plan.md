@@ -63,3 +63,18 @@
 4. Проверки: `tests.yml` запускается вручную через `workflow_dispatch` на любой ветке.
 
 Эта таблица — первичный разбор. Точный список (по зависимостям, а не по импортам) уточним на шаге 1.
+
+## Экраны на Compose Multiplatform (идёт по частям)
+
+Сделано: в `shared` подключён Compose Multiplatform (плагин `org.jetbrains.compose` 1.7.1, runtime/foundation/material3/ui);
+туда переехали `ui/theme/PalmTheme.kt` (тема и цвета `Palm`) и `ui/PalmWidgets.kt` (`dottedRule`, `PalmButton`).
+`keepAboveKeyboard` (клавиатура Android) остался в приложении, файл `ui/KeyboardUtils.kt`.
+
+**Ловушка при переносе:** каждый Kotlin-файл верхнего уровня превращается в класс с именем файла (`PalmWidgetsKt`).
+Если из файла часть кода переехала в `shared`, а часть осталась в приложении, у файлов должны быть РАЗНЫЕ имена,
+иначе компиляция проходит, а при запуске — `NoSuchMethodError` (так упали 90 тестов, пока файл не переименовали).
+Проверка: `comm -12 <(cd app/src/main/java && find . -name '*.kt'|sort) <(cd shared/src/commonMain/kotlin && find . -name '*.kt'|sort)`
+не должна ничего выводить.
+
+Дальше: простые виджеты и строки списка, затем повестка/неделя/месяц/год, затем карточка и «Новое».
+Android-вещи (Context, Uri, диалоги выбора файлов, поворот и складной экран) прячем за интерфейсами.
