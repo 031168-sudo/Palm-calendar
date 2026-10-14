@@ -61,7 +61,10 @@ fun AppSettings.Companion.fromJson(j: JSONObject): AppSettings {
  * перерисовываются сами, когда что-то поменяли.
  */
 object SettingsStore {
-    init { CurrentSettings.provider = { current } }
+    init {
+        CurrentSettings.provider = { current }
+        CurrentSettings.updater = { block -> update(block) }
+    }
 
     private lateinit var prefs: SharedPreferences
 

@@ -54,4 +54,8 @@ data class AppSettings(
 object CurrentSettings {
     var provider: () -> AppSettings = { AppSettings() }
     val current: AppSettings get() = provider()
+
+    /** Записать новые настройки (источник задаёт платформа). */
+    var updater: ((AppSettings) -> AppSettings) -> Unit = {}
+    fun update(block: (AppSettings) -> AppSettings) = updater(block)
 }

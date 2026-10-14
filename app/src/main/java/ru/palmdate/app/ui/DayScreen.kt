@@ -233,7 +233,8 @@ fun DayScreen(vm: DayViewModel) {
 
     if (showSettings) {
         SettingsSheet(
-            vm = vm,
+            platform = remember(ctx, vm) { AndroidSettingsPlatform(ctx, vm) },
+            loadCalendars = vm::allCalendars,
             onCalendars = { showSettings = false; showCalendars = true },
             onDismiss = { showSettings = false },
         )
