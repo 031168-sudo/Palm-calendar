@@ -117,7 +117,7 @@ class EventKitBackend : AppBackend {
     private fun occurrence(e: PalmEvent): EKEvent? {
         val ident = idMap[e.eventId] ?: return null
         val day = e.start.date
-        val hit = fetch(day, day.plusDays(1)).firstOrNull { (it.eventIdentifier ?: it.calendarItemIdentifier) == ident && it.startDate.toLdt() == e.start }
+        val hit = fetch(day, day.plusDays(1)).firstOrNull { (it.eventIdentifier ?: it.calendarItemIdentifier) == ident && it.startDate!!.toLdt() == e.start }
         return hit ?: store.eventWithIdentifier(ident)
     }
 
@@ -197,7 +197,7 @@ class EventKitBackend : AppBackend {
         while (s < to) {
             val e = minOf(s.plusDays(1400), to)
             val p = store.predicateForEventsWithStartDate(s.atStartOfDay().toNs(), e.atStartOfDay().toNs(), null)
-            out += store.eventsMatchingPredicate(p).filterIsInstance<EKEvent>()
+            out += store.eventsMatchingPredicate(p).orEmpty().filterIsInstance<EKEvent>()
             s = e
         }
         return out
@@ -214,9 +214,9 @@ class EventKitBackend : AppBackend {
         val mk = parseMarker(notes)
         val birthday = ev.calendar?.type == EKCalendarType.EKCalendarTypeBirthday
         val title = ev.title ?: ""
-        val start = ev.startDate.toLdt()
+        val start = ev.startDate!!.toLdt()
         val allDay = ev.allDay
-        val e0 = ev.endDate.toLdt()
+        val e0 = ev.endDate!!.toLdt()
         val end = when {
             allDay && !(e0.time == LocalTime(0, 0) && e0 > start) -> e0.date.plusDays(1).atStartOfDay()
             e0 < start -> start
@@ -241,7 +241,7 @@ class EventKitBackend : AppBackend {
             accountName = cal?.source?.title ?: "",
             calendarId = cal?.let { hid(it.calendarIdentifier) } ?: -1,
             recurring = ev.hasRecurrenceRules,
-            instanceStart = ev.startDate.timeIntervalSince1970.toLong() * 1000,
+            instanceStart = ev.startDate!!.timeIntervalSince1970.toLong() * 1000,
             outcome = outcome,
             outcomeNote = oc?.groupValues?.get(2)?.takeIf { it.isNotBlank() && outcome != null },
             fromContacts = birthday,
@@ -383,7 +383,7 @@ class EventKitBackend : AppBackend {
     override fun allCalendars(): List<CalendarInfo> {
         if (!authorized) return emptyList()
         val def = store.defaultCalendarForNewEvents?.calendarIdentifier
-        return store.calendarsForEntityType(EKEntityType.EKEntityTypeEvent).filterIsInstance<EKCalendar>()
+        return store.calendarsForEntityType(EKEntityType.EKEntityTypeEvent).orEmpty().filterIsInstance<EKCalendar>()
             .filter { it.type != EKCalendarType.EKCalendarTypeBirthday }
             .map { c ->
                 val id = hid(c.calendarIdentifier)
