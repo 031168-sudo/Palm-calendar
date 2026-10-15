@@ -60,7 +60,10 @@ jobs:
           K: ${{ secrets.ASC_KEY_P8 }}
         run: |
           mkdir -p ~/private_keys
-          printf '%s\n' "$K" > ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+          # Приводим ключ к правильному виду, даже если при вставке пропали переводы строк
+          BODY=$(printf '%s' "$K" | sed -e 's/-----BEGIN PRIVATE KEY-----//' -e 's/-----END PRIVATE KEY-----//' | tr -d ' \r\n\t')
+          { echo "-----BEGIN PRIVATE KEY-----"; echo "$BODY" | fold -w 64; echo "-----END PRIVATE KEY-----"; } > ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+          echo "длина ключа: ${#BODY}"
 
       - name: Archive
         run: |
