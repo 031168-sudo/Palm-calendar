@@ -30,10 +30,6 @@ import platform.Contacts.CNPhoneNumber
 import platform.Contacts.CNPostalAddress
 import platform.Contacts.predicateForContactsInContainerWithIdentifier
 import platform.Contacts.predicateForContactsMatchingName
-import platform.EventKit.eventWithEventStore
-import platform.EventKit.alarmWithRelativeOffset
-import platform.EventKit.recurrenceEndWithOccurrenceCount
-import platform.UIKit.colorWithCGColor
 import platform.EventKit.EKAlarm
 import platform.EventKit.EKCalendar
 import platform.EventKit.EKEntityType
