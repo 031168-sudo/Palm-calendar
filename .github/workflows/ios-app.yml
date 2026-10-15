@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   ios-app:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +23,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.10.2"
+
+      - name: Pick Xcode
+        run: |
+          ls /Applications | grep -i xcode || true
+          [ -d /Applications/Xcode_16.0.app ] && sudo xcode-select -s /Applications/Xcode_16.0.app || true
+          xcodebuild -version
 
       - name: Build Kotlin framework
         run: |
@@ -37,7 +43,7 @@ jobs:
       - name: Generate Xcode project
         run: |
           brew install xcodegen
-          cd iosApp && xcodegen generate
+          cd iosApp && xcodegen generate && ls
 
       - name: Build app for simulator
         run: |
