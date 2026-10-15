@@ -127,7 +127,7 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict>
             <key>method</key><string>app-store-connect</string>
-            <key>destination</key><string>upload</string>
+            <key>destination</key><string>export</string>
             <key>teamID</key><string>$TEAM_ID</string>
             <key>signingStyle</key><string>automatic</string>
             <key>uploadSymbols</key><true/>
@@ -139,7 +139,19 @@ jobs:
             -authenticationKeyPath ~/private_keys/AuthKey_$KEY_ID.p8 \
             -authenticationKeyID $KEY_ID \
             -authenticationKeyIssuerID $ISSUER_ID 2>&1 | tee ../exp.log || {
-            ERR=$(grep -iE "error|fail" ../exp.log | sed -e 's/%/%25/g' | head -40 | sed ':a;N;$!ba;s/\n/%0A/g')
+            ERR=$(tail -40 ../exp.log | sed -e 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
             [ -n "$ERR" ] && echo "::error title=Ошибки выгрузки::$ERR"
             exit 1
           }
+
+      - name: Upload to TestFlight
+        run: |
+          set -o pipefail
+          IPA=$(find iosApp/build/export -name "*.ipa" | head -1)
+          echo "ipa: $IPA"
+          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID" 2>&1 | tee up.log || {
+            ERR=$(tail -30 up.log | sed -e 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Ошибки загрузки::$ERR"
+            exit 1
+          }
+          echo "::warning title=Ошибки итог загрузки::$(tail -5 up.log | tr '\n' ' ')"
