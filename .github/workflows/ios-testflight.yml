@@ -150,7 +150,7 @@ jobs:
           IPA=$(find iosApp/build/export -name "*.ipa" | head -1)
           echo "ipa: $IPA"
           xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID" 2>&1 | tee up.log || {
-            ERR=$(tail -30 up.log | sed -e 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            ERR=$(tail -30 up.log | tr '\n' ' ' | sed -e 's/%/%25/g')
             echo "::error title=Ошибки загрузки::$ERR"
             exit 1
           }
