@@ -27,6 +27,15 @@ import platform.Contacts.CNContactStore
 import platform.Contacts.CNLabeledValue
 import platform.Contacts.CNPhoneNumber
 import platform.Contacts.CNPostalAddress
+import platform.Contacts.predicateForContactsInContainerWithIdentifier
+import platform.Contacts.predicateForContactsMatchingName
+import platform.Contacts.descriptorForRequiredKeysForStyle
+import platform.Contacts.stringFromContact
+import platform.Contacts.localizedStringForLabel
+import platform.EventKit.eventWithEventStore
+import platform.EventKit.alarmWithRelativeOffset
+import platform.EventKit.recurrenceEndWithOccurrenceCount
+import platform.UIKit.colorWithCGColor
 import platform.EventKit.EKAlarm
 import platform.EventKit.EKCalendar
 import platform.EventKit.EKEntityType
