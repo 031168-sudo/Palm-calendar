@@ -28,7 +28,10 @@ jobs:
 
       - name: Pick Xcode
         run: |
-          [ -d /Applications/Xcode_16.0.app ] && sudo xcode-select -s /Applications/Xcode_16.0.app || true
+          ls /Applications | grep -i xcode || true
+          LATEST=$(ls -d /Applications/Xcode_16.*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$LATEST" ] && sudo xcode-select -s "$LATEST" || true
+          xcrun simctl list runtimes | head
           xcodebuild -version
 
       - name: Check secrets
