@@ -29,18 +29,16 @@ import platform.Contacts.CNPhoneNumber
 import platform.Contacts.CNPostalAddress
 import platform.EventKit.EKAlarm
 import platform.EventKit.EKCalendar
-import platform.EventKit.EKEntityTypeEvent
+import platform.EventKit.EKEntityType
+import platform.EventKit.EKSpan
+import platform.EventKit.EKRecurrenceFrequency
+import platform.EventKit.EKCalendarType
+import platform.EventKit.EKSourceType
 import platform.EventKit.EKEvent
 import platform.EventKit.EKEventStore
 import platform.EventKit.EKEventStoreChangedNotification
-import platform.EventKit.EKRecurrenceFrequencyDaily
-import platform.EventKit.EKRecurrenceFrequencyMonthly
-import platform.EventKit.EKRecurrenceFrequencyWeekly
-import platform.EventKit.EKRecurrenceFrequencyYearly
 import platform.EventKit.EKRecurrenceEnd
 import platform.EventKit.EKRecurrenceRule
-import platform.EventKit.EKSpanFutureEvents
-import platform.EventKit.EKSpanThisEvent
 import platform.Foundation.NSDate
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
@@ -84,7 +82,7 @@ class EventKitBackend : AppBackend {
     }
 
     private val authorized: Boolean
-        get() = EKEventStore.authorizationStatusForEntityType(EKEntityTypeEvent) == 3L
+        get() = EKEventStore.authorizationStatusForEntityType(EKEntityType.EKEntityTypeEvent).value == 3L
 
     private fun requestAccess() {
         val done: (Boolean, platform.Foundation.NSError?) -> Unit = { ok, _ ->
@@ -93,7 +91,7 @@ class EventKitBackend : AppBackend {
         if (platform.Foundation.NSProcessInfo.processInfo.operatingSystemVersion.useContents { majorVersion } >= 17L) {
             store.requestFullAccessToEventsWithCompletion(done)
         } else {
-            store.requestAccessToEntityType(EKEntityTypeEvent, done)
+            store.requestAccessToEntityType(EKEntityType.EKEntityTypeEvent, done)
         }
         contacts.requestAccessForEntityType(CNEntityType.CNEntityTypeContacts) { _, _ -> }
     }
@@ -214,7 +212,7 @@ class EventKitBackend : AppBackend {
         val id = idOf(ev)
         val notes = ev.notes
         val mk = parseMarker(notes)
-        val birthday = ev.calendar?.type == platform.EventKit.EKCalendarTypeBirthday
+        val birthday = ev.calendar?.type == EKCalendarType.EKCalendarTypeBirthday
         val title = ev.title ?: ""
         val start = ev.startDate.toLdt()
         val allDay = ev.allDay
@@ -288,7 +286,7 @@ class EventKitBackend : AppBackend {
     override suspend fun location(eventId: Long): String? = master(eventId)?.location?.takeIf { it.isNotBlank() }
 
     private fun saveEvent(ev: EKEvent, series: Boolean = true) {
-        store.saveEvent(ev, if (series && ev.hasRecurrenceRules) EKSpanFutureEvents else EKSpanThisEvent, true, null)
+        store.saveEvent(ev, if (series && ev.hasRecurrenceRules) EKSpan.EKSpanFutureEvents else EKSpan.EKSpanThisEvent, true, null)
     }
 
     private fun editMaster(id: Long, f: (EKEvent) -> Unit) {
@@ -317,7 +315,7 @@ class EventKitBackend : AppBackend {
         ev.location = e.place?.takeIf { it.isNotBlank() }
         e.reminders.forEach { ev.addAlarm(EKAlarm.alarmWithRelativeOffset(-it * 60.0)) }
         e.rrule?.let { r -> parseRule(r)?.let { ev.addRecurrenceRule(it) } }
-        store.saveEvent(ev, EKSpanThisEvent, true, null)
+        store.saveEvent(ev, EKSpan.EKSpanThisEvent, true, null)
         return idOf(ev)
     }
 
@@ -343,7 +341,7 @@ class EventKitBackend : AppBackend {
         val ev = occurrence(e) ?: return
         ev.recurrenceRules?.filterIsInstance<EKRecurrenceRule>()?.forEach { ev.removeRecurrenceRule(it) }
         rrule?.let { r -> parseRule(r)?.let { ev.addRecurrenceRule(it) } }
-        store.saveEvent(ev, EKSpanFutureEvents, true, null)
+        store.saveEvent(ev, EKSpan.EKSpanFutureEvents, true, null)
     }
 
     override fun setTitle(eventId: Long, title: String) = editMaster(eventId) { it.title = title }
@@ -356,7 +354,7 @@ class EventKitBackend : AppBackend {
     override suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int) {
         val ev = occurrence(e) ?: return
         applyTime(ev, start, minutes)
-        store.saveEvent(ev, EKSpanFutureEvents, true, null)
+        store.saveEvent(ev, EKSpan.EKSpanFutureEvents, true, null)
     }
 
     override fun reminders(eventId: Long): List<Int> =
@@ -369,28 +367,28 @@ class EventKitBackend : AppBackend {
 
     override suspend fun deleteOne(e: PalmEvent) {
         val ev = occurrence(e) ?: return
-        store.removeEvent(ev, EKSpanThisEvent, true, null)
+        store.removeEvent(ev, EKSpan.EKSpanThisEvent, true, null)
     }
 
     override suspend fun deleteFollowing(e: PalmEvent) {
         val ev = occurrence(e) ?: return
-        store.removeEvent(ev, EKSpanFutureEvents, true, null)
+        store.removeEvent(ev, EKSpan.EKSpanFutureEvents, true, null)
     }
 
     override suspend fun delete(eventId: Long) {
         val ev = master(eventId) ?: return
-        store.removeEvent(ev, EKSpanFutureEvents, true, null)
+        store.removeEvent(ev, EKSpan.EKSpanFutureEvents, true, null)
     }
 
     override fun allCalendars(): List<CalendarInfo> {
         if (!authorized) return emptyList()
         val def = store.defaultCalendarForNewEvents?.calendarIdentifier
-        return store.calendarsForEntityType(EKEntityTypeEvent).filterIsInstance<EKCalendar>()
-            .filter { it.type != platform.EventKit.EKCalendarTypeBirthday }
+        return store.calendarsForEntityType(EKEntityType.EKEntityTypeEvent).filterIsInstance<EKCalendar>()
+            .filter { it.type != EKCalendarType.EKCalendarTypeBirthday }
             .map { c ->
                 val id = hid(c.calendarIdentifier)
                 calMap[id] = c
-                val local = c.source?.sourceType == platform.EventKit.EKSourceTypeLocal
+                val local = c.source?.sourceType == EKSourceType.EKSourceTypeLocal
                 CalendarInfo(
                     id = id, name = c.title ?: "", accountName = c.source?.title ?: "", accountType = "",
                     color = colorOf(c), isPrimary = c.calendarIdentifier == def,
@@ -416,30 +414,30 @@ class EventKitBackend : AppBackend {
     private fun parseRule(rrule: String): EKRecurrenceRule? {
         val m = rrule.split(";").mapNotNull { p -> p.indexOf('=').takeIf { it > 0 }?.let { p.substring(0, it).uppercase() to p.substring(it + 1) } }.toMap()
         val f = when (m["FREQ"]) {
-            "DAILY" -> EKRecurrenceFrequencyDaily
-            "WEEKLY" -> EKRecurrenceFrequencyWeekly
-            "MONTHLY" -> EKRecurrenceFrequencyMonthly
-            "YEARLY" -> EKRecurrenceFrequencyYearly
+            "DAILY" -> EKRecurrenceFrequency.EKRecurrenceFrequencyDaily
+            "WEEKLY" -> EKRecurrenceFrequency.EKRecurrenceFrequencyWeekly
+            "MONTHLY" -> EKRecurrenceFrequency.EKRecurrenceFrequencyMonthly
+            "YEARLY" -> EKRecurrenceFrequency.EKRecurrenceFrequencyYearly
             else -> return null
         }
         val interval = m["INTERVAL"]?.toLongOrNull() ?: 1L
-        val end = m["COUNT"]?.toLongOrNull()?.let { EKRecurrenceEnd.recurrenceEndWithOccurrenceCount(it) }
+        val end = m["COUNT"]?.toLongOrNull()?.let { EKRecurrenceEnd.recurrenceEndWithOccurrenceCount(it.toULong()) }
         return EKRecurrenceRule(f, interval, end)
     }
 
     private fun ruleOf(ev: EKEvent): String? {
         val r = ev.recurrenceRules?.filterIsInstance<EKRecurrenceRule>()?.firstOrNull() ?: return null
         val f = when (r.frequency) {
-            EKRecurrenceFrequencyDaily -> "DAILY"
-            EKRecurrenceFrequencyWeekly -> "WEEKLY"
-            EKRecurrenceFrequencyMonthly -> "MONTHLY"
-            EKRecurrenceFrequencyYearly -> "YEARLY"
+            EKRecurrenceFrequency.EKRecurrenceFrequencyDaily -> "DAILY"
+            EKRecurrenceFrequency.EKRecurrenceFrequencyWeekly -> "WEEKLY"
+            EKRecurrenceFrequency.EKRecurrenceFrequencyMonthly -> "MONTHLY"
+            EKRecurrenceFrequency.EKRecurrenceFrequencyYearly -> "YEARLY"
             else -> return null
         }
         return buildString {
             append("FREQ=$f")
             if (r.interval > 1) append(";INTERVAL=${r.interval}")
-            r.recurrenceEnd?.occurrenceCount?.takeIf { it > 0 }?.let { append(";COUNT=$it") }
+            r.recurrenceEnd?.occurrenceCount?.takeIf { it > 0uL }?.let { append(";COUNT=$it") }
         }
     }
 
