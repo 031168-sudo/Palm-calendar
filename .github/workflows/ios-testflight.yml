@@ -34,6 +34,17 @@ jobs:
           xcrun simctl list runtimes | head
           xcodebuild -version
 
+      - name: Normalize ids
+        env:
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+          TID: ${{ secrets.ASC_TEAM_ID }}
+        run: |
+          echo "KEY_ID=$(printf '%s' "$KID" | tr -d ' \r\n\t')" >> $GITHUB_ENV
+          echo "ISSUER_ID=$(printf '%s' "$ISS" | tr -d ' \r\n\t')" >> $GITHUB_ENV
+          echo "TEAM_ID=$(printf '%s' "$TID" | tr -d ' \r\n\t')" >> $GITHUB_ENV
+          echo "::warning title=Ошибки длины секретов::длины: KeyID=$(printf '%s' "$KID" | tr -d ' \r\n\t' | wc -c) (нужно 10), Issuer=$(printf '%s' "$ISS" | tr -d ' \r\n\t' | wc -c) (нужно 36), Team=$(printf '%s' "$TID" | tr -d ' \r\n\t' | wc -c) (нужно 10)"
+
       - name: Check secrets
         env:
           K: ${{ secrets.ASC_KEY_P8 }}
@@ -65,7 +76,7 @@ jobs:
           mkdir -p ~/private_keys
           # Приводим ключ к правильному виду, даже если при вставке пропали переводы строк
           BODY=$(printf '%s' "$K" | sed -e 's/-----BEGIN PRIVATE KEY-----//' -e 's/-----END PRIVATE KEY-----//' | tr -d ' \r\n\t')
-          { echo "-----BEGIN PRIVATE KEY-----"; echo "$BODY" | fold -w 64; echo "-----END PRIVATE KEY-----"; } > ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+          { echo "-----BEGIN PRIVATE KEY-----"; echo "$BODY" | fold -w 64; echo "-----END PRIVATE KEY-----"; } > ~/private_keys/AuthKey_$KEY_ID.p8
           echo "длина ключа: ${#BODY}"
 
       - name: Archive
@@ -76,13 +87,13 @@ jobs:
             -destination 'generic/platform=iOS' -archivePath build/DateBook.xcarchive \
             KMP_TARGET=iosArm64 \
             FRAMEWORK_SEARCH_PATHS='$(SRCROOT)/../shared/build/bin/iosArm64/releaseFramework' \
-            DEVELOPMENT_TEAM=${{ secrets.ASC_TEAM_ID }} CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM=$TEAM_ID CODE_SIGN_STYLE=Automatic \
             CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES \
             CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8 \
-            -authenticationKeyID ${{ secrets.ASC_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.ASC_ISSUER_ID }} \
+            -authenticationKeyPath ~/private_keys/AuthKey_$KEY_ID.p8 \
+            -authenticationKeyID $KEY_ID \
+            -authenticationKeyIssuerID $ISSUER_ID \
             archive 2>&1 | tee ../xc.log || {
             ERR=$(grep -E "error:" ../xc.log | sed -e 's/%/%25/g' | head -40 | sed ':a;N;$!ba;s/\n/%0A/g')
             [ -n "$ERR" ] && echo "::error title=Ошибки Xcode::$ERR"
@@ -99,7 +110,7 @@ jobs:
           <plist version="1.0"><dict>
             <key>method</key><string>app-store-connect</string>
             <key>destination</key><string>upload</string>
-            <key>teamID</key><string>${{ secrets.ASC_TEAM_ID }}</string>
+            <key>teamID</key><string>$TEAM_ID</string>
             <key>signingStyle</key><string>automatic</string>
             <key>uploadSymbols</key><true/>
           </dict></plist>
@@ -107,9 +118,9 @@ jobs:
           xcodebuild -exportArchive -archivePath build/DateBook.xcarchive \
             -exportOptionsPlist build/export.plist -exportPath build/export \
             -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8 \
-            -authenticationKeyID ${{ secrets.ASC_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.ASC_ISSUER_ID }} 2>&1 | tee ../exp.log || {
+            -authenticationKeyPath ~/private_keys/AuthKey_$KEY_ID.p8 \
+            -authenticationKeyID $KEY_ID \
+            -authenticationKeyIssuerID $ISSUER_ID 2>&1 | tee ../exp.log || {
             ERR=$(grep -iE "error|fail" ../exp.log | sed -e 's/%/%25/g' | head -40 | sed ':a;N;$!ba;s/\n/%0A/g')
             [ -n "$ERR" ] && echo "::error title=Ошибки выгрузки::$ERR"
             exit 1
