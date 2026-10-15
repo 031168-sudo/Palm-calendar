@@ -66,8 +66,12 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b
           APP=$(find iosApp/build -name "DateBook.app" -type d | head -1)
           xcrun simctl install "$UDID" "$APP"
-          xcrun simctl launch "$UDID" ru.palmdate.app
-          sleep 8
+          xcrun simctl launch "$UDID" ru.palmdate.app | tee shots/launch.txt
+          sleep 10
+          xcrun simctl spawn "$UDID" launchctl list | grep -i palmdate | tee -a shots/launch.txt || echo "процесс не найден" | tee -a shots/launch.txt
+          xcrun simctl spawn "$UDID" log show --last 2m --style compact --predicate 'process == "DateBook" OR eventMessage CONTAINS "DateBook"' 2>&1 | tail -80 > shots/applog.txt || true
+          ls ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -i datebook > shots/crashes.txt || true
+          for f in ~/Library/Logs/DiagnosticReports/DateBook*; do [ -f "$f" ] && head -60 "$f" > shots/crash_report.txt; done || true
           xcrun simctl io "$UDID" screenshot shots/1_day.png
           xcrun simctl ui "$UDID" appearance dark || true
           sleep 3
@@ -81,6 +85,6 @@ jobs:
           git checkout --orphan ios-screens
           git rm -rf . >/dev/null 2>&1 || true
           cp -r /tmp/pub/* . 2>/dev/null || true
-          git add *.png 2>/dev/null || true
+          git add *.png *.txt 2>/dev/null || true
           git commit -m "iOS simulator screenshots, run ${{ github.run_number }}" || exit 0
           git push -f origin ios-screens
