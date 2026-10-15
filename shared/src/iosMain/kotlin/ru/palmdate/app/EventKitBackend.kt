@@ -19,7 +19,7 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import platform.Contacts.CNContact
 import platform.Contacts.CNContactFormatter
-import platform.Contacts.CNContactFormatterStyleFullName
+import platform.Contacts.CNContactFormatterStyle
 import platform.Contacts.CNEntityTypeContacts
 import platform.Contacts.CNContactPhoneNumbersKey
 import platform.Contacts.CNContactPostalAddressesKey
@@ -447,13 +447,13 @@ class EventKitBackend : AppBackend {
 
     private val keys: List<Any?> by lazy {
         listOf(
-            CNContactFormatter.descriptorForRequiredKeysForStyle(CNContactFormatterStyleFullName),
+            CNContactFormatter.descriptorForRequiredKeysForStyle(CNContactFormatterStyle.CNContactFormatterStyleFullName),
             CNContactPhoneNumbersKey, CNContactPostalAddressesKey,
         )
     }
 
     private fun toRef(c: CNContact): ContactRef {
-        val name = CNContactFormatter.stringFromContact(c, CNContactFormatterStyleFullName) ?: ""
+        val name = CNContactFormatter.stringFromContact(c, CNContactFormatterStyle.CNContactFormatterStyleFullName) ?: ""
         val phone = c.phoneNumbers.filterIsInstance<CNLabeledValue>().firstOrNull()?.let { (it.value as? CNPhoneNumber)?.stringValue }
         val addr = c.postalAddresses.filterIsInstance<CNLabeledValue>().firstOrNull()?.let { addrText(it.value as? CNPostalAddress) }
         return ContactRef(c.identifier, name, phone, addr)
