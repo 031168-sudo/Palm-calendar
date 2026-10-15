@@ -475,7 +475,7 @@ class EventKitBackend : AppBackend {
     override fun searchContacts(query: String): List<ContactRef> = runCatching {
         val q = query.trim()
         val list = if (q.isEmpty()) {
-            contacts.unifiedContactsMatchingPredicate(CNContact.predicateForContactsInContainerWithIdentifier(contacts.defaultContainerIdentifier()), keys, null)
+            contacts.unifiedContactsMatchingPredicate(CNContact.predicateForContactsInContainerWithIdentifier(contacts.defaultContainerIdentifier().orEmpty()), keys, null)
         } else {
             contacts.unifiedContactsMatchingPredicate(CNContact.predicateForContactsMatchingName(q), keys, null)
         }
