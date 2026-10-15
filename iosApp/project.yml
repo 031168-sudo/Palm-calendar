@@ -17,6 +17,7 @@ targets:
       path: DateBook/Info.plist
       properties:
         CFBundleDisplayName: DateBook
+        ITSAppUsesNonExemptEncryption: false
         CADisableMinimumFrameDurationOnPhone: true
         UILaunchScreen: {}
         NSCalendarsUsageDescription: "DateBook показывает и создаёт события в вашем календаре."
@@ -40,3 +41,4 @@ targets:
         FRAMEWORK_SEARCH_PATHS: "$(SRCROOT)/../shared/build/bin/$(KMP_TARGET)/debugFramework"
         OTHER_LDFLAGS: "-framework Shared"
         ENABLE_USER_SCRIPT_SANDBOXING: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
