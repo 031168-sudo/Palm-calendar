@@ -734,6 +734,7 @@ private fun DayBody(
                 EventLine(e, timeLabel = "•", highlight = false, onIcon, onEvent, decor = LaneDecor(emptyList(), laneCount, band))
             }
         }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Palm.rule))
     }
     LazyColumn(Modifier.fillMaxWidth().weight(1f), state = listState) {
         items(rows) { row ->
