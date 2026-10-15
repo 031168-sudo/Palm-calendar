@@ -66,7 +66,9 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b
           APP=$(find iosApp/build -name "DateBook.app" -type d | head -1)
           xcrun simctl install "$UDID" "$APP"
-          xcrun simctl launch "$UDID" ru.palmdate.app | tee shots/launch.txt
+          xcrun simctl privacy "$UDID" grant calendar ru.palmdate.app || true
+          xcrun simctl privacy "$UDID" grant contacts ru.palmdate.app || true
+          SIMCTL_CHILD_DATEBOOK_SEED=1 xcrun simctl launch "$UDID" ru.palmdate.app | tee shots/launch.txt
           sleep 10
           xcrun simctl spawn "$UDID" launchctl list | grep -i palmdate | tee -a shots/launch.txt || echo "процесс не найден" | tee -a shots/launch.txt
           xcrun simctl spawn "$UDID" log show --last 2m --style compact --predicate 'process == "DateBook" OR eventMessage CONTAINS "DateBook"' 2>&1 | tail -80 > shots/applog.txt || true
