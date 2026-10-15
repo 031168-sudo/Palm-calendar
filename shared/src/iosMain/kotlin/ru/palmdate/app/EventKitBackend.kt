@@ -20,7 +20,7 @@ import kotlinx.datetime.toLocalDateTime
 import platform.Contacts.CNContact
 import platform.Contacts.CNContactFormatter
 import platform.Contacts.CNContactFormatterStyle
-import platform.Contacts.CNEntityTypeContacts
+import platform.Contacts.CNEntityType
 import platform.Contacts.CNContactPhoneNumbersKey
 import platform.Contacts.CNContactPostalAddressesKey
 import platform.Contacts.CNContactStore
@@ -95,7 +95,7 @@ class EventKitBackend : AppBackend {
         } else {
             store.requestAccessToEntityType(EKEntityTypeEvent, done)
         }
-        contacts.requestAccessForEntityType(CNEntityTypeContacts) { _, _ -> }
+        contacts.requestAccessForEntityType(CNEntityType.CNEntityTypeContacts) { _, _ -> }
     }
 
     /* ---------- даты и id ---------- */
