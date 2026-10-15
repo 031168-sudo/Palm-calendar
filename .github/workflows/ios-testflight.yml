@@ -144,14 +144,36 @@ jobs:
             exit 1
           }
 
-      - name: Upload to TestFlight
+      - name: Upload to TestFlight (App Store Connect API)
         run: |
-          set -o pipefail
+          pip3 install --quiet --break-system-packages pyjwt cryptography requests 2>/dev/null || pip3 install --quiet pyjwt cryptography requests
           IPA=$(find iosApp/build/export -name "*.ipa" | head -1)
           echo "ipa: $IPA"
-          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID" 2>&1 | tee up.log || {
-            ERR=$(tail -30 up.log | tr '\n' ' ' | sed -e 's/%/%25/g')
-            echo "::error title=Ошибки загрузки::$ERR"
-            exit 1
-          }
-          echo "::warning title=Ошибки итог загрузки::$(tail -5 up.log | tr '\n' ' ')"
+          IPA="$IPA" python3 - <<'PY'
+          import os, time, json, jwt, requests, sys
+          kid = os.environ["KEY_ID"]; iss = os.environ["ISSUER_ID"]; ipa = os.environ["IPA"]
+          key = open(os.path.expanduser(f"~/private_keys/AuthKey_{kid}.p8")).read()
+          def token():
+              return jwt.encode({"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 1100, "aud": "appstoreconnect-v1"}, key, algorithm="ES256", headers={"kid": kid})
+          base = "https://api.appstoreconnect.apple.com"
+          def api(method, path, body=None):
+              r = requests.request(method, base + path, headers={"Authorization": "Bearer " + token(), "Content-Type": "application/json"}, data=json.dumps(body) if body is not None else None)
+              if r.status_code >= 300:
+                  print(f"::error title=Ошибки загрузки API::{method} {path} -> {r.status_code} {r.text[:500]}".replace("\n", " "))
+                  sys.exit(1)
+              return r.json() if r.text else {}
+          app = api("GET", "/v1/apps?filter[bundleId]=ru.palmdate.app")["data"][0]["id"]
+          ver = "0.1"; build = os.environ["GITHUB_RUN_NUMBER"]
+          bu = api("POST", "/v1/buildUploads", {"data": {"type": "buildUploads", "attributes": {"cfBundleShortVersionString": ver, "cfBundleVersion": build, "platform": "IOS"}, "relationships": {"app": {"data": {"type": "apps", "id": app}}}}})["data"]["id"]
+          size = os.path.getsize(ipa)
+          f = api("POST", "/v1/buildUploadFiles", {"data": {"type": "buildUploadFiles", "attributes": {"fileName": os.path.basename(ipa), "fileSize": size, "uti": "com.apple.ipa", "assetType": "ASSET"}, "relationships": {"buildUpload": {"data": {"type": "buildUploads", "id": bu}}}}})["data"]
+          data = open(ipa, "rb").read()
+          for op in f["attributes"]["uploadOperations"]:
+              chunk = data[op["offset"]: op["offset"] + op["length"]]
+              h = {x["name"]: x["value"] for x in op["requestHeaders"]}
+              r = requests.request(op["method"], op["url"], headers=h, data=chunk)
+              if r.status_code >= 300:
+                  print(f"::error title=Ошибки загрузки файла::{r.status_code} {r.text[:300]}".replace("\n", " ")); sys.exit(1)
+          api("PATCH", "/v1/buildUploadFiles/" + f["id"], {"data": {"type": "buildUploadFiles", "id": f["id"], "attributes": {"uploaded": True}}})
+          print(f"::warning title=Ошибки итог загрузки::Файл {size} байт отправлен, сборка {ver} ({build}); ждём обработки в TestFlight")
+          PY
