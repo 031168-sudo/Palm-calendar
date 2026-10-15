@@ -18,10 +18,11 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import platform.Contacts.CNContact
-import platform.Contacts.CNContactFormatter
-import platform.Contacts.CNContactFormatterStyle
 import platform.Contacts.CNEntityType
 import platform.Contacts.CNContactPhoneNumbersKey
+import platform.Contacts.CNContactGivenNameKey
+import platform.Contacts.CNContactFamilyNameKey
+import platform.Contacts.CNContactOrganizationNameKey
 import platform.Contacts.CNContactPostalAddressesKey
 import platform.Contacts.CNContactStore
 import platform.Contacts.CNLabeledValue
@@ -29,9 +30,6 @@ import platform.Contacts.CNPhoneNumber
 import platform.Contacts.CNPostalAddress
 import platform.Contacts.predicateForContactsInContainerWithIdentifier
 import platform.Contacts.predicateForContactsMatchingName
-import platform.Contacts.descriptorForRequiredKeysForStyle
-import platform.Contacts.stringFromContact
-import platform.Contacts.localizedStringForLabel
 import platform.EventKit.eventWithEventStore
 import platform.EventKit.alarmWithRelativeOffset
 import platform.EventKit.recurrenceEndWithOccurrenceCount
@@ -454,17 +452,19 @@ class EventKitBackend : AppBackend {
 
     private val keys: List<Any?> by lazy {
         listOf(
-            CNContactFormatter.descriptorForRequiredKeysForStyle(CNContactFormatterStyle.CNContactFormatterStyleFullName),
+            CNContactGivenNameKey, CNContactFamilyNameKey, CNContactOrganizationNameKey,
             CNContactPhoneNumbersKey, CNContactPostalAddressesKey,
         )
     }
 
     private fun toRef(c: CNContact): ContactRef {
-        val name = CNContactFormatter.stringFromContact(c, CNContactFormatterStyle.CNContactFormatterStyleFullName) ?: ""
+        val name = listOf(c.givenName, c.familyName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { c.organizationName }
         val phone = c.phoneNumbers.filterIsInstance<CNLabeledValue>().firstOrNull()?.let { (it.value as? CNPhoneNumber)?.stringValue }
         val addr = c.postalAddresses.filterIsInstance<CNLabeledValue>().firstOrNull()?.let { addrText(it.value as? CNPostalAddress) }
         return ContactRef(c.identifier, name, phone, addr)
     }
+
+    private fun labelText(l: String?): String = l?.removePrefix("_\$!<")?.removeSuffix(">!\$_") ?: ""
 
     private fun addrText(a: CNPostalAddress?): String? =
         a?.let { listOf(it.city, it.street).filter { s -> s.isNotBlank() }.joinToString(", ") }?.takeIf { it.isNotBlank() }
@@ -490,7 +490,7 @@ class EventKitBackend : AppBackend {
         val c = contacts.unifiedContactWithIdentifier(lookupKey, keys, null) ?: return emptyList()
         c.phoneNumbers.filterIsInstance<CNLabeledValue>().mapNotNull { lv ->
             val n = (lv.value as? CNPhoneNumber)?.stringValue ?: return@mapNotNull null
-            PhoneNumber(n, lv.label?.let { CNLabeledValue.localizedStringForLabel(it) } ?: "")
+            PhoneNumber(n, labelText(lv.label))
         }
     }.getOrDefault(emptyList())
 
@@ -500,7 +500,7 @@ class EventKitBackend : AppBackend {
         val c = contacts.unifiedContactWithIdentifier(lookupKey, keys, null) ?: return emptyList()
         c.postalAddresses.filterIsInstance<CNLabeledValue>().mapNotNull { lv ->
             val t = addrText(lv.value as? CNPostalAddress) ?: return@mapNotNull null
-            PhoneNumber(t, lv.label?.let { CNLabeledValue.localizedStringForLabel(it) } ?: "")
+            PhoneNumber(t, labelText(lv.label))
         }
     }.getOrDefault(emptyList())
 
