@@ -81,11 +81,11 @@ class EventKitBackend : AppBackend {
         }
     }
 
-    private val authorized: Boolean
-        get() = EKEventStore.authorizationStatusForEntityType(EKEntityType.EKEntityTypeEvent).value.toLong() == 3L
+    private var authorized = false
 
     private fun requestAccess() {
         val done: (Boolean, platform.Foundation.NSError?) -> Unit = { ok, _ ->
+            authorized = ok
             if (ok) platform.darwin.dispatch_async(platform.darwin.dispatch_get_main_queue()) { listeners.toList().forEach { it() } }
         }
         if (platform.Foundation.NSProcessInfo.processInfo.operatingSystemVersion.useContents { majorVersion } >= 17L) {
