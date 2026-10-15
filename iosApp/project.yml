@@ -19,6 +19,9 @@ targets:
         CFBundleDisplayName: DateBook
         CADisableMinimumFrameDurationOnPhone: true
         UILaunchScreen: {}
+        NSCalendarsUsageDescription: "DateBook показывает и создаёт события в вашем календаре."
+        NSCalendarsFullAccessUsageDescription: "DateBook показывает и создаёт события в вашем календаре."
+        NSContactsUsageDescription: "DateBook связывает события с людьми из ваших контактов."
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft

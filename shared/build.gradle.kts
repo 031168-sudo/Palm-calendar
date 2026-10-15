@@ -51,7 +51,9 @@ val genIosStrings by tasks.registering {
     inputs.dir(resDir)
     outputs.dir(outDir)
     doLast {
-        fun unescape(t: String): String {
+        fun unescape(raw: String): String {
+            // Android: текст в кавычках — кавычки не входят в строку
+            val t = if (raw.length >= 2 && raw.startsWith("\"") && raw.endsWith("\"")) raw.substring(1, raw.length - 1) else raw
             val sb = StringBuilder()
             var i = 0
             while (i < t.length) {

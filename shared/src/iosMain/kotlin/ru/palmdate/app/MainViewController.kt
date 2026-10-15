@@ -19,13 +19,15 @@ import ru.palmdate.app.ui.LocalPlatform
 import ru.palmdate.app.ui.theme.PalmTheme
 
 private var settings by mutableStateOf(AppSettings())
+private var settingsLoaded = false
 
 /** Главный экран iPhone-приложения: его показывает SwiftUI (iosApp). */
 fun MainViewController(): UIViewController {
     L10n.provider = IosStrings
+    if (!settingsLoaded) { settings = IosStore.loadSettings(); settingsLoaded = true }
     CurrentSettings.provider = { settings }
-    CurrentSettings.updater = { block -> settings = block(settings) }
-    val model = DayModel(CoroutineScope(SupervisorJob() + Dispatchers.Main), DemoBackend())
+    CurrentSettings.updater = { block -> settings = block(settings); IosStore.saveSettings(settings) }
+    val model = DayModel(CoroutineScope(SupervisorJob() + Dispatchers.Main), EventKitBackend())
     model.start()
     return ComposeUIViewController {
         PalmTheme {
