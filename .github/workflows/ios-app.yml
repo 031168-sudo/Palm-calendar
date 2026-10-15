@@ -1,0 +1,80 @@
+name: iOS app (simulator)
+
+# Собирает iPhone-приложение на macOS-раннере, запускает в симуляторе и делает скриншот.
+on:
+  push:
+    branches: [ kmp ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ios-app:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Build Kotlin framework
+        run: |
+          set -o pipefail
+          gradle :shared:linkDebugFrameworkIosSimulatorArm64 2>&1 | tee fw.log || {
+            ERR=$(grep -E "^e: " fw.log | sed -e 's#file:///Users/runner/work/[^/]*/[^/]*/##' -e 's/%/%25/g' | head -150 | sed ':a;N;$!ba;s/\n/%0A/g')
+            [ -n "$ERR" ] && echo "::error title=Ошибки Kotlin iOS::$ERR"
+            grep -E "What went wrong|error:|Exception" -A3 fw.log | head -40 | while IFS= read -r line; do echo "::error::${line}"; done
+            exit 1
+          }
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          cd iosApp && xcodegen generate
+
+      - name: Build app for simulator
+        run: |
+          set -o pipefail
+          cd iosApp
+          xcodebuild -project DateBook.xcodeproj -scheme DateBook -configuration Debug \
+            -sdk iphonesimulator -arch arm64 -derivedDataPath build \
+            KMP_TARGET=iosSimulatorArm64 build 2>&1 | tee ../xc.log || {
+            ERR=$(grep -E "error:" ../xc.log | sed -e 's/%/%25/g' | head -60 | sed ':a;N;$!ba;s/\n/%0A/g')
+            [ -n "$ERR" ] && echo "::error title=Ошибки Xcode::$ERR"
+            exit 1
+          }
+
+      - name: Run in simulator and take screenshots
+        run: |
+          mkdir -p shots
+          UDID=$(xcrun simctl list devices available | grep -E "iPhone 1[5-9]" | head -1 | grep -oE "[0-9A-F-]{36}")
+          echo "simulator $UDID"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          APP=$(find iosApp/build -name "DateBook.app" -type d | head -1)
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch "$UDID" ru.palmdate.app
+          sleep 8
+          xcrun simctl io "$UDID" screenshot shots/1_day.png
+          xcrun simctl ui "$UDID" appearance dark || true
+          sleep 3
+          xcrun simctl io "$UDID" screenshot shots/2_day_dark.png
+
+      - name: Publish screenshots
+        if: always()
+        run: |
+          git config user.name "ci"; git config user.email "ci@example.com"
+          rm -rf /tmp/pub && mkdir /tmp/pub && cp -r shots/* /tmp/pub/ 2>/dev/null || true
+          git checkout --orphan ios-screens
+          git rm -rf . >/dev/null 2>&1 || true
+          cp -r /tmp/pub/* . 2>/dev/null || true
+          git add *.png 2>/dev/null || true
+          git commit -m "iOS simulator screenshots, run ${{ github.run_number }}" || exit 0
+          git push -f origin ios-screens
