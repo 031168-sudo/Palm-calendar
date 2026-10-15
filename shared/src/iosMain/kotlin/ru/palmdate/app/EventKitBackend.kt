@@ -82,7 +82,7 @@ class EventKitBackend : AppBackend {
     }
 
     private val authorized: Boolean
-        get() = EKEventStore.authorizationStatusForEntityType(EKEntityType.EKEntityTypeEvent).value == 3L
+        get() = EKEventStore.authorizationStatusForEntityType(EKEntityType.EKEntityTypeEvent).value.toLong() == 3L
 
     private fun requestAccess() {
         val done: (Boolean, platform.Foundation.NSError?) -> Unit = { ok, _ ->
