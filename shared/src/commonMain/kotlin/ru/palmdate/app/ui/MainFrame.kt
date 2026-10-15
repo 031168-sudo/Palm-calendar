@@ -31,6 +31,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -436,9 +438,8 @@ private fun DayBody(
     val settings = ru.palmdate.app.data.CurrentSettings.current
     val first = 0
     val last = 23
-    val rows: List<DayRow> =
-        events.filter { it.allDay }.map { DayRow.AllDay(it) } +
-            (first..last).map { DayRow.Slot(it, byHour[it].orEmpty()) }
+    val allDayEvents = events.filter { it.allDay }
+    val rows: List<DayRow> = (first..last).map { DayRow.Slot(it, byHour[it].orEmpty()) }
 
     val isToday = date == LocalDate.now()
     val nowHour = LocalTime.now().hour
@@ -479,10 +480,20 @@ private fun DayBody(
         return LaneDecor(spans, laneCount, band)
     }
 
-    LazyColumn(modifier.fillMaxWidth(), state = listState) {
+    Column(modifier.fillMaxWidth()) {
+    // События на весь день — закреплены сверху, не прокручиваются вместе с часами
+    if (allDayEvents.isNotEmpty()) {
+        Column(Modifier.fillMaxWidth().heightIn(max = 132.dp).verticalScroll(rememberScrollState())) {
+            allDayEvents.forEach { e ->
+                EventLine(e, timeLabel = "•", highlight = false, onIcon, onEvent, decor = LaneDecor(emptyList(), laneCount, band))
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Palm.rule))
+    }
+    LazyColumn(Modifier.fillMaxWidth().weight(1f), state = listState) {
         items(rows) { row ->
             when (row) {
-                is DayRow.AllDay -> EventLine(row.e, timeLabel = "•", highlight = false, onIcon, onEvent, decor = LaneDecor(emptyList(), laneCount, band))
+                is DayRow.AllDay -> {}
                 is DayRow.Slot -> {
                     val label = LocalTime.of(row.hour, 0).format(HM)
                     val hl = isToday && row.hour == nowHour
@@ -505,6 +516,7 @@ private fun DayBody(
                 }
             }
         }
+    }
     }
 }
 
