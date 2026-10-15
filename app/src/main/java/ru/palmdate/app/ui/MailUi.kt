@@ -91,12 +91,6 @@ import ru.palmdate.app.ui.theme.Palm
 import java.time.Instant
 import java.time.LocalDate
 
-/** Почта из любого места экрана: открыть письмо события в почтовой программе. */
-class Mailer(
-    val open: (PalmEvent) -> Unit,
-)
-
-val LocalMailer = staticCompositionLocalOf { Mailer {} }
 
 /**
  * Почта через почтовую программу телефона (Gmail, Яндекс Почта…): «Написать» открывает новое письмо,

@@ -1,6 +1,5 @@
 package ru.palmdate.app.ui
 
-import ru.palmdate.app.R
 import ru.palmdate.app.str
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -54,6 +53,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,15 +87,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.palmdate.app.CalState
-import ru.palmdate.app.DayViewModel
+import ru.palmdate.app.DayModel
 import ru.palmdate.app.ViewMode
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.ui.theme.Palm
@@ -104,17 +102,12 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import ru.palmdate.app.time.*
-import java.time.format.TextStyle
-import java.util.Locale
-
-/** Язык интерфейса — для названий месяцев, дней недели и дат. */
-internal val UiLocale: Locale get() = ru.palmdate.app.Lang.locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DayScreen(vm: DayViewModel) {
-    val state by vm.model.state.collectAsStateWithLifecycle()
-    val ctx = LocalContext.current
+fun DayScreen(model: DayModel, settings: SettingsPlatform) {
+    val state by model.state.collectAsState()
+    val platform = LocalPlatform.current
 
     var newAt by remember { mutableStateOf<LocalDateTime?>(null) }
     var details by remember { mutableStateOf<PalmEvent?>(null) }
@@ -143,38 +136,38 @@ fun DayScreen(vm: DayViewModel) {
     fun EventDetails(e: PalmEvent, pane: Boolean) = key(e.eventId, e.instanceStart) {
         EventDetailsSheet(
             event = e,
-            searchContacts = vm.model::searchContacts,
-            phonesFor = vm.model::phonesFor,
-            loadReminders = vm.model::reminders,
-            loadCalendars = vm.model::allCalendars,
-            onMove = { calId -> vm.model.move(e, calId); details = null },
-            onSetReminders = { vm.model.setReminders(e.eventId, it) },
+            searchContacts = model::searchContacts,
+            phonesFor = model::phonesFor,
+            loadReminders = model::reminders,
+            loadCalendars = model::allCalendars,
+            onMove = { calId -> model.move(e, calId); details = null },
+            onSetReminders = { model.setReminders(e.eventId, it) },
             onSetLink = { type, contact ->
-                vm.model.setLink(e, type, contact)
+                model.setLink(e, type, contact)
                 details = e.copy(type = type, contact = contact)
             },
             onDismiss = { details = null },
-            onAction = { if (e.type == EventType.MAIL) details = null; ctx.runPrimaryAction(e, call, mailer.open) },
-            onOpen = { ctx.openInCalendar(e) },
-            onDelete = { scope -> vm.model.delete(e, scope); details = null },
+            onAction = { if (e.type == EventType.MAIL) details = null; platform.runPrimaryAction(e, call, mailer.open) },
+            onOpen = { platform.openInCalendar(e) },
+            onDelete = { scope -> model.delete(e, scope); details = null },
             onHistory = e.contact?.let { c -> { details = null; history = c } },
             onOutcome = { o, note ->
-                vm.model.setOutcome(e, o, note)
+                model.setOutcome(e, o, note)
                 details = e.copy(outcome = o, outcomeNote = note?.takeIf { it.isNotBlank() })
             },
-            onFollowUp = { start -> vm.model.followUp(e, start) },
+            onFollowUp = { start -> model.followUp(e, start) },
             // У повторяющегося с этого раза начинается новая часть серии — карточку закрываем
-            onRepeat = { rule -> vm.model.setRepeat(e, rule); if (e.recurring) details = null },
+            onRepeat = { rule -> model.setRepeat(e, rule); if (e.recurring) details = null },
             onEditTitle = { t ->
                 val newTitle = e.type?.let { type ->
                     val prefix = if (type == EventType.MAIL) e.mail?.kind?.verb ?: type.label else type.label
                     if (t.isBlank()) prefix else "$prefix: $t"
                 } ?: t
-                vm.model.setTitle(e, newTitle)
+                model.setTitle(e, newTitle)
                 details = e.copy(title = newTitle)
             },
             onEditTime = { start, minutes ->
-                vm.model.setTime(e, start, minutes)
+                model.setTime(e, start, minutes)
                 if (e.recurring) details = null else details = e.copy(
                     start = if (minutes == 0) start.toLocalDate().atStartOfDay() else start,
                     end = if (minutes == 0) start.toLocalDate().plusDays(1).atStartOfDay() else start.plusMinutes(minutes.toLong()),
@@ -182,18 +175,18 @@ fun DayScreen(vm: DayViewModel) {
                 )
             },
             onEditNote = { n ->
-                vm.model.setNote(e, n)
+                model.setNote(e, n)
                 details = e.copy(note = n?.takeIf { it.isNotBlank() })
             },
-            loadPlace = vm.model::place,
-            onSetPlace = { vm.model.setPlace(e.eventId, it) },
-            loadFiles = vm.model::tripFiles,
-            onAddFile = { id, uri, label -> vm.model.addTripFile(id, uri, label) },
-            onDeleteFile = { vm.model.deleteTripFile(it) },
-            addressesFor = vm.model::addressesFor,
+            loadPlace = model::place,
+            onSetPlace = { model.setPlace(e.eventId, it) },
+            loadFiles = model::tripFiles,
+            onAddFile = { id, uri, label -> model.addTripFile(id, uri, label) },
+            onDeleteFile = { model.deleteTripFile(it) },
+            addressesFor = model::addressesFor,
             onPickAddress = { addr ->
                 e.contact?.let { c ->
-                    vm.model.setAddress(c.lookupKey, addr)
+                    model.setAddress(c.lookupKey, addr)
                     details = e.copy(contact = c.copy(address = addr))
                 }
             },
@@ -208,33 +201,33 @@ fun DayScreen(vm: DayViewModel) {
         state = state,
         headerModifier = Modifier.onGloballyPositioned { headerBottom = it.boundsInWindow().bottom.toInt() },
         actions = MainActions(
-            onSelect = vm.model::select,
-            onShiftWeek = { vm.model.shift(7L * it) },
-            onShiftPeriod = vm.model::shiftPeriod,
+            onSelect = model::select,
+            onShiftWeek = { model.shift(7L * it) },
+            onShiftPeriod = model::shiftPeriod,
             onTitle = { pickDate = true },
             onSlot = { date, hour -> newAt = date.atTime(hour, 0) },
             // Задача — отметить выполненной; остальное — позвонить / маршрут / письмо
-            onIcon = { if (it.type == EventType.TASK) vm.model.toggleTask(it) else ctx.runPrimaryAction(it, call, mailer.open) },
+            onIcon = { if (it.type == EventType.TASK) model.toggleTask(it) else platform.runPrimaryAction(it, call, mailer.open) },
             onEvent = { details = it },
-            onDay = { vm.model.setMode(ViewMode.DAY, it) },
-            onMonth = { vm.model.setMode(ViewMode.MONTH, it) },
+            onDay = { model.setMode(ViewMode.DAY, it) },
+            onMonth = { model.setMode(ViewMode.MONTH, it) },
             onNew = {
                 val now = LocalTime.now()
                 val hour = if (state.date == LocalDate.now()) (now.hour + 1).coerceAtMost(23) else 9
                 newAt = state.date.atTime(hour, 0)
             },
-            onToday = vm.model::today,
+            onToday = model::today,
             onGoTo = { pickDate = true },
             onStats = { showStats = true },
             onSettings = { showSettings = true },
-            onMode = { vm.model.setMode(it) },
+            onMode = { model.setMode(it) },
         ),
     )
 
     if (showSettings) {
         SettingsSheet(
-            platform = remember(ctx, vm) { AndroidSettingsPlatform(ctx, vm) },
-            loadCalendars = vm.model::allCalendars,
+            platform = settings,
+            loadCalendars = model::allCalendars,
             onCalendars = { showSettings = false; showCalendars = true },
             onDismiss = { showSettings = false },
         )
@@ -242,7 +235,7 @@ fun DayScreen(vm: DayViewModel) {
 
     if (showStats) {
         StatsSheet(
-            load = vm.model::contactStats,
+            load = model::contactStats,
             onAction = { a ->
                 when (a) {
                     is StatAction.CallNow -> call(a.contact)
@@ -261,11 +254,11 @@ fun DayScreen(vm: DayViewModel) {
     }
 
     if (showCalendars) {
-        val hidden by vm.model.hiddenCalendars.collectAsStateWithLifecycle()
+        val hidden by model.hiddenCalendars.collectAsState()
         CalendarsSheet(
-            load = vm.model::allCalendars,
+            load = model::allCalendars,
             hidden = hidden,
-            onToggle = vm.model::setCalendarShown,
+            onToggle = model::setCalendarShown,
             onDismiss = { showCalendars = false },
         )
     }
@@ -273,7 +266,7 @@ fun DayScreen(vm: DayViewModel) {
     state.error?.let { msg ->
         Box(Modifier.fillMaxSize().navigationBarsPadding().padding(12.dp), contentAlignment = Alignment.BottomCenter) {
             Snackbar(
-                action = { TextButton(onClick = vm.model::dismissError) { Text("OK") } },
+                action = { TextButton(onClick = model::dismissError) { Text("OK") } },
                 containerColor = Palm.ink,
                 contentColor = Palm.paper,
                 actionContentColor = Palm.navyLight,
@@ -284,14 +277,14 @@ fun DayScreen(vm: DayViewModel) {
     newAt?.let { start ->
         NewEventSheet(
             initialStart = start,
-            searchContacts = vm.model::searchContacts,
-            phonesFor = vm.model::phonesFor,
-            loadCalendars = vm.model::allCalendars,
-            lastCalendarId = vm.model.lastCalendarId(),
+            searchContacts = model::searchContacts,
+            phonesFor = model::phonesFor,
+            loadCalendars = model::allCalendars,
+            lastCalendarId = model.lastCalendarId(),
             onDismiss = { newAt = null; newPreset = null },
-            onCreate = { vm.model.create(it); newAt = null; newPreset = null },
-            searchEmails = vm.model::searchEmails,
-            contactByEmail = vm.model::contactByEmail,
+            onCreate = { model.create(it); newAt = null; newPreset = null },
+            searchEmails = model::searchEmails,
+            contactByEmail = model::contactByEmail,
             presetType = newPreset?.first,
             presetContact = newPreset?.second,
         )
@@ -302,7 +295,7 @@ fun DayScreen(vm: DayViewModel) {
     history?.let { c ->
         ContactHistorySheet(
             contact = c,
-            load = vm.model::history,
+            load = model::history,
             onEvent = { history = null; details = it },
             onDismiss = { history = null },
         )
@@ -317,15 +310,15 @@ fun DayScreen(vm: DayViewModel) {
             confirmButton = {
                 TextButton(onClick = {
                     pickerState.selectedDateMillis?.let {
-                        vm.model.select(utcMillisToDate(it))
+                        model.select(utcMillisToDate(it))
                     }
                     pickDate = false
-                }) { Text(str(R.string.go_to)) }
+                }) { Text(str("go_to")) }
             },
             dismissButton = {
                 Row {
-                    TextButton(onClick = { vm.model.today(); pickDate = false }) { Text(str(R.string.today_cap)) }
-                    TextButton(onClick = { pickDate = false }) { Text(str(R.string.cancel)) }
+                    TextButton(onClick = { model.today(); pickDate = false }) { Text(str("today_cap")) }
+                    TextButton(onClick = { pickDate = false }) { Text(str("cancel")) }
                 }
             },
         ) { DatePicker(pickerState) }

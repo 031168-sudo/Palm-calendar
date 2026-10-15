@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import kotlinx.datetime.LocalDate
+import ru.palmdate.app.model.ContactRef
+import ru.palmdate.app.model.PalmEvent
 
 /** Документ события (билет, бронь…). Файл лежит в памяти приложения, path — где. */
 data class TripDoc(
@@ -37,6 +39,12 @@ interface PlatformActions {
     fun openMap(address: String)
     fun openDocument(doc: TripDoc)
 
+    /** Тап по иконке события: позвонить / маршрут / письмо; для остальных — открыть в системном календаре. */
+    fun runPrimaryAction(e: PalmEvent, call: (ContactRef) -> Unit, mail: (PalmEvent) -> Unit)
+
+    /** Открыть событие в системном календаре. */
+    fun openInCalendar(e: PalmEvent)
+
     /** Окно «Настроить…» для своего правила повтора. onResult — новое правило (RRULE) или null. */
     @Composable
     fun RepeatDialog(rrule: String?, anchor: LocalDate, allDay: Boolean, onDismiss: () -> Unit, onResult: (String?) -> Unit)
@@ -53,6 +61,8 @@ private object NoPlatform : PlatformActions {
     }
     override fun openMap(address: String) {}
     override fun openDocument(doc: TripDoc) {}
+    override fun runPrimaryAction(e: PalmEvent, call: (ContactRef) -> Unit, mail: (PalmEvent) -> Unit) {}
+    override fun openInCalendar(e: PalmEvent) {}
 
     @Composable
     override fun RepeatDialog(rrule: String?, anchor: LocalDate, allDay: Boolean, onDismiss: () -> Unit, onResult: (String?) -> Unit) {}

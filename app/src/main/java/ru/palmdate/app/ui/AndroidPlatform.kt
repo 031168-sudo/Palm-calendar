@@ -8,6 +8,8 @@ import kotlinx.datetime.LocalDate
 import ru.palmdate.app.data.CallOptions
 import ru.palmdate.app.data.OwnAddresses
 import ru.palmdate.app.data.toJava
+import ru.palmdate.app.model.ContactRef
+import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.model.RepeatSpec
 import java.io.File
 
@@ -17,6 +19,11 @@ class AndroidPlatform(private val ctx: Context) : PlatformActions {
     override val callPrefs: CallPrefsStore by lazy { CallOptions(ctx) }
 
     override fun openMap(address: String) = ctx.openMap(address)
+
+    override fun runPrimaryAction(e: PalmEvent, call: (ContactRef) -> Unit, mail: (PalmEvent) -> Unit) =
+        ctx.runPrimaryAction(e, call, mail)
+
+    override fun openInCalendar(e: PalmEvent) = ctx.openInCalendar(e)
 
     override fun openDocument(doc: TripDoc) {
         val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", File(doc.path))
