@@ -17,6 +17,8 @@ targets:
       path: DateBook/Info.plist
       properties:
         CFBundleDisplayName: DateBook
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
         CADisableMinimumFrameDurationOnPhone: true
         UILaunchScreen: {}
