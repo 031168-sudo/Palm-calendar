@@ -26,16 +26,27 @@ jobs:
           tok = jwt.encode({"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"}, key, algorithm="ES256", headers={"kid": kid})
           h = {"Authorization": "Bearer " + tok}
           out = []
-          app = requests.get("https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=ru.palmdate.app", headers=h).json()["data"][0]["id"]
-          for path in (f"/v1/apps/{app}/buildUploads?limit=10", f"/v1/builds?filter[app]={app}&limit=10"):
-              r = requests.get("https://api.appstoreconnect.apple.com" + path, headers=h)
-              out.append(f"{path} -> {r.status_code}")
-              try:
-                  for d in r.json().get("data", []):
-                      a = d["attributes"]
-                      out.append(json.dumps({k: a.get(k) for k in ("cfBundleShortVersionString", "cfBundleVersion", "version", "processingState", "uploadedDate", "createdDate", "state", "expired")} | ({"asset": a.get("buildAudienceType")} if False else {}), ensure_ascii=False))
-                      out.append(json.dumps(a.get("state") or {}, ensure_ascii=False)[:600])
-              except Exception as e:
-                  out.append(f"ошибка {e}: {r.text[:300]}")
+          B = "https://api.appstoreconnect.apple.com"
+          app = requests.get(B + "/v1/apps?filter[bundleId]=ru.palmdate.app", headers=h).json()["data"][0]["id"]
+          def get(path):
+              r = requests.get(B + path, headers=h)
+              try: return r.status_code, r.json()
+              except Exception: return r.status_code, {"raw": r.text[:300]}
+          c, j = get(f"/v1/builds?filter[app]={app}&limit=10&include=buildBetaDetail")
+          out.append(f"builds {c}")
+          for d in j.get("data", []):
+              a = d["attributes"]
+              out.append("build " + json.dumps({k: a.get(k) for k in ("version", "processingState", "expired", "usesNonExemptEncryption", "uploadedDate")}, ensure_ascii=False) + " id=" + d["id"])
+          for d in j.get("included", []):
+              out.append("beta " + json.dumps(d["attributes"], ensure_ascii=False))
+          c, j = get(f"/v1/apps/{app}/betaGroups?include=builds,betaTesters")
+          out.append(f"groups {c}")
+          for d in j.get("data", []):
+              out.append("group " + json.dumps({k: d["attributes"].get(k) for k in ("name", "isInternalGroup", "hasAccessToAllBuilds", "publicLinkEnabled")}, ensure_ascii=False) + " builds=" + str(len(d.get("relationships", {}).get("builds", {}).get("data", []) or [])) + " testers=" + str(len(d.get("relationships", {}).get("betaTesters", {}).get("data", []) or [])))
+          c, j = get(f"/v1/betaTesters?filter[apps]={app}")
+          out.append(f"testers {c}")
+          for d in j.get("data", []):
+              a = d["attributes"]
+              out.append("tester " + json.dumps({k: a.get(k) for k in ("state", "inviteType")}, ensure_ascii=False) + " " + str(a.get("email", ""))[:4] + "***")
           print("::warning title=Ошибки статус Apple::" + " | ".join(out).replace("\n", " "))
           PY
