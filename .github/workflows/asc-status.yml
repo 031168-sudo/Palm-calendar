@@ -1,0 +1,41 @@
+name: ASC status
+
+# Проверяет у Apple, что стало с отправленными сборками (изменить .github/asc-status-trigger.txt в ветке kmp).
+on:
+  workflow_dispatch:
+  push:
+    branches: [ kmp ]
+    paths: [ '.github/asc-status-trigger.txt' ]
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query
+        env:
+          K: ${{ secrets.ASC_KEY_P8 }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          pip3 install --quiet pyjwt cryptography requests
+          python3 - <<'PY'
+          import os, time, json, jwt, requests
+          kid = os.environ["KID"].strip(); iss = os.environ["ISS"].strip()
+          body = "".join(os.environ["K"].replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").split())
+          key = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(body[i:i+64] for i in range(0, len(body), 64)) + "\n-----END PRIVATE KEY-----\n"
+          tok = jwt.encode({"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"}, key, algorithm="ES256", headers={"kid": kid})
+          h = {"Authorization": "Bearer " + tok}
+          out = []
+          app = requests.get("https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=ru.palmdate.app", headers=h).json()["data"][0]["id"]
+          for path in (f"/v1/apps/{app}/buildUploads?limit=10", f"/v1/builds?filter[app]={app}&limit=10"):
+              r = requests.get("https://api.appstoreconnect.apple.com" + path, headers=h)
+              out.append(f"{path} -> {r.status_code}")
+              try:
+                  for d in r.json().get("data", []):
+                      a = d["attributes"]
+                      out.append(json.dumps({k: a.get(k) for k in ("cfBundleShortVersionString", "cfBundleVersion", "version", "processingState", "uploadedDate", "createdDate", "state", "expired")} | ({"asset": a.get("buildAudienceType")} if False else {}), ensure_ascii=False))
+                      out.append(json.dumps(a.get("state") or {}, ensure_ascii=False)[:600])
+              except Exception as e:
+                  out.append(f"ошибка {e}: {r.text[:300]}")
+          print("::warning title=Ошибки статус Apple::" + " | ".join(out).replace("\n", " "))
+          PY
