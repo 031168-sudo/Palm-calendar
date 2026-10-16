@@ -78,6 +78,16 @@ jobs:
           xcrun simctl ui "$UDID" appearance dark || true
           sleep 3
           xcrun simctl io "$UDID" screenshot shots/2_day_dark.png
+          xcrun simctl ui "$UDID" appearance light || true
+          for V in 1 2; do
+            xcrun simctl terminate "$UDID" ru.palmdate.app || true
+            rm -f ~/Library/Logs/DiagnosticReports/DateBook* 2>/dev/null || true
+            SIMCTL_CHILD_DATEBOOK_OPEN_NEW=$V xcrun simctl launch "$UDID" ru.palmdate.app | tee -a shots/launch.txt
+            sleep 8
+            xcrun simctl io "$UDID" screenshot shots/3_new_$V.png
+            xcrun simctl spawn "$UDID" launchctl list | grep -i palmdate | tee -a shots/launch.txt || echo "процесс не найден (вариант $V)" | tee -a shots/launch.txt
+            for f in ~/Library/Logs/DiagnosticReports/DateBook*; do [ -f "$f" ] && { head -45 "$f"; grep -E "Crashed|kfun|Shared|DateBook|Exception|Termination|NSInvalid" "$f" | head -60; } > shots/crash_new_$V.txt; done || true
+          done
 
       - name: Publish screenshots
         if: always()

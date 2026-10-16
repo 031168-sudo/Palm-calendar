@@ -30,6 +30,7 @@ fun MainViewController(): UIViewController {
     if (!settingsLoaded) { settings = IosStore.loadSettings(); settingsLoaded = true }
     CurrentSettings.provider = { settings }
     CurrentSettings.updater = { block -> settings = block(settings); IosStore.saveSettings(settings) }
+    (platform.Foundation.NSProcessInfo.processInfo.environment["DATEBOOK_OPEN_NEW"] as? String)?.toIntOrNull()?.let { ru.palmdate.app.ui.DebugFlags.openNew = it }
     val backend = EventKitBackend()
     val model = DayModel(CoroutineScope(SupervisorJob() + Dispatchers.Main), backend)
     model.start()

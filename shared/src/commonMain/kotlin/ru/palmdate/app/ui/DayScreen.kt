@@ -103,13 +103,16 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import ru.palmdate.app.time.*
 
+/** Только для проверки на симуляторе: сразу открыть окно «Новое» (1) или его последний шаг (2). */
+object DebugFlags { var openNew: Int = 0 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DayScreen(model: DayModel, settings: SettingsPlatform) {
     val state by model.state.collectAsState()
     val platform = LocalPlatform.current
 
-    var newAt by remember { mutableStateOf<LocalDateTime?>(null) }
+    var newAt by remember { mutableStateOf<LocalDateTime?>(if (DebugFlags.openNew > 0) LocalDateTime.now() else null) }
     var details by remember { mutableStateOf<PalmEvent?>(null) }
     val call = LocalCaller.current
     val mailer = LocalMailer.current
@@ -119,7 +122,11 @@ fun DayScreen(model: DayModel, settings: SettingsPlatform) {
     var showSettings by remember { mutableStateOf(false) }
     var showStats by remember { mutableStateOf(false) }
     // Новое событие из статистики: тип и человек выбраны заранее
-    var newPreset by remember { mutableStateOf<Pair<EventType, ru.palmdate.app.model.ContactRef>?>(null) }
+    var newPreset by remember {
+        mutableStateOf<Pair<EventType, ru.palmdate.app.model.ContactRef>?>(
+            if (DebugFlags.openNew == 2) EventType.MEETING to ru.palmdate.app.model.ContactRef("ivan", "Иван Петров", "+7 916 123-45-67") else null,
+        )
+    }
 
     // Широкий экран (планшет, разложенная раскладушка): подробности события — колонкой справа
     val wide = usesPane()
