@@ -385,20 +385,27 @@ class EventKitBackend : AppBackend {
 
     override fun allCalendars(): List<CalendarInfo> {
         if (!authorized) return emptyList()
-        val def = store.defaultCalendarForNewEvents?.calendarIdentifier
-        return store.calendarsForEntityType(EKEntityType.EKEntityTypeEvent).orEmpty().filterIsInstance<EKCalendar>()
-            .filter { it.type != EKCalendarType.EKCalendarTypeBirthday }
-            .map { c ->
-                val id = hid(c.calendarIdentifier)
-                calMap[id] = c
-                val local = c.source?.sourceType == EKSourceType.EKSourceTypeLocal
-                CalendarInfo(
-                    id = id, name = c.title ?: "", accountName = c.source?.title ?: "", accountType = "",
-                    color = colorOf(c), isPrimary = c.calendarIdentifier == def,
-                    writable = c.allowsContentModifications, synced = true, local = local,
-                )
-            }
-            .sortedWith(compareBy<CalendarInfo>({ it.local }, { it.accountName.lowercase() }, { !it.isPrimary }, { it.name.lowercase() }))
+        return runCatching {
+            val def = runCatching { store.defaultCalendarForNewEvents?.calendarIdentifier }.getOrNull()
+            store.calendarsForEntityType(EKEntityType.EKEntityTypeEvent).orEmpty().filterIsInstance<EKCalendar>()
+                .mapNotNull { c ->
+                    runCatching {
+                        if (c.type == EKCalendarType.EKCalendarTypeBirthday) return@runCatching null
+                        val id = hid(c.calendarIdentifier)
+                        calMap[id] = c
+                        val src = runCatching { c.source }.getOrNull()
+                        val local = src?.sourceType == EKSourceType.EKSourceTypeLocal
+                        CalendarInfo(
+                            id = id, name = runCatching { c.title }.getOrNull() ?: "",
+                            accountName = runCatching { src?.title }.getOrNull() ?: "", accountType = "",
+                            color = runCatching { colorOf(c) }.getOrDefault(0xFF4285F4.toInt()),
+                            isPrimary = c.calendarIdentifier == def,
+                            writable = c.allowsContentModifications, synced = true, local = local,
+                        )
+                    }.getOrNull()
+                }
+                .sortedWith(compareBy<CalendarInfo>({ it.local }, { it.accountName.lowercase() }, { !it.isPrimary }, { it.name.lowercase() }))
+        }.getOrDefault(emptyList())
     }
 
     override suspend fun move(eventId: Long, targetCalendarId: Long): Long {

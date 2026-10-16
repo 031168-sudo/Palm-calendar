@@ -131,7 +131,7 @@ class DayModel(private val scope: CoroutineScope, private val backend: AppBacken
     suspend fun contactByEmail(addr: String): ContactRef? = withContext(ioDispatcher) { backend.contactByEmail(addr) }
 
     suspend fun searchContacts(q: String): List<ContactRef> =
-        withContext(ioDispatcher) { backend.searchContacts(q) }
+        withContext(ioDispatcher) { runCatching { backend.searchContacts(q) }.getOrDefault(emptyList()) }
 
     /** Номера контакта и номер, выбранный для него в прошлый раз (если был). */
     suspend fun phonesFor(lookupKey: String): Pair<List<PhoneNumber>, String?> = withContext(ioDispatcher) {
@@ -152,7 +152,7 @@ class DayModel(private val scope: CoroutineScope, private val backend: AppBacken
 
     /** Все календари телефона с пометками (только чтение, без синхронизации, локальный). */
     suspend fun allCalendars(): List<CalendarInfo> =
-        withContext(ioDispatcher) { backend.allCalendars() }
+        withContext(ioDispatcher) { runCatching { backend.allCalendars() }.getOrDefault(emptyList()) }
 
     /* ---- Какие календари показывать (галочки) ---- */
 

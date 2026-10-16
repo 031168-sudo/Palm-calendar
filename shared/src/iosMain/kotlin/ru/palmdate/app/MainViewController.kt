@@ -32,7 +32,9 @@ fun MainViewController(): UIViewController {
     CurrentSettings.updater = { block -> settings = block(settings); IosStore.saveSettings(settings) }
     (platform.Foundation.NSProcessInfo.processInfo.environment["DATEBOOK_OPEN_NEW"] as? String)?.toIntOrNull()?.let { ru.palmdate.app.ui.DebugFlags.openNew = it }
     val backend = EventKitBackend()
-    val model = DayModel(CoroutineScope(SupervisorJob() + Dispatchers.Main), backend)
+    val model = DayModel(CoroutineScope(SupervisorJob() + Dispatchers.Main + kotlinx.coroutines.CoroutineExceptionHandler { _, e ->
+        runCatching { IosStore.putString("last_error", e.stackTraceToString().take(3000)) }
+    }), backend)
     model.start()
     if (platform.Foundation.NSProcessInfo.processInfo.environment["DATEBOOK_SEED"] != null) seedDemo(backend)
     return ComposeUIViewController {
