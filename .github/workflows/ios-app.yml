@@ -27,7 +27,8 @@ jobs:
       - name: Pick Xcode
         run: |
           ls /Applications | grep -i xcode || true
-          [ -d /Applications/Xcode_16.0.app ] && sudo xcode-select -s /Applications/Xcode_16.0.app || true
+          LATEST=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$LATEST" ] && sudo xcode-select -s "$LATEST" || true
           xcodebuild -version
 
       - name: Build Kotlin framework
