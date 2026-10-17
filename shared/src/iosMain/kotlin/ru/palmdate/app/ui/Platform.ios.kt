@@ -2,7 +2,6 @@ package ru.palmdate.app.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -60,10 +59,9 @@ actual fun PlatformBackHandler(onBack: () -> Unit) {
 actual fun Modifier.keepAboveKeyboard(): Modifier {
     val requester = androidx.compose.runtime.remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
     var focused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    val imeVisible = androidx.compose.foundation.layout.WindowInsets.isImeVisible
-    androidx.compose.runtime.LaunchedEffect(focused, imeVisible) {
-        if (focused && imeVisible) {
-            kotlinx.coroutines.delay(250) // дождаться, пока окно поднимется над клавиатурой
+    androidx.compose.runtime.LaunchedEffect(focused) {
+        if (focused) {
+            kotlinx.coroutines.delay(450) // дождаться, пока окно поднимется над клавиатурой
             requester.bringIntoView()
         }
     }
