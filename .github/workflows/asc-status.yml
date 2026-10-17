@@ -40,10 +40,17 @@ jobs:
               txt = (lj.get("data", {}).get("attributes", {}) or {}).get("logText", "") or str(lj)[:300]
               keep = [l for l in txt.splitlines() if any(k in l for k in ("Exception Type", "Exception Codes", "Termination", "Application Specific", "NSInvalid", "*** ", "Crashed", "ru.palmdate", "Shared", "palmdate", "libobjc", "Contacts", "EventKit", "kotlin::", "Kotlin"))]
               out.append(" // ".join(l.strip()[:170] for l in keep[:45]))
-          c, j = get("/v1/certificates?limit=200")
-          out.append(f"certs {c} n={len(j.get('data', []))}")
-          for d in j.get("data", []):
-              a = d["attributes"]
-              out.append(f"CERT {d['id']} {a.get('certificateType')} {a.get('name')} exp={a.get('expirationDate')} {a.get('displayName')}")
+          c, j = get("/v1/users?limit=200")
+          out.append(f"USERS {c} " + ", ".join(str(d['attributes'].get('username')) + ":" + "/".join(d['attributes'].get('roles', [])) for d in j.get("data", [])))
+          c, j = get(f"/v1/apps/{app}/betaGroups?limit=50")
+          for g in j.get("data", []):
+              a = g["attributes"]
+              out.append(f"GROUP {g['id']} name={a.get('name')} internal={a.get('isInternalGroup')} auto={a.get('hasAccessToAllBuilds')} public={a.get('publicLinkEnabled')}")
+              cc, tj = get(f"/v1/betaGroups/{g['id']}/betaTesters?limit=50")
+              for t in tj.get("data", []):
+                  ta = t["attributes"]
+                  out.append(f"  TESTER {ta.get('email')} state={ta.get('state')} type={ta.get('inviteType')}")
+              cc, bj = get(f"/v1/betaGroups/{g['id']}/builds?limit=20")
+              out.append("  BUILDS " + ",".join(str(x['attributes'].get('version')) for x in bj.get("data", [])))
           print("::warning title=Ошибки статус Apple::" + " | ".join(out).replace("\n", " "))
           PY
