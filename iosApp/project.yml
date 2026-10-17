@@ -39,7 +39,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ru.palmdate.app
         PRODUCT_NAME: DateBook
-        MARKETING_VERSION: "0.1"
+        MARKETING_VERSION: "0.2"
         CURRENT_PROJECT_VERSION: "1"
         FRAMEWORK_SEARCH_PATHS: "$(SRCROOT)/../shared/build/bin/$(KMP_TARGET)/debugFramework"
         OTHER_LDFLAGS: "-framework Shared"
