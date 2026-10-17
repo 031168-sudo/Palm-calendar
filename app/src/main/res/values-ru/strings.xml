@@ -162,6 +162,7 @@
     <string name="mailui_choose">Выберите письмо</string>
     <string name="mailui_close_msg">Сохранить его в черновики, чтобы дописать потом?</string>
     <string name="mailui_close_q">Закрыть письмо?</string>
+    <string name="mailui_will_copy">Скопирую для поиска: %s — вставьте это в поиск почты</string>
     <string name="mailui_copied_for_search">Для поиска скопировано: %s — вставьте в поиск почты</string>
     <string name="mailui_dont_save">Не сохранять</string>
     <string name="mailui_error">Ошибка почты</string>

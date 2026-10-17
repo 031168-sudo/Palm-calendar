@@ -163,6 +163,7 @@
     <string name="mailui_choose">Choose an email</string>
     <string name="mailui_close_msg">Save it to drafts to finish later?</string>
     <string name="mailui_close_q">Close the email?</string>
+    <string name="mailui_will_copy">I’ll copy for search: %s — then paste it into your mail search</string>
     <string name="mailui_copied_for_search">Copied for search: %s — paste it into your mail search</string>
     <string name="mailui_dont_save">Don’t save</string>
     <string name="mailui_error">Email error</string>

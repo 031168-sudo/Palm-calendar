@@ -41,7 +41,7 @@ import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.str
 import ru.palmdate.app.ui.theme.Palm
 
-private class MailApp(val key: String, val label: String, val scheme: String)
+internal class MailApp(val key: String, val label: String, val scheme: String)
 
 // Почтовые программы, которые умеем запускать (схемы прописаны в Info.plist: LSApplicationQueriesSchemes)
 private val MAIL_APPS = listOf(
@@ -51,8 +51,21 @@ private val MAIL_APPS = listOf(
     MailApp("yandex", "Яндекс Почта", "yandexmail://"),
 )
 
+/** Запомненная почтовая программа (если она ещё установлена). */
+internal object IosMailPrefs {
+    fun remembered(): MailApp? = IosStore.getString("mail_app")?.let { k -> installedMailApps().firstOrNull { it.key == k } }
+    fun set(app: MailApp?) { if (app == null) IosStore.putString("mail_app", "") else IosStore.putString("mail_app", app.key) }
+}
+
 private fun canOpen(url: String): Boolean = NSURL.URLWithString(url)?.let { UIApplication.sharedApplication.canOpenURL(it) } ?: false
-private fun installedMailApps(): List<MailApp> = MAIL_APPS.filter { canOpen(it.scheme) }
+internal fun installedMailApps(): List<MailApp> = MAIL_APPS.filter { canOpen(it.scheme) }
+/** Новое письмо в выбранной программе; где нет своей ссылки — почта по умолчанию (mailto). */
+private fun composeUrl(app: MailApp, to: String): String = when (app.key) {
+    "gmail" -> "googlegmail:///co?to=$to"
+    "outlook" -> "ms-outlook://compose?to=$to"
+    else -> "mailto:$to"
+}
+
 private fun openUrl(url: String): Boolean {
     val u = NSURL.URLWithString(url) ?: return false
     UIApplication.sharedApplication.openURL(u, emptyMap<Any?, Any?>(), null)
@@ -74,10 +87,11 @@ fun IosMailHost(model: DayModel, content: @Composable () -> Unit) {
     var left by remember { mutableStateOf(false) }
     var askSent by remember { mutableStateOf<PalmEvent?>(null) }
     var note by remember { mutableStateOf<String?>(null) }
+    var replyPrompt by remember { mutableStateOf<Triple<PalmEvent, MailApp, String>?>(null) }
 
     fun withApp(action: (MailApp) -> Unit) {
         val list = installedMailApps()
-        val r = IosStore.getString("mail_app")?.let { k -> list.firstOrNull { it.key == k } }
+        val r = IosMailPrefs.remembered()
         when {
             r != null -> action(r)
             list.isEmpty() -> note = str("mailui_no_mail_app")
@@ -90,17 +104,16 @@ fun IosMailHost(model: DayModel, content: @Composable () -> Unit) {
         val m = e.mail ?: return
         if (m.kind == MailKind.NEW) {
             val to = m.peerAddr?.let { pct(it) }.orEmpty()
-            awaiting = e; left = false
-            if (!openUrl("mailto:$to")) { awaiting = null; note = str("mailui_cant_open") }
+            withApp { app ->
+                awaiting = e; left = false
+                if (!openUrl(composeUrl(app, to))) { awaiting = null; note = str("mailui_cant_open") }
+            }
         } else {
             val q = listOfNotNull(m.peerAddr ?: m.peerName, m.subject?.takeIf { it.isNotBlank() }).joinToString(" ")
             withApp { app ->
-                if (q.isNotBlank()) {
-                    UIPasteboard.generalPasteboard.string = q
-                    note = str("mailui_copied_for_search", q)
-                }
-                awaiting = e; left = false
-                if (!openUrl(app.scheme)) { awaiting = null; note = str("mailui_cant_open") }
+                // Сначала показываем, что скопируем, и только по кнопке копируем и запускаем почту
+                if (q.isNotBlank()) replyPrompt = Triple(e, app, q)
+                else { awaiting = e; left = false; if (!openUrl(app.scheme)) { awaiting = null; note = str("mailui_cant_open") } }
             }
         }
     }
@@ -125,6 +138,22 @@ fun IosMailHost(model: DayModel, content: @Composable () -> Unit) {
         Box(Modifier.fillMaxSize()) {
             content()
             chooseApp?.let { action -> MailAppChooser(onDismiss = { chooseApp = null }) { app -> chooseApp = null; action(app) } }
+            replyPrompt?.let { (e, app, q) ->
+                AlertDialog(
+                    onDismissRequest = { replyPrompt = null },
+                    containerColor = Palm.paper,
+                    text = { Text(str("mailui_will_copy", q), style = Palm.body, color = Palm.ink) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            replyPrompt = null
+                            UIPasteboard.generalPasteboard.string = q
+                            awaiting = e; left = false
+                            if (!openUrl(app.scheme)) { awaiting = null; note = str("mailui_cant_open") }
+                        }) { Text(str("mailui_open_in_mail")) }
+                    },
+                    dismissButton = { TextButton(onClick = { replyPrompt = null }) { Text(str("cancel")) } },
+                )
+            }
             note?.let { text ->
                 AlertDialog(
                     onDismissRequest = { note = null },
@@ -162,13 +191,14 @@ private fun MailAppChooser(onDismiss: () -> Unit, onPick: (MailApp) -> Unit) {
                 list.forEach { a ->
                     Text(
                         a.label, style = Palm.body, color = Palm.ink,
-                        modifier = Modifier.fillMaxWidth().clickable { if (always) IosStore.putString("mail_app", a.key); onPick(a) }.padding(vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { if (always) IosMailPrefs.set(a); onPick(a) }.padding(vertical = 12.dp),
                     )
                 }
                 Row(Modifier.fillMaxWidth().clickable { always = !always }.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = always, onCheckedChange = { always = it })
                     Text(str("mailui_always_open"), style = Palm.body, color = Palm.ink)
                 }
+                Text(str("mailui_change_in_settings"), style = Palm.small, color = Palm.inkSoft)
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(str("cancel")) } },
