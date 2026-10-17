@@ -186,7 +186,7 @@ jobs:
                   sys.exit(1)
               return r.json() if r.text else {}
           app = api("GET", "/v1/apps?filter[bundleId]=ru.palmdate.app")["data"][0]["id"]
-          ver = "0.1"; build = os.environ["GITHUB_RUN_NUMBER"]
+          import re; ver = re.search(r'MARKETING_VERSION: "([^"]+)"', open("iosApp/project.yml").read()).group(1); build = os.environ["GITHUB_RUN_NUMBER"]
           bu = api("POST", "/v1/buildUploads", {"data": {"type": "buildUploads", "attributes": {"cfBundleShortVersionString": ver, "cfBundleVersion": build, "platform": "IOS"}, "relationships": {"app": {"data": {"type": "apps", "id": app}}}}})["data"]["id"]
           size = os.path.getsize(ipa)
           f = api("POST", "/v1/buildUploadFiles", {"data": {"type": "buildUploadFiles", "attributes": {"fileName": os.path.basename(ipa), "fileSize": size, "uti": "com.apple.ipa", "assetType": "ASSET"}, "relationships": {"buildUpload": {"data": {"type": "buildUploads", "id": bu}}}}})["data"]
