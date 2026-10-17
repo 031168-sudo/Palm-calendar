@@ -40,5 +40,10 @@ jobs:
               txt = (lj.get("data", {}).get("attributes", {}) or {}).get("logText", "") or str(lj)[:300]
               keep = [l for l in txt.splitlines() if any(k in l for k in ("Exception Type", "Exception Codes", "Termination", "Application Specific", "NSInvalid", "*** ", "Crashed", "ru.palmdate", "Shared", "palmdate", "libobjc", "Contacts", "EventKit", "kotlin::", "Kotlin"))]
               out.append(" // ".join(l.strip()[:170] for l in keep[:45]))
+          c, j = get("/v1/certificates?limit=200")
+          out.append(f"certs {c} n={len(j.get('data', []))}")
+          for d in j.get("data", []):
+              a = d["attributes"]
+              out.append(f"CERT {d['id']} {a.get('certificateType')} {a.get('name')} exp={a.get('expirationDate')} {a.get('displayName')}")
           print("::warning title=Ошибки статус Apple::" + " | ".join(out).replace("\n", " "))
           PY
