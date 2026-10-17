@@ -80,6 +80,28 @@ jobs:
           { echo "-----BEGIN PRIVATE KEY-----"; echo "$BODY" | fold -w 64; echo "-----END PRIVATE KEY-----"; } > ~/private_keys/AuthKey_$KEY_ID.p8
           echo "длина ключа: ${#BODY}"
 
+      - name: Clean temporary certificates
+        run: |
+          pip3 install --quiet --break-system-packages pyjwt cryptography requests 2>/dev/null || pip3 install --quiet pyjwt cryptography requests
+          python3 - <<'PY' || true
+          import os, time, jwt, requests
+          kid = os.environ["KEY_ID"]; iss = os.environ["ISSUER_ID"]
+          key = open(os.path.expanduser("~/private_keys/AuthKey_%s.p8" % kid)).read()
+          tok = jwt.encode({"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"}, key, algorithm="ES256", headers={"kid": kid})
+          h = {"Authorization": "Bearer " + tok}
+          B = "https://api.appstoreconnect.apple.com"
+          r = requests.get(B + "/v1/certificates?limit=200", headers=h)
+          n = 0
+          # Удаляем только сертификаты, которые сами создали сборки («Created via API»); чужие и настоящие не трогаем
+          for d in r.json().get("data", []):
+              a = d["attributes"]
+              if a.get("displayName") == "Created via API" or a.get("name", "").endswith("Created via API"):
+                  rr = requests.delete(B + "/v1/certificates/" + d["id"], headers=h)
+                  print("revoke", d["id"], a.get("certificateType"), rr.status_code)
+                  n += rr.status_code == 204
+          print("revoked", n)
+          PY
+
       - name: Test API key
         run: |
           pip3 install --quiet --break-system-packages pyjwt cryptography 2>/dev/null || pip3 install --quiet pyjwt cryptography
