@@ -2,6 +2,11 @@ package ru.palmdate.app.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusEvent
 import kotlinx.cinterop.useContents
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.Month
@@ -50,8 +55,22 @@ actual fun PlatformBackHandler(onBack: () -> Unit) {
     // На iPhone кнопки «Назад» нет: окна закрываются свайпом вниз или тапом по затемнению.
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-actual fun Modifier.keepAboveKeyboard(): Modifier = this
+actual fun Modifier.keepAboveKeyboard(): Modifier {
+    val requester = androidx.compose.runtime.remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    var focused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val imeVisible = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+    androidx.compose.runtime.LaunchedEffect(focused, imeVisible) {
+        if (focused && imeVisible) {
+            kotlinx.coroutines.delay(250) // дождаться, пока окно поднимется над клавиатурой
+            requester.bringIntoView()
+        }
+    }
+    return this
+        .then(Modifier.bringIntoViewRequester(requester))
+        .onFocusEvent { focused = it.isFocused }
+}
 
 @Composable
 actual fun rememberDocumentPicker(onPicked: (List<String>) -> Unit): () -> Unit = { /* TODO: UIDocumentPicker */ }

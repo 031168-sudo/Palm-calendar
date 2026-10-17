@@ -456,7 +456,7 @@ class EventKitBackend : AppBackend {
     private val keys: List<Any?> by lazy {
         listOf(
             CNContactGivenNameKey, CNContactFamilyNameKey, CNContactOrganizationNameKey,
-            CNContactPhoneNumbersKey, CNContactPostalAddressesKey,
+            CNContactPhoneNumbersKey, CNContactPostalAddressesKey, platform.Contacts.CNContactEmailAddressesKey,
         )
     }
 
@@ -476,18 +476,47 @@ class EventKitBackend : AppBackend {
         runCatching { contacts.unifiedContactWithIdentifier(key, keys, null)?.let { toRef(it) } }.getOrNull()
 
     override fun invalidateContacts() { contactCache.clear() }
-    override fun searchEmails(query: String): List<EmailContact> = emptyList()
-    override fun contactByEmail(address: String): ContactRef? = null
+
+    /** Все контакты (объединённые) через обычный перебор — так надёжнее, чем предикат контейнера. */
+    private fun allContacts(max: Int = 2000): List<CNContact> {
+        val out = ArrayList<CNContact>()
+        val req = platform.Contacts.CNContactFetchRequest(keysToFetch = keys)
+        contacts.enumerateContactsWithFetchRequest(req, null) { c, _ -> if (c != null && out.size < max) out.add(c) }
+        return out
+    }
+
+    private fun byName(q: String): List<CNContact> =
+        contacts.unifiedContactsMatchingPredicate(CNContact.predicateForContactsMatchingName(q), keys, null).orEmpty().filterIsInstance<CNContact>()
 
     override fun searchContacts(query: String): List<ContactRef> = runCatching {
         val q = query.trim()
-        val list = if (q.isEmpty()) {
-            contacts.unifiedContactsMatchingPredicate(CNContact.predicateForContactsInContainerWithIdentifier(contacts.defaultContainerIdentifier().orEmpty()), keys, null)
-        } else {
-            contacts.unifiedContactsMatchingPredicate(CNContact.predicateForContactsMatchingName(q), keys, null)
-        }
-        list.orEmpty().filterIsInstance<CNContact>().map { toRef(it) }.filter { it.name.isNotBlank() }.sortedBy { it.name.lowercase() }.take(200)
+        val list = if (q.isEmpty()) allContacts() else byName(q)
+        list.map { toRef(it) }.filter { it.name.isNotBlank() }.sortedBy { it.name.lowercase() }.take(200)
     }.getOrDefault(emptyList())
+
+    private fun emailsOf(c: CNContact): List<String> =
+        c.emailAddresses.filterIsInstance<CNLabeledValue>().mapNotNull { (it.value as? String)?.trim()?.takeIf { s -> s.contains("@") } }
+
+    override fun searchEmails(query: String): List<EmailContact> = runCatching {
+        val q = query.trim()
+        val list = if (q.isEmpty()) allContacts() else {
+            val low = q.lowercase()
+            (byName(q) + allContacts().filter { c -> emailsOf(c).any { it.lowercase().contains(low) } }).distinctBy { it.identifier }
+        }
+        val seen = HashSet<String>()
+        val out = ArrayList<EmailContact>()
+        for (c in list.sortedBy { toRef(it).name.lowercase() }) {
+            val name = toRef(c).name
+            for (e in emailsOf(c)) if (seen.add(e.lowercase())) out += EmailContact(c.identifier, name.ifBlank { e }, e)
+            if (out.size >= 50) break
+        }
+        out
+    }.getOrDefault(emptyList())
+
+    override fun contactByEmail(address: String): ContactRef? = runCatching {
+        val low = address.trim().lowercase()
+        allContacts().firstOrNull { c -> emailsOf(c).any { it.lowercase() == low } }?.let { toRef(it) }
+    }.getOrNull()
 
     override fun phones(lookupKey: String): List<PhoneNumber> = runCatching {
         val c = contacts.unifiedContactWithIdentifier(lookupKey, keys, null) ?: return emptyList()

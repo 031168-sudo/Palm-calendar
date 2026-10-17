@@ -24,6 +24,7 @@ import ru.palmdate.app.ui.theme.PalmTheme
 private var settings by mutableStateOf(AppSettings())
 private var settingsLoaded = false
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 /** Главный экран iPhone-приложения: его показывает SwiftUI (iosApp). */
 fun MainViewController(): UIViewController {
     L10n.provider = IosStrings
@@ -37,10 +38,10 @@ fun MainViewController(): UIViewController {
     }), backend)
     model.start()
     if (platform.Foundation.NSProcessInfo.processInfo.environment["DATEBOOK_SEED"] != null) seedDemo(backend)
-    return ComposeUIViewController {
+    return ComposeUIViewController(configure = { onFocusBehavior = androidx.compose.ui.window.OnFocusBehavior.DoNothing }) {
         PalmTheme {
             CompositionLocalProvider(LocalPlatform provides IosPlatform) {
-                DayScreen(model, IosSettings)
+                ru.palmdate.app.ui.IosMailHost(model) { DayScreen(model, IosSettings) }
             }
         }
     }
