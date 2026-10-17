@@ -38,7 +38,7 @@ fun MainViewController(): UIViewController {
     }), backend)
     model.start()
     if (platform.Foundation.NSProcessInfo.processInfo.environment["DATEBOOK_SEED"] != null) seedDemo(backend)
-    return ComposeUIViewController(configure = { onFocusBehavior = androidx.compose.ui.window.OnFocusBehavior.DoNothing }) {
+    return ComposeUIViewController(configure = { onFocusBehavior = androidx.compose.ui.uikit.OnFocusBehavior.DoNothing }) {
         PalmTheme {
             CompositionLocalProvider(LocalPlatform provides IosPlatform) {
                 ru.palmdate.app.ui.IosMailHost(model) { DayScreen(model, IosSettings) }
