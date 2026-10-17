@@ -54,6 +54,8 @@ import ru.palmdate.app.model.ContactStat
 import ru.palmdate.app.model.EmailContact
 import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.L10n
+import ru.palmdate.app.model.MailInfo
+import ru.palmdate.app.model.MailKind
 import ru.palmdate.app.model.NewEvent
 import ru.palmdate.app.model.Outcome
 import ru.palmdate.app.model.PalmEvent
@@ -167,17 +169,43 @@ class EventKitBackend : AppBackend {
         return out.toByteArray().decodeToString()
     }
 
-    private class Parsed(val type: EventType, val key: String?, val phone: String?)
+    private class Parsed(val type: EventType, val key: String?, val phone: String?, val mail: String? = null)
 
     private fun parseMarker(notes: String?): Parsed? {
         val m = notes?.let { markerRe.find(it) } ?: return null
         val t = EventType.parse(m.groupValues[1]) ?: return null
         fun g(i: Int) = m.groupValues[i].takeIf { it.isNotEmpty() }?.let { dec(it) }
-        return Parsed(t, g(2), g(3))
+        return Parsed(t, g(2), g(3), g(4))
     }
 
-    private fun makeMarker(type: EventType, key: String?, phone: String?) =
-        "[palm:t=${type.name}" + (key?.let { ";c=" + enc(it) } ?: "") + (phone?.let { ";p=" + enc(it) } ?: "") + "]"
+    private fun makeMarker(type: EventType, key: String?, phone: String?, mail: String? = null) =
+        "[palm:t=${type.name}" + (key?.let { ";c=" + enc(it) } ?: "") + (phone?.let { ";p=" + enc(it) } ?: "") +
+            (mail?.let { ";m=" + enc(it) } ?: "") + "]"
+
+    /** Письмо в метке: "N|адрес" — написать; "R|адрес|имя" — ответить (что искать в почте). */
+    private fun mailMarker(m: MailInfo?): String? {
+        fun clean(x: String?) = x?.replace("|", " ")?.trim().orEmpty()
+        return when (m?.kind) {
+            null -> null
+            MailKind.NEW -> m.peerAddr?.let { "N|" + clean(it) }
+            MailKind.REPLY -> "R|" + clean(m.peerAddr) + "|" + clean(m.peerName)
+        }
+    }
+
+    private fun mailFromMarker(raw: String?, title: String): MailInfo? {
+        if (raw == null || raw.length < 2 || raw[1] != '|') return null
+        val parts = raw.substring(2).split("|")
+        return when (raw[0]) {
+            'N' -> MailInfo(MailKind.NEW, peerAddr = parts.getOrNull(0)?.takeIf { it.isNotBlank() })
+            'R' -> MailInfo(
+                MailKind.REPLY,
+                subject = title.substringAfter(": ", "").takeIf { it.isNotBlank() },
+                peerAddr = parts.getOrNull(0)?.takeIf { it.isNotBlank() },
+                peerName = parts.getOrNull(1)?.takeIf { it.isNotBlank() },
+            )
+            else -> null
+        }
+    }
 
     private fun outcomeLine(o: Outcome, type: EventType?, note: String?) =
         L10n.str("outcome_line_prefix") + o.label(type) + (note?.trim()?.takeIf { it.isNotEmpty() }?.let { " — $it" } ?: "")
@@ -251,6 +279,7 @@ class EventKitBackend : AppBackend {
             rrule = ruleOf(ev),
             place = ev.location?.takeIf { it.isNotBlank() },
             hasAlarm = if (birthday) null else !ev.alarms.isNullOrEmpty(),
+            mail = if (mk?.type == EventType.MAIL) mailFromMarker(mk.mail, title) else null,
         )
     }
 
@@ -306,15 +335,24 @@ class EventKitBackend : AppBackend {
         return calMap[id]
     }
 
-    private fun titleFor(e: NewEvent): String = e.title?.takeIf { it.isNotBlank() }
-        ?.let { "${e.type.label}: $it" } ?: e.contact?.let { "${e.type.label}: ${it.name}" } ?: e.type.label
+    private fun titleFor(e: NewEvent): String {
+        val m = e.mail
+        if (e.type == EventType.MAIL && m != null) {
+            // Письмо: "Ответить: тема" / "Написать: Иван Петров"
+            val what = e.title?.takeIf { it.isNotBlank() }
+                ?: if (m.kind == MailKind.REPLY) m.subject?.takeIf { it.isNotBlank() } ?: m.peer else e.contact?.name ?: m.peer
+            return if (what != null) "${m.kind.verb}: $what" else m.kind.verb
+        }
+        return e.title?.takeIf { it.isNotBlank() }
+            ?.let { "${e.type.label}: $it" } ?: e.contact?.let { "${e.type.label}: ${it.name}" } ?: e.type.label
+    }
 
     override suspend fun create(e: NewEvent): Long {
         val ev = EKEvent.eventWithEventStore(store)
         ev.calendar = calendarFor(e.calendarId) ?: store.defaultCalendarForNewEvents
         ev.title = titleFor(e)
         applyTime(ev, e.start, e.minutes)
-        ev.notes = compose(null, e.note, makeMarker(e.type, e.contact?.lookupKey, e.contact?.phone))
+        ev.notes = compose(null, e.note, makeMarker(e.type, e.contact?.lookupKey, e.contact?.phone, mailMarker(e.mail)))
         ev.location = e.place?.takeIf { it.isNotBlank() }
         e.reminders.forEach { ev.addAlarm(EKAlarm.alarmWithRelativeOffset(-it * 60.0)) }
         e.rrule?.let { r -> parseRule(r)?.let { ev.addRecurrenceRule(it) } }
@@ -336,7 +374,8 @@ class EventKitBackend : AppBackend {
 
     override suspend fun setLink(eventId: Long, type: EventType?, contact: ContactRef?) = editMaster(eventId) { ev ->
         val n = ev.notes
-        val marker = type?.let { makeMarker(it, contact?.lookupKey, contact?.phone) }
+        val keepMail = parseMarker(n)?.mail?.takeIf { type == EventType.MAIL }
+        val marker = type?.let { makeMarker(it, contact?.lookupKey, contact?.phone, keepMail) }
         ev.notes = compose(outcomeOf(n), body(n), marker)
     }
 

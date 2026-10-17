@@ -43,6 +43,7 @@ object IosPlatform : PlatformActions {
         val c = e.contact
         val place = e.place ?: c?.address
         when {
+            e.type == ru.palmdate.app.model.EventType.MAIL && e.mail != null -> mail(e)
             e.fromContacts || (c != null && e.type == ru.palmdate.app.model.EventType.CALL) -> c?.let(call)
             place != null -> openMap(place)
         }
