@@ -135,6 +135,8 @@ Xcode-проект генерирует `xcodegen` из `iosApp/project.yml` (т
 **Связаться.** Телефон (`tel:`) + установленные WhatsApp, Telegram, Viber (чат по номеру); есть ли человек в мессенджере iPhone не показывает
 (Android видит отметки в контактах). MAX — нет ссылки по номеру, пока не добавлен. Галочка «Всегда так для этого человека» хранится в `IosStore`.
 
+**Карты.** `ui/IosMaps.kt`: Apple Карты, Яндекс Карты, Яндекс Навигатор, 2ГИС, Google Карты (какие установлены — по `canOpenURL`, схемы в Info.plist); одна программа — открываем сразу, несколько — окно выбора с галочкой «всегда», сброс в Настройки → Карты.
+
 **Правила Kotlin/Native, о которые уже споткнулись.** Вложенные enum — `EKEntityType.EKEntityTypeEvent`; `NSError**` передаём `null`;
 исключения Objective-C не ловятся `runCatching` (поэтому места вроде списка календарей и контактов защищены заранее);
 `isImeVisible` в iosMain нет; `OnFocusBehavior` — `androidx.compose.ui.uikit.OnFocusBehavior`; для iOS-сборки нужно `-Xmx3g` (gradle.properties).

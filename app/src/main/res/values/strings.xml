@@ -462,4 +462,9 @@
     <string-array name="rep_ord_m"><item>first</item><item>second</item><item>third</item><item>fourth</item><item>fifth</item><item>last</item></string-array>
     <string-array name="rep_ord_f"><item>first</item><item>second</item><item>third</item><item>fourth</item><item>fifth</item><item>last</item></string-array>
     <string-array name="rep_ord_n"><item>first</item><item>second</item><item>third</item><item>fourth</item><item>fifth</item><item>last</item></string-array>
+    <string name="settings_maps">Maps</string>
+    <string name="settings_maps_app">Maps app</string>
+    <string name="settings_maps_hint">Tapping an address or “Route” opens it in the maps app you choose (Apple Maps, Yandex Maps, 2GIS, Google Maps…).</string>
+    <string name="mapui_title">Open in Maps</string>
+    <string name="mapui_change_in_settings">You can change this in “Settings → Maps”</string>
 </resources>

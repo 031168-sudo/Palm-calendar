@@ -35,11 +35,7 @@ object IosPlatform : PlatformActions {
         NSURL.URLWithString(url)?.let { UIApplication.sharedApplication.openURL(it, emptyMap<Any?, Any?>(), null) }
     }
 
-    @Suppress("CAST_NEVER_SUCCEEDS")
-    override fun openMap(address: String) {
-        val q = (address as NSString).stringByAddingPercentEncodingWithAllowedCharacters(NSCharacterSet.URLQueryAllowedCharacterSet) ?: address
-        open("http://maps.apple.com/?q=$q")
-    }
+    override fun openMap(address: String) = IosMaps.open(address)
 
     override fun openDocument(doc: TripDoc) {}
 
@@ -89,5 +85,21 @@ object IosSettings : SettingsPlatform {
             }
         }
         SettingsHint(ru.palmdate.app.str("settings_mail_app_hint"))
+
+        SettingsSection(ru.palmdate.app.str("settings_maps"))
+        var map by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(IosMapPrefs.remembered()) }
+        androidx.compose.foundation.layout.Row(androidx.compose.ui.Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.weight(1f)) {
+                SettingsLabel(ru.palmdate.app.str("settings_maps_app"))
+                androidx.compose.material3.Text(
+                    map?.label ?: ru.palmdate.app.str("settings_ask_on_open"),
+                    style = ru.palmdate.app.ui.theme.Palm.body, color = ru.palmdate.app.ui.theme.Palm.ink,
+                )
+            }
+            if (map != null) androidx.compose.material3.TextButton(onClick = { IosMapPrefs.set(null); map = null }) {
+                androidx.compose.material3.Text(ru.palmdate.app.str("settings_reset"))
+            }
+        }
+        SettingsHint(ru.palmdate.app.str("settings_maps_hint"))
     }
 }

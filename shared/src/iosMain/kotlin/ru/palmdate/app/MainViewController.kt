@@ -41,7 +41,7 @@ fun MainViewController(): UIViewController {
     return ComposeUIViewController(configure = { onFocusBehavior = androidx.compose.ui.uikit.OnFocusBehavior.DoNothing }) {
         PalmTheme {
             CompositionLocalProvider(LocalPlatform provides IosPlatform) {
-                ru.palmdate.app.ui.IosMailHost(model) { ru.palmdate.app.ui.IosCallerHost { DayScreen(model, IosSettings) } }
+                ru.palmdate.app.ui.IosMailHost(model) { ru.palmdate.app.ui.IosCallerHost { ru.palmdate.app.ui.IosMapHost { DayScreen(model, IosSettings) } } }
             }
         }
     }

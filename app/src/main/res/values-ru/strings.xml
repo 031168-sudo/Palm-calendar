@@ -475,4 +475,9 @@
     <string-array name="rep_ord_m"><item>первый</item><item>второй</item><item>третий</item><item>четвёртый</item><item>пятый</item><item>последний</item></string-array>
     <string-array name="rep_ord_f"><item>первую</item><item>вторую</item><item>третью</item><item>четвёртую</item><item>пятую</item><item>последнюю</item></string-array>
     <string-array name="rep_ord_n"><item>первое</item><item>второе</item><item>третье</item><item>четвёртое</item><item>пятое</item><item>последнее</item></string-array>
+    <string name="settings_maps">Карты</string>
+    <string name="settings_maps_app">Программа карт</string>
+    <string name="settings_maps_hint">Тап по адресу или «Маршрут» открывает адрес в выбранной программе карт (Apple Карты, Яндекс Карты, 2ГИС, Google Карты…).</string>
+    <string name="mapui_title">Открыть в картах</string>
+    <string name="mapui_change_in_settings">Сменить можно в «Настройки → Карты»</string>
 </resources>
