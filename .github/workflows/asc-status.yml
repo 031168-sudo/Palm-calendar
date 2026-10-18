@@ -40,16 +40,21 @@ jobs:
               txt = (lj.get("data", {}).get("attributes", {}) or {}).get("logText", "") or str(lj)[:300]
               keep = [l for l in txt.splitlines() if any(k in l for k in ("Exception Type", "Exception Codes", "Termination", "Application Specific", "NSInvalid", "*** ", "Crashed", "ru.palmdate", "Shared", "palmdate", "libobjc", "Contacts", "EventKit", "kotlin::", "Kotlin"))]
               out.append(" // ".join(l.strip()[:170] for l in keep[:45]))
-          c, j = get("/v1/users?limit=200")
-          out.append(f"USERS {c} " + ", ".join(str(d['attributes'].get('username')) + ":" + "/".join(d['attributes'].get('roles', [])) for d in j.get("data", [])))
+          c, j = get(f"/v1/builds?filter[app]={app}&limit=20&sort=-uploadedDate&include=buildBetaDetail")
+          det = {x["id"]: x["attributes"] for x in j.get("included", []) if x["type"] == "buildBetaDetails"}
+          for bld in j.get("data", []):
+              a = bld["attributes"]
+              bd = bld.get("relationships", {}).get("buildBetaDetail", {}).get("data") or {}
+              d = det.get(bd.get("id"), {})
+              out.append(f"BUILD v{a.get('version')} proc={a.get('processingState')} ext={d.get('externalBuildState')} int={d.get('internalBuildState')}")
           c, j = get(f"/v1/apps/{app}/betaGroups?limit=50")
           for g in j.get("data", []):
               a = g["attributes"]
-              out.append(f"GROUP {g['id']} name={a.get('name')} internal={a.get('isInternalGroup')} auto={a.get('hasAccessToAllBuilds')} public={a.get('publicLinkEnabled')}")
+              out.append(f"GROUP name={a.get('name')} internal={a.get('isInternalGroup')}")
               cc, tj = get(f"/v1/betaGroups/{g['id']}/betaTesters?limit=50")
               for t in tj.get("data", []):
                   ta = t["attributes"]
-                  out.append(f"  TESTER {ta.get('email')} state={ta.get('state')} type={ta.get('inviteType')}")
+                  out.append(f"  TESTER {ta.get('email')} state={ta.get('state')}")
               cc, bj = get(f"/v1/betaGroups/{g['id']}/builds?limit=20")
               out.append("  BUILDS " + ",".join(str(x['attributes'].get('version')) for x in bj.get("data", [])))
           print("::warning title=Ошибки статус Apple::" + " | ".join(out).replace("\n", " "))
