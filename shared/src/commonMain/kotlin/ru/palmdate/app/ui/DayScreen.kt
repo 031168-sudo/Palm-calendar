@@ -84,7 +84,7 @@ import ru.palmdate.app.model.OutcomeKind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.platform.LocalDensity
@@ -206,7 +206,7 @@ fun DayScreen(model: DayModel, settings: SettingsPlatform) {
     CalendarFrame(
         pane = paneContent,
         state = state,
-        headerModifier = Modifier.onGloballyPositioned { headerBottom = it.boundsInWindow().bottom.toInt() },
+        headerModifier = Modifier.onGloballyPositioned { headerBottom = it.boundsInRoot().bottom.toInt() },
         actions = MainActions(
             onSelect = model::select,
             onShiftWeek = { model.shift(7L * it) },
