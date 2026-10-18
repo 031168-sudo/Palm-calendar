@@ -33,7 +33,9 @@ internal object IosBackup {
     private const val FORMAT = "datebook-ios-1"
     private const val PREFIX = "pd_"
     // Служебное: отчёт о сбое в копию не кладём
-    private val skip = setOf("pd_last_error")
+    private val skip = setOf("pd_last_error", "pd_file_seq")
+    // Список документов событий без самих файлов в копию не берём (файлы лежат в памяти приложения)
+    private fun skipped(key: String) = key in skip || key.startsWith("pd_files_")
     // Делегат выбора файла нужно держать в памяти — система хранит на него только слабую ссылку
     private var picker: PickerDelegate? = null
 
@@ -48,7 +50,7 @@ internal object IosBackup {
         val data = HashMap<Any?, Any?>()
         NSUserDefaults.standardUserDefaults.dictionaryRepresentation().forEach { (k, v) ->
             val key = k as? String ?: return@forEach
-            if (!key.startsWith(PREFIX) || key in skip) return@forEach
+            if (!key.startsWith(PREFIX) || skipped(key)) return@forEach
             if (v is String || v is NSNumber || v is Number || v is Boolean || v is List<*>) data[key] = v
         }
         val root = mapOf<Any?, Any?>("format" to FORMAT, "data" to data)
@@ -66,7 +68,7 @@ internal object IosBackup {
         var n = 0
         data.forEach { (k, v) ->
             val key = k as? String ?: return@forEach
-            if (!key.startsWith(PREFIX) || key in skip) return@forEach
+            if (!key.startsWith(PREFIX) || skipped(key)) return@forEach
             if (v is String || v is NSNumber || v is Number || v is Boolean || v is List<*>) { d.setObject(v, key); n++ }
         }
         // Настройки перечитываем сразу; язык и выбор «всегда так» подхватятся при следующем запуске

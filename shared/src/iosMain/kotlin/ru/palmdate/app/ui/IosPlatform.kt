@@ -40,7 +40,7 @@ object IosPlatform : PlatformActions {
 
     override fun openMap(address: String) = IosMaps.open(address)
 
-    override fun openDocument(doc: TripDoc) {}
+    override fun openDocument(doc: TripDoc) = IosFiles.open(doc)
 
     override fun runPrimaryAction(e: PalmEvent, call: (ContactRef) -> Unit, mail: (PalmEvent) -> Unit) {
         val c = e.contact

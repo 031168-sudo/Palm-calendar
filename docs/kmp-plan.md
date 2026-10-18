@@ -139,6 +139,8 @@ Xcode-проект генерирует `xcodegen` из `iosApp/project.yml` (т
 
 **Резервная копия.** `ui/IosBackup.kt`: JSON `{"format":"datebook-ios-1","data":{…}}` со всеми ключами `pd_*` из NSUserDefaults (кроме `pd_last_error`). Сохранение — `UIActivityViewController` (Файлы/Поделиться), восстановление — `UIDocumentPickerViewController`. События и их метки лежат в календаре, поэтому в копию не входят. Файлы с Android (`datebook-1`) на iPhone не читаются и наоборот.
 
+**Документы.** `ui/IosFiles.kt`: выбор — `UIDocumentPickerViewController` (asCopy), копия в `Documents/trips/<событие>/`, список в `IosStore` (`files_<событие>`), просмотр — `UIDocumentInteractionController` (если формат не показывается — «Поделиться»). Файлы в резервную копию iPhone не входят.
+
 **Правила Kotlin/Native, о которые уже споткнулись.** Вложенные enum — `EKEntityType.EKEntityTypeEvent`; `NSError**` передаём `null`;
 исключения Objective-C не ловятся `runCatching` (поэтому места вроде списка календарей и контактов защищены заранее);
 `isImeVisible` в iosMain нет; `OnFocusBehavior` — `androidx.compose.ui.uikit.OnFocusBehavior`; для iOS-сборки нужно `-Xmx3g` (gradle.properties).
@@ -154,5 +156,4 @@ Xcode-проект генерирует `xcodegen` из `iosApp/project.yml` (т
 версией (новая версия 0.2 → параллельная проверка); сборка живёт 90 дней; во внутреннюю группу попадают только участники команды;
 письмо «Build completed processing» — не одобрение.
 
-**Ещё не сделано на iPhone.** Окно «Настроить…» для своих повторений (заглушка), документы в событии (UIDocumentPicker),
-«Открыть в системном календаре», жест «назад», уведомления о днях рождения, настройки кроме языка и почты, MAX.
+**Ещё не сделано на iPhone.** Окно «Настроить…» для своих повторений (заглушка), «Открыть в системном календаре», жест «назад», уведомления о днях рождения, настройки кроме языка и почты, MAX.

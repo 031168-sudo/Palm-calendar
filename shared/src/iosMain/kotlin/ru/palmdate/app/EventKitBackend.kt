@@ -279,6 +279,7 @@ class EventKitBackend : AppBackend {
             rrule = ruleOf(ev),
             place = ev.location?.takeIf { it.isNotBlank() },
             hasAlarm = if (birthday) null else !ev.alarms.isNullOrEmpty(),
+            hasFiles = !birthday && ru.palmdate.app.ui.IosFiles.has(id),
             mail = if (mk?.type == EventType.MAIL) mailFromMarker(mk.mail, title) else null,
         )
     }
@@ -420,6 +421,7 @@ class EventKitBackend : AppBackend {
     override suspend fun delete(eventId: Long) {
         val ev = master(eventId) ?: return
         store.removeEvent(ev, EKSpan.EKSpanFutureEvents, true, null)
+        ru.palmdate.app.ui.IosFiles.deleteAll(eventId)
     }
 
     override fun allCalendars(): List<CalendarInfo> {
@@ -579,9 +581,9 @@ class EventKitBackend : AppBackend {
 
     /* ---------- документы (пока не поддержаны на iPhone) ---------- */
 
-    override suspend fun tripFiles(eventId: Long): List<TripDoc> = emptyList()
-    override suspend fun addTripFile(eventId: Long, uri: String, label: String) {}
-    override suspend fun deleteTripFile(doc: TripDoc) {}
+    override suspend fun tripFiles(eventId: Long): List<TripDoc> = ru.palmdate.app.ui.IosFiles.list(eventId)
+    override suspend fun addTripFile(eventId: Long, uri: String, label: String) = ru.palmdate.app.ui.IosFiles.add(eventId, uri, label)
+    override suspend fun deleteTripFile(doc: TripDoc) = ru.palmdate.app.ui.IosFiles.delete(doc)
 
     /* ---------- хранилище и изменения снаружи ---------- */
 

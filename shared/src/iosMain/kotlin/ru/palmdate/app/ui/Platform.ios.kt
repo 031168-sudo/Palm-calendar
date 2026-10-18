@@ -71,4 +71,4 @@ actual fun Modifier.keepAboveKeyboard(): Modifier {
 }
 
 @Composable
-actual fun rememberDocumentPicker(onPicked: (List<String>) -> Unit): () -> Unit = { /* TODO: UIDocumentPicker */ }
+actual fun rememberDocumentPicker(onPicked: (List<String>) -> Unit): () -> Unit = { IosFiles.pick(onPicked) }
