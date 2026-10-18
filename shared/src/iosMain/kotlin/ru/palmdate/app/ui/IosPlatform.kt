@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
+import ru.palmdate.app.time.now
 import kotlinx.datetime.LocalDate
 import platform.Foundation.NSCharacterSet
 import platform.Foundation.NSString
@@ -101,5 +104,32 @@ object IosSettings : SettingsPlatform {
             }
         }
         SettingsHint(ru.palmdate.app.str("settings_maps_hint"))
+
+        SettingsSection(ru.palmdate.app.str("settings_data"))
+        SettingsHint(ru.palmdate.app.str("settings_data_hint_ios"))
+        var result by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+        androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+            PalmButton(ru.palmdate.app.str("settings_backup_save")) {
+                result = runCatching {
+                    val name = ru.palmdate.app.str("settings_backup_filename", kotlinx.datetime.LocalDate.now().toString())
+                    if (IosBackup.share(name, IosBackup.export())) null else error(ru.palmdate.app.str("settings_backup_save_failed"))
+                }.getOrElse { "✗ " + (it.message ?: ru.palmdate.app.str("settings_backup_save_failed")) }
+            }
+            PalmButton(ru.palmdate.app.str("settings_backup_restore")) {
+                IosBackup.pick { text ->
+                    result = runCatching {
+                        if (text == null) error(ru.palmdate.app.str("settings_backup_restore_failed"))
+                        ru.palmdate.app.str("settings_backup_restored", IosBackup.import(text)) + "\n" + ru.palmdate.app.str("settings_backup_restart")
+                    }.getOrElse { "✗ " + (it.message ?: ru.palmdate.app.str("settings_backup_restore_failed")) }
+                }
+            }
+        }
+        result?.let {
+            androidx.compose.material3.Text(
+                it, style = ru.palmdate.app.ui.theme.Palm.small,
+                color = if (it.startsWith("✗")) ru.palmdate.app.ui.theme.Palm.nowLine else androidx.compose.ui.graphics.Color(0xFF2E7D32),
+                modifier = androidx.compose.ui.Modifier.padding(top = 6.dp),
+            )
+        }
     }
 }

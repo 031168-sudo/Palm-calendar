@@ -467,4 +467,6 @@
     <string name="settings_maps_hint">Tapping an address or “Route” opens it in the maps app you choose (Apple Maps, Yandex Maps, 2GIS, Google Maps…).</string>
     <string name="mapui_title">Open in Maps</string>
     <string name="mapui_change_in_settings">You can change this in “Settings → Maps”</string>
+    <string name="settings_data_hint_ios">A copy of everything DateBook keeps itself: settings, your own addresses, chosen ways to contact people, contact addresses and numbers. The events themselves, with their types and results, are already in your calendar.</string>
+    <string name="settings_backup_restart">Restart the app to apply everything.</string>
 </resources>
