@@ -13,21 +13,22 @@ import platform.Foundation.URLQueryAllowedCharacterSet
 import platform.Foundation.stringByAddingPercentEncodingWithAllowedCharacters
 import platform.UIKit.UIApplication
 import ru.palmdate.app.IosLang
+import ru.palmdate.app.IosStore
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.PalmEvent
 
 /** Что экраны просят у iPhone. Пока работают карты и звонок; остальное — позже. */
 object IosPlatform : PlatformActions {
-    private val ownMemory = HashMap<Long, String>()
-    private val viaMemory = HashMap<String, String>()
-
+    // Свои адреса и «всегда так для этого человека» хранятся в памяти телефона и переживают перезапуск
     override val ownAddresses = object : OwnAddressStore {
-        override fun get(eventId: Long): String? = ownMemory[eventId]
-        override fun set(eventId: Long, address: String?) { if (address.isNullOrBlank()) ownMemory.remove(eventId) else ownMemory[eventId] = address }
+        override fun get(eventId: Long): String? = IosStore.getString("own_address_$eventId")?.takeIf { it.isNotBlank() }
+        override fun set(eventId: Long, address: String?) {
+            if (address.isNullOrBlank()) IosStore.remove("own_address_$eventId") else IosStore.putString("own_address_$eventId", address.trim())
+        }
     }
     override val callPrefs = object : CallPrefsStore {
-        override fun rememberedLabel(lookupKey: String): String? = viaMemory[lookupKey]
-        override fun remember(lookupKey: String, key: String?) { if (key == null) viaMemory.remove(lookupKey) else viaMemory[lookupKey] = key }
+        override fun rememberedLabel(lookupKey: String): String? = IosCallPrefs.remembered(lookupKey)?.let { k -> IosCallPrefs.label(k) }
+        override fun remember(lookupKey: String, key: String?) = IosCallPrefs.set(lookupKey, key)
     }
 
     private fun open(url: String) {

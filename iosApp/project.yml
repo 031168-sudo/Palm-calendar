@@ -21,7 +21,7 @@ targets:
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
         CADisableMinimumFrameDurationOnPhone: true
-        LSApplicationQueriesSchemes: [message, googlegmail, ms-outlook, yandexmail]
+        LSApplicationQueriesSchemes: [message, googlegmail, ms-outlook, yandexmail, whatsapp, tg, viber]
         UILaunchScreen: {}
         NSCalendarsUsageDescription: "DateBook показывает и создаёт события в вашем календаре."
         NSCalendarsFullAccessUsageDescription: "DateBook показывает и создаёт события в вашем календаре."

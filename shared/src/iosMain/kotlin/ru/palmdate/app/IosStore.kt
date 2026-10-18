@@ -14,6 +14,7 @@ object IosStore {
 
     fun getString(key: String): String? = d.stringForKey(k(key))
     fun putString(key: String, value: String) = d.setObject(value, k(key))
+    fun remove(key: String) = d.removeObjectForKey(k(key))
     fun getLong(key: String): Long? = (d.objectForKey(k(key)) as? NSNumber)?.longLongValue
     fun putLong(key: String, value: Long) = d.setObject(NSNumber(long = value), k(key))
     fun getStringSet(key: String): Set<String> = (d.stringArrayForKey(k(key)) ?: emptyList<Any?>()).filterIsInstance<String>().toSet()

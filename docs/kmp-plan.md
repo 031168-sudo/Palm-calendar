@@ -116,3 +116,39 @@
    (на первом шаге — с тестовыми данными, чтобы увидеть экраны).
 2. Сборка приложения на macOS в GitHub Actions (`xcodebuild`, сначала без подписи, на симулятор).
 3. EventKit (календарь), Contacts, почта/мессенджеры; подпись и TestFlight (понадобятся данные аккаунта Apple).
+
+## iPhone-приложение (сделано, раздаётся через TestFlight)
+
+**Состав.** `shared/src/iosMain/...`: `MainViewController.kt` (вход для SwiftUI; `ComposeUIViewController`), `EventKitBackend.kt`
+(`AppBackend` на EventKit + Contacts), `IosStore.kt` (NSUserDefaults: настройки, свои адреса, запомненный способ связи, почтовая программа),
+`IosStrings.kt` (+ `GeneratedStrings.kt`: Gradle-задача `genIosStrings` превращает `strings.xml` ru/en в код; в общем коде — `str("ключ", …)`),
+`ui/IosPlatform.kt` (`PlatformActions`, `SettingsPlatform`), `ui/IosMail.kt` (почта), `ui/IosCaller.kt` («Связаться»), `ui/Platform.ios.kt`.
+Xcode-проект генерирует `xcodegen` из `iosApp/project.yml` (там же `MARKETING_VERSION`, `LSApplicationQueriesSchemes`, тексты разрешений).
+
+**Метки событий.** Как на Android: тип/контакт/номер/письмо — в заметках события EventKit `[palm:t=TYPE;c=lookupKey;p=phone;m=mail]`
+(значения в процентной кодировке) + строка «Итог: …». Метка письма: `N|адрес` (написать) или `R|адрес|имя` (ответить; тема — из заголовка после «: »).
+
+**Почта.** Только через почтовые программы (Mail, Gmail, Outlook, Яндекс Почта; схемы в Info.plist). «Написать» открывает новое письмо;
+«Ответить» сначала показывает, что будет скопировано для поиска, и только по кнопке копирует и запускает программу; по возвращении —
+«Письмо отправлено?» → итог. Выбор программы с галочкой «всегда», сброс — Настройки → Почта.
+
+**Связаться.** Телефон (`tel:`) + установленные WhatsApp, Telegram, Viber (чат по номеру); есть ли человек в мессенджере iPhone не показывает
+(Android видит отметки в контактах). MAX — нет ссылки по номеру, пока не добавлен. Галочка «Всегда так для этого человека» хранится в `IosStore`.
+
+**Правила Kotlin/Native, о которые уже споткнулись.** Вложенные enum — `EKEntityType.EKEntityTypeEvent`; `NSError**` передаём `null`;
+исключения Objective-C не ловятся `runCatching` (поэтому места вроде списка календарей и контактов защищены заранее);
+`isImeVisible` в iosMain нет; `OnFocusBehavior` — `androidx.compose.ui.uikit.OnFocusBehavior`; для iOS-сборки нужно `-Xmx3g` (gradle.properties).
+
+**TestFlight.** `.github/workflows/ios-testflight.yml` (macos-15, Xcode 26): релизный фреймворк → xcodegen → архив с автоподписью по ключу App Store Connect →
+экспорт → загрузка через REST API (Xcode по ключу не логинится — JWT-ошибка). Запуск — изменить число в `.github/testflight-trigger.txt` и запушить в `kmp`.
+Версия — `MARKETING_VERSION` из `iosApp/project.yml`, номер сборки — номер прогона. Секреты (только в GitHub): `ASC_KEY_ID`, `ASC_ISSUER_ID`,
+`ASC_KEY_P8`, `ASC_TEAM_ID`. Шаг «Clean temporary certificates» удаляет только временные сертификаты «Created via API» (иначе упираемся в лимит);
+настоящий «Apple Distribution: Alfanomia OOO» не трогать. `asc-status.yml` (+ `asc-status-trigger.txt`) показывает состояние сборок и тестировщиков.
+Ключи и .p8 в чат не присылать.
+
+**Правила Apple, которые выяснили.** Первой внешней группе нужна проверка Beta App Review; одновременно на проверке — только одна сборка с данной
+версией (новая версия 0.2 → параллельная проверка); сборка живёт 90 дней; во внутреннюю группу попадают только участники команды;
+письмо «Build completed processing» — не одобрение.
+
+**Ещё не сделано на iPhone.** Окно «Настроить…» для своих повторений (заглушка), резервная копия, документы в событии (UIDocumentPicker),
+«Открыть в системном календаре», жест «назад», уведомления о днях рождения, настройки кроме языка и почты, MAX.
