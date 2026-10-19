@@ -1,0 +1,49 @@
+name: ASC testers
+
+# Меняет тестировщиков TestFlight: убирает и добавляет в внешнюю группу.
+# Список — в .github/testers-change.txt (JSON в base64, чтобы адреса не лежали открытым текстом). Изменить файл и запушить в kmp.
+on:
+  push:
+    branches: [ kmp ]
+    paths: [ '.github/testers-change.txt' ]
+
+jobs:
+  change:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply
+        env:
+          K: ${{ secrets.ASC_KEY_P8 }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          pip3 install --quiet pyjwt cryptography requests
+          python3 - <<'PY'
+          import os, time, json, base64, jwt, requests
+          kid = os.environ["KID"].strip(); iss = os.environ["ISS"].strip()
+          body = "".join(os.environ["K"].replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").split())
+          key = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(body[i:i+64] for i in range(0, len(body), 64)) + "\n-----END PRIVATE KEY-----\n"
+          tok = jwt.encode({"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"}, key, algorithm="ES256", headers={"kid": kid})
+          H = {"Authorization": "Bearer " + tok, "Content-Type": "application/json"}
+          B = "https://api.appstoreconnect.apple.com"
+          chg = json.loads(base64.b64decode(open(".github/testers-change.txt").read().strip()))
+          def mask(e): return e[:2] + "***" + (e[e.find("@"):] if "@" in e else "")
+          out = []
+          app = requests.get(B + "/v1/apps?filter[bundleId]=ru.palmdate.app", headers=H).json()["data"][0]["id"]
+          groups = requests.get(B + f"/v1/apps/{app}/betaGroups?limit=50", headers=H).json()["data"]
+          ext = [g for g in groups if not g["attributes"].get("isInternalGroup")]
+          for e in chg.get("remove", []):
+              r = requests.get(B + "/v1/betaTesters", params={"filter[email]": e, "filter[apps]": app}, headers=H).json().get("data", [])
+              if not r: out.append(f"удалить {mask(e)}: не найден"); continue
+              for t in r:
+                  d = requests.delete(B + f"/v1/betaTesters/{t['id']}", headers=H)
+                  out.append(f"удалить {mask(e)}: {d.status_code}")
+          for a in chg.get("add", []):
+              rel = {"betaGroups": {"data": [{"type": "betaGroups", "id": g["id"]} for g in ext]}}
+              r = requests.post(B + "/v1/betaTesters", headers=H, data=json.dumps({"data": {"type": "betaTesters",
+                  "attributes": {"email": a["email"], "firstName": a.get("first", ""), "lastName": a.get("last", "")},
+                  "relationships": rel}}))
+              out.append(f"добавить {mask(a['email'])}: {r.status_code} {'' if r.status_code < 300 else r.text[:200].replace(a['email'], mask(a['email']))}")
+          print("::warning title=Ошибки тестировщики::" + " | ".join(out))
+          PY

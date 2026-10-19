@@ -54,7 +54,8 @@ jobs:
               cc, tj = get(f"/v1/betaGroups/{g['id']}/betaTesters?limit=50")
               for t in tj.get("data", []):
                   ta = t["attributes"]
-                  out.append(f"  TESTER {ta.get('email')} state={ta.get('state')}")
+                  em = ta.get('email') or ''
+                  out.append(f"  TESTER {em[:2]}***{em[em.find('@'):] if '@' in em else ''} state={ta.get('state')}")
               cc, bj = get(f"/v1/betaGroups/{g['id']}/builds?limit=20")
               out.append("  BUILDS " + ",".join(str(x['attributes'].get('version')) for x in bj.get("data", [])))
           print("::warning title=Ошибки статус Apple::" + " | ".join(out).replace("\n", " "))
