@@ -627,7 +627,7 @@ private fun TimeEditDialog(event: PalmEvent, onDismiss: () -> Unit, onSave: (Loc
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Palm.paper,
-        title = { Text(if (event.recurring) str("time_from_this") else str("when_label"), style = Palm.title, color = Palm.ink) },
+        title = { Text(str("when_label"), style = Palm.title, color = Palm.ink) },
         text = {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -987,7 +987,7 @@ fun EventDetailsSheet(
     addressesFor: suspend (String) -> List<PhoneNumber> = { emptyList() },
     onPickAddress: (String) -> Unit = {},
     onEditTitle: (String) -> Unit = {},
-    onEditTime: (LocalDateTime, Int) -> Unit = { _, _ -> },
+    onEditTime: (LocalDateTime, Int, ru.palmdate.app.model.DeleteScope) -> Unit = { _, _, _ -> },
     onEditNote: (String?) -> Unit = {},
     loadPlace: suspend (Long) -> String? = { null },
     onSetPlace: (String?) -> Unit = {},
@@ -1053,10 +1053,20 @@ fun EventDetailsSheet(
             onSetPlace(new); place = new; editPlace = false
         }
     }
+    // Новое время ждёт выбора, что менять (у повторяющегося): этот раз, этот и следующие, вся серия
+    var pendingTime by remember { mutableStateOf<Pair<LocalDateTime, Int>?>(null) }
     if (editTime) {
         TimeEditDialog(event, onDismiss = { editTime = false }) { start, minutes ->
-            onEditTime(start, minutes); editTime = false
+            editTime = false
+            if (event.recurring) pendingTime = start to minutes
+            else onEditTime(start, minutes, ru.palmdate.app.model.DeleteScope.ALL)
         }
+    }
+    pendingTime?.let { (start, minutes) ->
+        RecurringScopeDialog(
+            event, title = str("change_recurring"), confirm = str("change_apply"), confirmColor = Palm.ink, showSeriesNote = false,
+            onDismiss = { pendingTime = null },
+        ) { scope -> pendingTime = null; onEditTime(start, minutes, scope) }
     }
     val canMove = !event.fromContacts && calendars.count { it.writable } > 1 &&
         calendars.any { it.id == event.calendarId && it.writable }
@@ -1389,11 +1399,21 @@ private fun DeleteDialog(event: PalmEvent, onDismiss: () -> Unit, onDelete: (ru.
         )
         return
     }
+    RecurringScopeDialog(event, title = str("delete_recurring"), confirm = str("delete"), confirmColor = Palm.nowLine, showSeriesNote = true, onDismiss = onDismiss, onChoose = onDelete)
+}
+
+/** Выбор для повторяющегося события: только этот раз, этот и все следующие, вся серия. Для удаления и для смены времени. */
+@Composable
+private fun RecurringScopeDialog(
+    event: PalmEvent, title: String, confirm: String, confirmColor: androidx.compose.ui.graphics.Color, showSeriesNote: Boolean,
+    onDismiss: () -> Unit, onChoose: (ru.palmdate.app.model.DeleteScope) -> Unit,
+) {
+    val name = event.title.ifBlank { str("type_other") }
     var choice by remember { mutableStateOf(ru.palmdate.app.model.DeleteScope.ONE) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Palm.paper,
-        title = { Text(str("delete_recurring"), style = Palm.title, color = Palm.ink) },
+        title = { Text(title, style = Palm.title, color = Palm.ink) },
         text = {
             Column {
                 Text("«$name»", style = Palm.body, color = Palm.ink)
@@ -1411,7 +1431,7 @@ private fun DeleteDialog(event: PalmEvent, onDismiss: () -> Unit, onDelete: (ru.
                         Text(label, style = Palm.body, color = Palm.ink)
                     }
                 }
-                if (choice == ru.palmdate.app.model.DeleteScope.ALL) {
+                if (showSeriesNote && choice == ru.palmdate.app.model.DeleteScope.ALL) {
                     Text(
                         str("delete_series_note"),
                         style = Palm.small, color = Palm.nowLine, modifier = Modifier.padding(top = 4.dp),
@@ -1419,7 +1439,7 @@ private fun DeleteDialog(event: PalmEvent, onDismiss: () -> Unit, onDelete: (ru.
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onDelete(choice) }) { Text(str("delete"), color = Palm.nowLine) } },
+        confirmButton = { TextButton(onClick = { onChoose(choice) }) { Text(confirm, color = confirmColor) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(str("cancel")) } },
     )
 }

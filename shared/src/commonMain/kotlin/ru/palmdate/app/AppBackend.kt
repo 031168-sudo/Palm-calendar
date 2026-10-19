@@ -2,6 +2,7 @@ package ru.palmdate.app
 
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import ru.palmdate.app.model.DeleteScope
 import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.ContactStat
@@ -32,7 +33,8 @@ interface AppBackend {
     suspend fun setRepeat(e: PalmEvent, rrule: String?)
     fun setTitle(eventId: Long, title: String)
     fun setNote(eventId: Long, note: String?)
-    suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int)
+    /** У повторяющегося [scope] решает: только этот раз, этот и следующие или вся серия. */
+    suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int, scope: DeleteScope)
     fun reminders(eventId: Long): List<Int>
     fun setReminders(eventId: Long, minutes: List<Int>)
     suspend fun deleteOne(e: PalmEvent)

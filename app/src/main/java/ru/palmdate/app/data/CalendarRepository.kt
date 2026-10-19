@@ -14,6 +14,7 @@ import android.provider.CalendarContract.Reminders
 import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.ContactStat
+import ru.palmdate.app.model.DeleteScope
 import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.icon
 import ru.palmdate.app.model.color
@@ -606,11 +607,12 @@ class CalendarRepository(
 
     /**
      * Новое время. minutes == 0 — на весь день.
-     * У повторяющегося события сдвигается вся серия на ту же разницу, что и этот раз.
+     * У повторяющегося события [scope] решает, что менять: только этот раз (он становится отдельным событием),
+     * этот и следующие (новая часть серии) или всю серию (сдвиг на ту же разницу, что и этот раз).
      */
-    suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int) {
+    suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int, scope: DeleteScope = DeleteScope.FOLLOWING) {
         try {
-            setTimeRaw(e, start, minutes)
+            setTimeRaw(e, start, minutes, scope)
         } catch (t: Exception) {
             throw IllegalStateException("${t.message} [${eventDump(e.eventId)}]", t)
         }
@@ -651,21 +653,29 @@ class CalendarRepository(
         } ?: "нет данных"
     }.getOrElse { "dump: ${it.message}" }
 
-    private suspend fun setTimeRaw(e: PalmEvent, start: LocalDateTime, minutes: Int) {
-        // Повторяющееся, открыт не первый раз: прошлое не трогаем, с этого раза — новое время
+    private suspend fun setTimeRaw(e: PalmEvent, start: LocalDateTime, minutes: Int, scope: DeleteScope) {
         if (e.recurring) {
             val s = series(e.eventId)
-            if (e.instanceStart > s.start) {
-                val allDay = minutes == 0
-                val newStart = if (allDay) start.toLocalDate().startOfDayUtcMillis()
-                else start.toJava().atZone(zone).toInstant().toEpochMilli()
+            val allDay = minutes == 0
+            val newStart = if (allDay) start.toLocalDate().startOfDayUtcMillis()
+            else start.toJava().atZone(zone).toInstant().toEpochMilli()
+            val length = if (allDay) 86_400_000L else minutes * 60_000L
+            if (scope == DeleteScope.ONE) {
+                // Только этот раз: в серии он пропадает, вместо него — отдельное событие с новым временем
+                cancelInstance(e)
+                newSeriesFrom(e.eventId, s, newStart, allDay, length, null, e.instanceStart, onlyThis = true)
+                return
+            }
+            // Этот и следующие, открыт не первый раз: прошлое не трогаем, с этого раза — новое время
+            if (scope == DeleteScope.FOLLOWING && e.instanceStart > s.start) {
                 endSeriesBefore(e.eventId, s, e.instanceStart)
                 newSeriesFrom(
-                    e.eventId, s, newStart, allDay, if (allDay) 86_400_000L else minutes * 60_000L,
+                    e.eventId, s, newStart, allDay, length,
                     s.rrule?.let { ruleWith(it, keepUntil = true) }, e.instanceStart,
                 )
                 return
             }
+            // Вся серия (или «этот и следующие» с первого раза) — ниже сдвигаем серию целиком
         }
         val uri = ContentUris.withAppendedId(Events.CONTENT_URI, e.eventId)
         val allDay = minutes == 0
@@ -733,13 +743,18 @@ class CalendarRepository(
     /** Удалить только этот раз повторяющегося события (в Google он тоже пропадёт). */
     suspend fun deleteOne(e: PalmEvent) {
         if (!e.recurring) return delete(e.eventId)
+        cancelInstance(e)
+        links.clearOutcome(e.eventId, e.instanceStart)
+    }
+
+    /** Убрать один раз из серии (исключение со STATUS_CANCELED). */
+    private fun cancelInstance(e: PalmEvent) {
         val v = ContentValues().apply {
             put(Events.ORIGINAL_INSTANCE_TIME, e.instanceStart)
             put(Events.STATUS, Events.STATUS_CANCELED)
         }
         resolver.insert(ContentUris.withAppendedId(Events.CONTENT_EXCEPTION_URI, e.eventId), v)
             ?: error(str(R.string.err_delete_occurrence))
-        links.clearOutcome(e.eventId, e.instanceStart)
     }
 
     /** Удалить этот раз и все следующие; прошлые остаются. С первого раза — вся серия. */
@@ -821,6 +836,7 @@ class CalendarRepository(
      */
     private suspend fun newSeriesFrom(
         oldId: Long, s: Series, start: Long, allDay: Boolean, lengthMs: Long, rrule: String?, fromInstance: Long,
+        onlyThis: Boolean = false,
     ): Long {
         val values = ContentValues(s.values).apply {
             put(Events.DTSTART, start)
@@ -840,7 +856,7 @@ class CalendarRepository(
         insertReminders(newId, reminders)
         links.byIds(listOf(oldId)).firstOrNull()?.let { links.upsert(it.copy(eventId = newId)) }
         links.mail(oldId)?.let { links.upsertMail(it.copy(eventId = newId)) }
-        links.outcomes(listOf(oldId)).filter { it.instanceStart >= fromInstance }.forEach { o ->
+        links.outcomes(listOf(oldId)).filter { if (onlyThis) it.instanceStart == fromInstance else it.instanceStart >= fromInstance }.forEach { o ->
             links.setOutcome(o.copy(eventId = newId, instanceStart = if (o.instanceStart == fromInstance) start else o.instanceStart))
             links.clearOutcome(oldId, o.instanceStart)
         }

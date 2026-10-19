@@ -10,6 +10,7 @@ import android.provider.CalendarContract
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import ru.palmdate.app.AppBackend
+import ru.palmdate.app.model.DeleteScope
 import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.ContactStat
@@ -47,7 +48,7 @@ class AndroidBackend(
     override suspend fun setRepeat(e: PalmEvent, rrule: String?) = repo.setRepeat(e, rrule)
     override fun setTitle(eventId: Long, title: String) = repo.setTitle(eventId, title)
     override fun setNote(eventId: Long, note: String?) = repo.setNote(eventId, note)
-    override suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int) = repo.setTime(e, start, minutes)
+    override suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int, scope: DeleteScope) = repo.setTime(e, start, minutes, scope)
     override fun reminders(eventId: Long): List<Int> = repo.reminders(eventId)
     override fun setReminders(eventId: Long, minutes: List<Int>) = repo.setReminders(eventId, minutes)
     override suspend fun deleteOne(e: PalmEvent) = repo.deleteOne(e)

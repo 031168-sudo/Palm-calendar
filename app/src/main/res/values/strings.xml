@@ -57,6 +57,8 @@
     <string name="delete_event_q">Delete event?</string>
     <string name="delete_lc">delete</string>
     <string name="delete_only_this">Only this one</string>
+    <string name="change_recurring">Edit recurring event</string>
+    <string name="change_apply">Apply</string>
     <string name="delete_recurring">Delete recurring event</string>
     <string name="delete_series_note">Past occurrences will be deleted too, along with their outcomes.</string>
     <string name="delete_this_following">This and all following</string>

@@ -394,10 +394,27 @@ class EventKitBackend : AppBackend {
         ev.notes = compose(outcomeOf(n), note, markerOf(n))
     }
 
-    override suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int) {
+    override suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int, scope: ru.palmdate.app.model.DeleteScope) {
         val ev = occurrence(e) ?: return
-        applyTime(ev, start, minutes)
-        store.saveEvent(ev, EKSpan.EKSpanFutureEvents, true, null)
+        val whole = e.recurring && scope == ru.palmdate.app.model.DeleteScope.ALL
+        if (!whole) {
+            applyTime(ev, start, minutes)
+            // Только этот раз — исключение в серии; этот и следующие (или одиночное) — с этого раза
+            val span = if (e.recurring && scope == ru.palmdate.app.model.DeleteScope.ONE) EKSpan.EKSpanThisEvent else EKSpan.EKSpanFutureEvents
+            store.saveEvent(ev, span, true, null)
+            return
+        }
+        // Вся серия: первый раз сдвигаем на столько же, на сколько сдвинули этот
+        val m = master(e.eventId) ?: ev
+        val masterStart = m.startDate!!.timeIntervalSince1970
+        val oldOcc = ev.startDate!!.timeIntervalSince1970
+        applyTime(ev, start, minutes) // выставляет «весь день», начало и конец этого раза
+        val delta = ev.startDate!!.timeIntervalSince1970 - oldOcc
+        val len = ev.endDate!!.timeIntervalSince1970 - ev.startDate!!.timeIntervalSince1970
+        m.allDay = ev.allDay
+        m.startDate = NSDate.dateWithTimeIntervalSince1970(masterStart + delta)
+        m.endDate = NSDate.dateWithTimeIntervalSince1970(masterStart + delta + len)
+        store.saveEvent(m, EKSpan.EKSpanFutureEvents, true, null)
     }
 
     override fun reminders(eventId: Long): List<Int> =

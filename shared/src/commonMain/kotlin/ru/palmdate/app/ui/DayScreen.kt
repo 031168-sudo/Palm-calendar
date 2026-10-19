@@ -173,8 +173,8 @@ fun DayScreen(model: DayModel, settings: SettingsPlatform) {
                 model.setTitle(e, newTitle)
                 details = e.copy(title = newTitle)
             },
-            onEditTime = { start, minutes ->
-                model.setTime(e, start, minutes)
+            onEditTime = { start, minutes, scope ->
+                model.setTime(e, start, minutes, scope)
                 if (e.recurring) details = null else details = e.copy(
                     start = if (minutes == 0) start.toLocalDate().atStartOfDay() else start,
                     end = if (minutes == 0) start.toLocalDate().plusDays(1).atStartOfDay() else start.plusMinutes(minutes.toLong()),

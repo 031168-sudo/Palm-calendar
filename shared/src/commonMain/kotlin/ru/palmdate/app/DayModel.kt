@@ -214,7 +214,7 @@ class DayModel(private val scope: CoroutineScope, private val backend: AppBacken
 
     /** Правка из подробностей: название, время, заметка. */
     fun setTitle(e: PalmEvent, title: String) = launchSafe { backend.setTitle(e.eventId, title) }
-    fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int) = launchSafe { backend.setTime(e, start, minutes) }
+    fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int, scope: DeleteScope = DeleteScope.ALL) = launchSafe { backend.setTime(e, start, minutes, scope) }
     fun setNote(e: PalmEvent, note: String?) = launchSafe { backend.setNote(e.eventId, note) }
 
     /* ---- Выезд: адрес и документы ---- */

@@ -56,6 +56,8 @@
     <string name="delete_event_q">Удалить событие?</string>
     <string name="delete_lc">удалить</string>
     <string name="delete_only_this">Только этот раз</string>
+    <string name="change_recurring">Изменить повторяющееся событие</string>
+    <string name="change_apply">Применить</string>
     <string name="delete_recurring">Удалить повторяющееся событие</string>
     <string name="delete_series_note">Удалятся и прошедшие разы вместе с их итогами.</string>
     <string name="delete_this_following">Этот и все следующие</string>

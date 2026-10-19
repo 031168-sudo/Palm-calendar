@@ -82,7 +82,7 @@ class DemoBackend : AppBackend {
     override suspend fun setRepeat(e: PalmEvent, rrule: String?) = edit(e.eventId) { it.copy(rrule = rrule, recurring = rrule != null) }
     override fun setTitle(eventId: Long, title: String) = edit(eventId) { it.copy(title = title) }
     override fun setNote(eventId: Long, note: String?) = edit(eventId) { it.copy(note = note) }
-    override suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int) = edit(e.eventId) {
+    override suspend fun setTime(e: PalmEvent, start: LocalDateTime, minutes: Int, scope: ru.palmdate.app.model.DeleteScope) = edit(e.eventId) {
         it.copy(start = start, end = start.plusMinutes(minutes.toLong()), allDay = minutes == 0)
     }
     override fun reminders(eventId: Long): List<Int> = listOf(10)
