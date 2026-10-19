@@ -71,6 +71,9 @@ data class PalmEvent(
 }
 
 /** То, что собирает окно "Новое". */
+/** Файл, прикреплённый при создании события: ссылка из выбора файла и подпись (Билет, Бронь…). */
+data class NewFile(val uri: String, val label: String)
+
 data class NewEvent(
     val type: EventType,
     val contact: ContactRef?,
@@ -83,4 +86,5 @@ data class NewEvent(
     val rrule: String? = null,
     val mail: MailInfo? = null,
     val place: String? = null,   // адрес выезда: пишется в поле «Место» календаря
+    val files: List<NewFile> = emptyList(), // документы, прикреплённые сразу при создании
 )

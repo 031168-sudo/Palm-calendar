@@ -25,6 +25,12 @@ class AndroidPlatform(private val ctx: Context) : PlatformActions {
 
     override fun openInCalendar(e: PalmEvent) = ctx.openInCalendar(e)
 
+    override fun fileName(uri: String): String = runCatching {
+        ctx.contentResolver.query(android.net.Uri.parse(uri), arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    }.getOrNull() ?: android.net.Uri.parse(uri).lastPathSegment ?: uri
+
     override fun openDocument(doc: TripDoc) {
         val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", File(doc.path))
         ctx.startActivity(

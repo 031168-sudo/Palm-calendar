@@ -39,6 +39,9 @@ interface PlatformActions {
     fun openMap(address: String)
     fun openDocument(doc: TripDoc)
 
+    /** Имя выбранного файла по его ссылке (для списка «прикреплено» до создания события). */
+    fun fileName(uri: String): String = uri.substringAfterLast('/')
+
     /** Тап по иконке события: позвонить / маршрут / письмо; для остальных — открыть в системном календаре. */
     fun runPrimaryAction(e: PalmEvent, call: (ContactRef) -> Unit, mail: (PalmEvent) -> Unit)
 

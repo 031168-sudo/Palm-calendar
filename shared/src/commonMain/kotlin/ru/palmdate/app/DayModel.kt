@@ -177,7 +177,10 @@ class DayModel(private val scope: CoroutineScope, private val backend: AppBacken
 
     fun create(e: NewEvent) = launchSafe {
         backend.putLong(KEY_LAST_CAL, e.calendarId)
-        backend.create(e)
+        val id = backend.create(e)
+        // Файлы, выбранные при создании: один неудачный не мешает остальным
+        e.files.forEach { f -> runCatching { withContext(ioDispatcher) { backend.addTripFile(id, f.uri, f.label) } } }
+        if (e.files.isNotEmpty()) reload()
         val d = e.start.toLocalDate()
         val (from, to) = _state.value.range
         if (d < from || d >= to) select(d)

@@ -130,6 +130,7 @@ fun NewEventSheet(
     var minutes by remember { mutableStateOf(60) }
     var note by remember { mutableStateOf("") }
     var place by remember { mutableStateOf("") }
+    var newFiles by remember { mutableStateOf<List<ru.palmdate.app.model.NewFile>>(emptyList()) }
     var reminders by remember { mutableStateOf<List<Int>>(emptyList()) }
     var rrule by remember { mutableStateOf<String?>(null) }
 
@@ -189,6 +190,7 @@ fun NewEventSheet(
                 else onCreate(NewEvent(
                     type!!, contact, title, start, minutes, note, cal, reminders, rrule, mail,
                     place = place.takeIf { type == EventType.TRIP && it.isNotBlank() },
+                    files = newFiles,
                 ))
             }
             SheetTitle(
@@ -242,14 +244,14 @@ fun NewEventSheet(
                         ContactPicker(search = searchContacts, onPick = onContact, onSkip = toCalendarOrWhen)
                     } else {
                         OutlinedTextField(
-                            value = title, onValueChange = { title = it },
+                            value = title, onValueChange = { title = it.capFirst() }, keyboardOptions = SentenceCaps,
                             label = { Text(str("new_title_optional")) },
                             singleLine = true, modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(Modifier.height(12.dp))
                         if (t == EventType.TRIP) {
                             OutlinedTextField(
-                                value = place, onValueChange = { place = it },
+                                value = place, onValueChange = { place = it.capFirst() }, keyboardOptions = SentenceCaps,
                                 label = { Text(str("new_address_optional")) },
                                 singleLine = true, modifier = Modifier.fillMaxWidth(),
                             )
@@ -290,6 +292,7 @@ fun NewEventSheet(
                     reminders = reminders, onReminders = { reminders = it },
                     rrule = rrule, onRrule = { rrule = it },
                     note = note, onNote = { note = it },
+                    files = newFiles, onFiles = { newFiles = it },
                     onDone = done,
                 ) }
             }
@@ -600,7 +603,7 @@ private fun TextEditDialog(title: String, initial: String, singleLine: Boolean, 
         title = { Text(title, style = Palm.title, color = Palm.ink) },
         text = {
             OutlinedTextField(
-                value = text, onValueChange = { text = it },
+                value = text, onValueChange = { text = it.capFirst() }, keyboardOptions = SentenceCaps,
                 singleLine = singleLine, maxLines = if (singleLine) 1 else 6,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -831,9 +834,11 @@ private fun WhenPicker(
     reminders: List<Int>, onReminders: (List<Int>) -> Unit,
     rrule: String?, onRrule: (String?) -> Unit,
     note: String, onNote: (String) -> Unit,
+    files: List<ru.palmdate.app.model.NewFile>, onFiles: (List<ru.palmdate.app.model.NewFile>) -> Unit,
     onDone: () -> Unit,
 ) {
     val allDay = minutes == 0
+    val platform = LocalPlatform.current
 
     // Дата
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -901,9 +906,19 @@ private fun WhenPicker(
     Spacer(Modifier.height(12.dp))
 
     OutlinedTextField(
-        value = note, onValueChange = onNote,
+        value = note, onValueChange = { onNote(it.capFirst()) }, keyboardOptions = SentenceCaps,
         label = { Text(if (type == EventType.CALL) str("new_about_optional") else str("new_note_optional")) },
         modifier = Modifier.fillMaxWidth().keepAboveKeyboard(), maxLines = 3,
+    )
+    Spacer(Modifier.height(6.dp))
+
+    // Документы можно прикрепить сразу, до создания события
+    TripFilesSection(
+        files = files.mapIndexed { i, f -> TripDoc(id = i.toLong(), eventId = 0, label = f.label, name = platform.fileName(f.uri), path = f.uri) },
+        withLabels = type == EventType.TRIP,
+        onAdd = { label, uris -> onFiles(files + uris.map { ru.palmdate.app.model.NewFile(it, label) }) },
+        onOpen = {},
+        onDelete = { d -> onFiles(files.filterIndexed { i, _ -> i.toLong() != d.id }) },
     )
     Spacer(Modifier.height(6.dp))
 
@@ -1449,7 +1464,7 @@ private fun OutcomeSection(
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
-                value = note, onValueChange = { note = it },
+                value = note, onValueChange = { note = it.capFirst() }, keyboardOptions = SentenceCaps,
                 label = { Text(str("outcome_note_hint")) },
                 modifier = Modifier.weight(1f).keepAboveKeyboard(), maxLines = 3,
             )
