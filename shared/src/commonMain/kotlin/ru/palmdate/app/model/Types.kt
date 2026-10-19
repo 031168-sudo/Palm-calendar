@@ -1,5 +1,7 @@
 package ru.palmdate.app.model
 
+import ru.palmdate.app.time.now
+
 // Типы, итоги, повторы и напоминания: общий код для Android и iOS.
 // Тексты берутся по ключу через L10n (на Android — из strings.xml), значки и цвета типов — в приложении.
 
@@ -163,7 +165,7 @@ fun repeatOptions(): List<Pair<String?, String>> = listOf(
 )
 
 fun repeatLabel(rrule: String?): String = when (val m = matchRepeat(rrule)) {
-    "" -> RepeatSpec.parse(rrule, ru.palmdate.app.time.run { kotlinx.datetime.LocalDate.now() })?.describe() ?: str("repeat_custom")
+    "" -> RepeatSpec.parse(rrule, kotlinx.datetime.LocalDate.now())?.describe() ?: str("repeat_custom")
     else -> repeatOptions().first { it.first == m }.second
 }
 
