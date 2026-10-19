@@ -149,7 +149,7 @@ Xcode-проект генерирует `xcodegen` из `iosApp/project.yml` (т
 экспорт → загрузка через REST API (Xcode по ключу не логинится — JWT-ошибка). Запуск — изменить число в `.github/testflight-trigger.txt` и запушить в `kmp`.
 Версия — `MARKETING_VERSION` из `iosApp/project.yml`, номер сборки — номер прогона. Секреты (только в GitHub): `ASC_KEY_ID`, `ASC_ISSUER_ID`,
 `ASC_KEY_P8`, `ASC_TEAM_ID`. Шаг «Clean temporary certificates» удаляет только временные сертификаты «Created via API» (иначе упираемся в лимит);
-настоящий «Apple Distribution: Alfanomia OOO» не трогать. `asc-status.yml` (+ `asc-status-trigger.txt`) показывает состояние сборок и тестировщиков.
+настоящий «Apple Distribution: Alfanomia OOO» не трогать. Шаг «Distribute to external testers» (`.github/scripts/asc_distribute.py`): ждёт обработки сборки, включает автоуведомление, добавляет её во все внешние группы (сейчас «Семья») и просит Apple проверку; ошибки — предупреждение «Ошибки раздача тестировщикам», сборку не роняют. `asc-status.yml` (+ `asc-status-trigger.txt`) показывает состояние сборок и тестировщиков.
 Ключи и .p8 в чат не присылать.
 
 **Правила Apple, которые выяснили.** Первой внешней группе нужна проверка Beta App Review; одновременно на проверке — только одна сборка с данной

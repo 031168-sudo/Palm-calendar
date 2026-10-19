@@ -200,3 +200,10 @@ jobs:
           api("PATCH", "/v1/buildUploadFiles/" + f["id"], {"data": {"type": "buildUploadFiles", "id": f["id"], "attributes": {"uploaded": True}}})
           print(f"::warning title=Ошибки итог загрузки::Файл {size} байт отправлен, сборка {ver} ({build}); ждём обработки в TestFlight")
           PY
+
+      - name: Distribute to external testers
+        continue-on-error: true
+        run: |
+          pip3 install --quiet --break-system-packages pyjwt cryptography requests 2>/dev/null || pip3 install --quiet pyjwt cryptography requests
+          ASC_VERSION=$(grep -oE 'MARKETING_VERSION: "[^"]+"' iosApp/project.yml | grep -oE '[0-9][0-9.]*') \
+          ASC_BUILD=${{ github.run_number }} python3 .github/scripts/asc_distribute.py
