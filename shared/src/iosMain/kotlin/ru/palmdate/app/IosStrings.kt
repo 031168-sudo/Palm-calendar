@@ -3,6 +3,7 @@ package ru.palmdate.app
 import platform.Foundation.NSLocale
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.preferredLanguages
+import ru.palmdate.app.model.GENERATED_ARRAYS
 import ru.palmdate.app.model.GENERATED_PLURALS
 import ru.palmdate.app.model.GENERATED_STRINGS
 import ru.palmdate.app.model.MapStringProvider

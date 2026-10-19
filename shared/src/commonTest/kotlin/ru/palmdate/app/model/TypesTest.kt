@@ -59,7 +59,9 @@ class TypesTest {
     @Test fun repeatLabels() {
         assertEquals("repeat_none", repeatLabel(null))
         assertEquals("repeat_monthly", repeatLabel("FREQ=MONTHLY"))
-        assertEquals("repeat_custom", repeatLabel("FREQ=DAILY;INTERVAL=2"))
+        // Своё правило, которое умеем читать, описывается словами; непонятное — «своё правило»
+        assertEquals("rep_every_days[2]", repeatLabel("FREQ=DAILY;INTERVAL=2"))
+        assertEquals("repeat_custom", repeatLabel("FREQ=MONTHLY;BYSETPOS=2;BYDAY=WE"))
         assertEquals("mail_verb_reply", MailKind.REPLY.verb)
         assertEquals(listOf("ru:mail_verb_new", "en:mail_verb_new"), MailKind.NEW.allVerbs)
     }
