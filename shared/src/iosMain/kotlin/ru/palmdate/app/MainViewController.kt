@@ -37,6 +37,7 @@ fun MainViewController(): UIViewController {
         runCatching { IosStore.putString("last_error", e.stackTraceToString().take(3000)) }
     }), backend)
     model.start()
+    ru.palmdate.app.ui.IosBirthdays.start(backend)
     if (platform.Foundation.NSProcessInfo.processInfo.environment["DATEBOOK_SEED"] != null) seedDemo(backend)
     return ComposeUIViewController(configure = { onFocusBehavior = androidx.compose.ui.uikit.OnFocusBehavior.DoNothing }) {
         PalmTheme {

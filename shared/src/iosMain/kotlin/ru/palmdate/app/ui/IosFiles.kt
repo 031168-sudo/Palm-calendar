@@ -1,7 +1,13 @@
 package ru.palmdate.app.ui
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import platform.Foundation.NSData
 import platform.Foundation.NSDocumentDirectory
+import platform.Foundation.NSUserDefaults
+import platform.Foundation.base64EncodedStringWithOptions
+import platform.Foundation.create
+import platform.Foundation.dataWithContentsOfURL
+import platform.Foundation.writeToURL
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
 import platform.Foundation.NSUserDomainMask
@@ -66,6 +72,34 @@ internal object IosFiles {
         val dst = documentsDir().URLByAppendingPathComponent(rel) ?: error("dst")
         if (!fm.copyItemAtURL(src, toURL = dst, error = null)) error("copy")
         save(eventId, list(eventId) + TripDoc(id = seq, eventId = eventId, label = label, name = name, path = rel))
+    }
+
+    /** События, у которых есть документы. */
+    fun eventsWithFiles(): List<Long> =
+        NSUserDefaults.standardUserDefaults.dictionaryRepresentation().keys.mapNotNull { k ->
+            val name = k as? String ?: return@mapNotNull null
+            if (!name.startsWith("pd_files_")) null else name.removePrefix("pd_files_").toLongOrNull()
+        }.filter { has(it) }
+
+    /** Содержимое файла в base64 — для резервной копии. */
+    fun readBase64(doc: TripDoc): String? {
+        val url = documentsDir().URLByAppendingPathComponent(doc.path) ?: return null
+        return NSData.dataWithContentsOfURL(url)?.base64EncodedStringWithOptions(0u)
+    }
+
+    /** Добавить файл из резервной копии. false — такой файл у события уже есть. */
+    fun addFromBackup(eventId: Long, label: String, name: String, base64: String): Boolean {
+        if (list(eventId).any { it.label == label && it.name == name }) return false
+        val data = NSData.create(base64EncodedString = base64, options = 0u) ?: return false
+        val seq = (IosStore.getLong("file_seq") ?: 0L) + 1
+        IosStore.putLong("file_seq", seq)
+        val rel = "trips/$eventId/${seq}_${safeName(name)}"
+        val dir = documentsDir().URLByAppendingPathComponent("trips/$eventId", isDirectory = true) ?: return false
+        NSFileManager.defaultManager.createDirectoryAtURL(dir, withIntermediateDirectories = true, attributes = null, error = null)
+        val dst = documentsDir().URLByAppendingPathComponent(rel) ?: return false
+        if (!data.writeToURL(dst, atomically = true)) return false
+        save(eventId, list(eventId) + TripDoc(id = seq, eventId = eventId, label = label, name = name, path = rel))
+        return true
     }
 
     fun delete(doc: TripDoc) {

@@ -25,8 +25,8 @@ import ru.palmdate.app.str
 
 /**
  * Резервная копия на iPhone: всё, что DateBook хранит сам (настройки, свои адреса, выбор способа связи, адреса и номера контактов,
- * почтовая программа, карты). События, их типы и итоги лежат в самом календаре (в iCloud/Google) — их копия не нужна.
- * Файл — JSON: {"format":"datebook-ios-1","data":{ключ:значение}}.
+ * почтовая программа, карты) и прикреплённые к событиям файлы. События, их типы и итоги лежат в самом календаре (в iCloud/Google) — их копия не нужна.
+ * Файл — JSON: {"format":"datebook-ios-1","data":{ключ:значение},"files":[{event,label,name,data(base64)}]}.
  */
 @OptIn(ExperimentalForeignApi::class)
 internal object IosBackup {
@@ -53,7 +53,15 @@ internal object IosBackup {
             if (!key.startsWith(PREFIX) || skipped(key)) return@forEach
             if (v is String || v is NSNumber || v is Number || v is Boolean || v is List<*>) data[key] = v
         }
-        val root = mapOf<Any?, Any?>("format" to FORMAT, "data" to data)
+        // Документы событий: сами файлы кладём в копию (base64)
+        val files = ArrayList<Any?>()
+        IosFiles.eventsWithFiles().forEach { id ->
+            IosFiles.list(id).forEach { d ->
+                val b64 = IosFiles.readBase64(d) ?: return@forEach
+                files += mapOf<Any?, Any?>("event" to id.toString(), "label" to d.label, "name" to d.name, "data" to b64)
+            }
+        }
+        val root = mapOf<Any?, Any?>("format" to FORMAT, "data" to data, "files" to files)
         val json = NSJSONSerialization.dataWithJSONObject(root, 1u, null) ?: error("json")
         return NSString.create(data = json, encoding = NSUTF8StringEncoding)?.toString() ?: error("json")
     }
@@ -70,6 +78,14 @@ internal object IosBackup {
             val key = k as? String ?: return@forEach
             if (!key.startsWith(PREFIX) || skipped(key)) return@forEach
             if (v is String || v is NSNumber || v is Number || v is Boolean || v is List<*>) { d.setObject(v, key); n++ }
+        }
+        (root["files"] as? List<*>)?.forEach { f ->
+            val m = f as? Map<*, *> ?: return@forEach
+            val id = (m["event"] as? String)?.toLongOrNull() ?: return@forEach
+            val ok = runCatching {
+                IosFiles.addFromBackup(id, m["label"] as? String ?: "", m["name"] as? String ?: "file", m["data"] as? String ?: return@forEach)
+            }.getOrDefault(false)
+            if (ok) n++
         }
         // Настройки перечитываем сразу; язык и выбор «всегда так» подхватятся при следующем запуске
         CurrentSettings.update { IosStore.loadSettings() }

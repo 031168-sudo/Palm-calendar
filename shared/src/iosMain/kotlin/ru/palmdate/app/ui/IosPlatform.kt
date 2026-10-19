@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import ru.palmdate.app.time.now
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.toInstant
 import platform.Foundation.NSCharacterSet
 import platform.Foundation.NSString
 import platform.Foundation.NSURL
@@ -53,18 +54,24 @@ object IosPlatform : PlatformActions {
         }
     }
 
-    override fun openInCalendar(e: PalmEvent) {}
+    /** Системный «Календарь» открывается на дне события (на само событие iOS открыть не даёт). */
+    override fun openInCalendar(e: PalmEvent) {
+        val secs = e.start.toInstant(kotlinx.datetime.TimeZone.currentSystemDefault()).epochSeconds - 978307200L // от 2001 года
+        open("calshow:$secs")
+    }
 }
 
 /** Настройки, зависящие от системы. На iPhone пока только язык. */
 object IosSettings : SettingsPlatform {
     override val langMode: String get() = IosLang.mode
     override fun setLangMode(mode: String) = IosLang.setMode(mode)
-    override fun onSettingsChanged() {}
+    override fun onSettingsChanged() = IosBirthdays.reschedule()
 
     @Composable
     override fun BirthdayNotifySwitch(on: Boolean, onChange: (Boolean) -> Unit) {
-        SettingsToggle(ru.palmdate.app.str("settings_birthday_notify"), on, onChange)
+        SettingsToggle(ru.palmdate.app.str("settings_birthday_notify"), on) { v ->
+            if (v) IosBirthdays.askPermission(onChange) else onChange(false)
+        }
     }
 
     @Composable
@@ -127,5 +134,10 @@ object IosSettings : SettingsPlatform {
                 modifier = androidx.compose.ui.Modifier.padding(top = 6.dp),
             )
         }
+
+        SettingsSection(ru.palmdate.app.str("settings_about"))
+        val info = platform.Foundation.NSBundle.mainBundle.infoDictionary
+        val version = (info?.get("CFBundleShortVersionString") as? String ?: "") + " (" + (info?.get("CFBundleVersion") as? String ?: "") + ")"
+        androidx.compose.material3.Text("DateBook $version", style = ru.palmdate.app.ui.theme.Palm.body, color = ru.palmdate.app.ui.theme.Palm.ink)
     }
 }
