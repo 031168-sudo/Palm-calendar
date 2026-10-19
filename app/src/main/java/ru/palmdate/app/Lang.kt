@@ -136,7 +136,9 @@ private object AndroidStrings : StringProvider {
         val r = c.resources
         val sid = r.getIdentifier(key, "array", c.packageName)
         require(sid != 0) { "Нет списка $key" }
-        return runCatching { r.getStringArray(sid).toList() }.getOrElse { r.getIntArray(sid).map { it.toString() } }
+        // TypedArray читает и списки строк, и списки чисел (числа — как текст)
+        val ta = r.obtainTypedArray(sid)
+        try { return List(ta.length()) { ta.getString(it) ?: "" } } finally { ta.recycle() }
     }
 
     private val pluralIds = java.util.concurrent.ConcurrentHashMap<String, Int>()

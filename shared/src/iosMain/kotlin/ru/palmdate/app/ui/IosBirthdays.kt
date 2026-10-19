@@ -62,9 +62,9 @@ internal object IosBirthdays {
             byDay.keys.sorted().take(60).forEach { d ->
                 val names = byDay[d].orEmpty().map { it.title }.distinct()
                 val content = UNMutableNotificationContent().apply {
-                    title = if (names.size == 1) str("notif_birthday_one") else str("notif_birthday_many")
-                    body = names.joinToString(", ")
-                    sound = UNNotificationSound.defaultSound
+                    setTitle(if (names.size == 1) str("notif_birthday_one") else str("notif_birthday_many"))
+                    setBody(names.joinToString(", "))
+                    setSound(UNNotificationSound.defaultSound)
                 }
                 val comps = NSDateComponents().apply {
                     year = d.year.toLong(); month = d.monthNumber.toLong(); day = d.dayOfMonth.toLong()
