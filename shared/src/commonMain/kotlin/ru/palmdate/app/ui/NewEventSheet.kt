@@ -994,6 +994,7 @@ fun EventDetailsSheet(
     // Выезд: адрес и документы
     var place by remember(event.eventId) { mutableStateOf<String?>(null) }
     var files by remember(event.eventId) { mutableStateOf<List<TripDoc>>(emptyList()) }
+    var fileError by remember(event.eventId) { mutableStateOf<String?>(null) }
     var editPlace by remember { mutableStateOf(false) }
     // Свой адрес встречи хранится отдельно от «Места»: не теряется, когда выбран адрес контакта
     val ownStore = platform.ownAddresses
@@ -1279,9 +1280,17 @@ fun EventDetailsSheet(
                         TripFilesSection(
                             files = files,
                             withLabels = event.type == EventType.TRIP,
+                            error = fileError,
                             onAdd = { label, uris ->
                                 scope.launch {
-                                    uris.forEach { onAddFile(event.eventId, it, label) }
+                                    fileError = null
+                                    try {
+                                        uris.forEach { onAddFile(event.eventId, it, label) }
+                                    } catch (e: kotlinx.coroutines.CancellationException) {
+                                        throw e
+                                    } catch (e: Throwable) {
+                                        fileError = str("err_add_file") + (e.message?.let { ": $it" } ?: "")
+                                    }
                                     files = loadFiles(event.eventId)
                                 }
                             },
@@ -1530,6 +1539,7 @@ private fun tripLabelShown(stored: String): String =
 private fun TripFilesSection(
     files: List<TripDoc>,
     withLabels: Boolean,
+    error: String? = null,
     onAdd: (String, List<String>) -> Unit,
     onOpen: (TripDoc) -> Unit,
     onDelete: (TripDoc) -> Unit,
@@ -1573,5 +1583,6 @@ private fun TripFilesSection(
     }
     Spacer(Modifier.height(8.dp))
     PalmButton(str("add_file"), onClick = { picker() })
+    error?.let { Text(it, style = Palm.small, color = Palm.nowLine, modifier = Modifier.padding(top = 6.dp)) }
 }
 

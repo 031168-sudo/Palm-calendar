@@ -105,8 +105,10 @@ internal object IosFiles {
         val delegate = object : NSObject(), UIDocumentPickerDelegateProtocol {
             override fun documentPicker(controller: UIDocumentPickerViewController, didPickDocumentsAtURLs: List<*>) {
                 val urls = didPickDocumentsAtURLs.filterIsInstance<NSURL>().mapNotNull { it.absoluteString }
+                // Делегат освобождаем только после обработки — иначе он уничтожается прямо внутри своего же метода
+                runCatching { if (urls.isNotEmpty()) onPicked(urls) }
+                    .onFailure { IosStore.putString("last_error", "picker: " + it.stackTraceToString().take(2000)) }
                 pickerKeep = null
-                if (urls.isNotEmpty()) onPicked(urls)
             }
             override fun documentPickerWasCancelled(controller: UIDocumentPickerViewController) { pickerKeep = null }
         }

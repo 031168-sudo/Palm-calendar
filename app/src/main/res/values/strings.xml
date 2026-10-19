@@ -469,4 +469,5 @@
     <string name="mapui_change_in_settings">You can change this in “Settings → Maps”</string>
     <string name="settings_data_hint_ios">A copy of everything DateBook keeps itself: settings, your own addresses, chosen ways to contact people, contact addresses and numbers. The events themselves, with their types and results, are already in your calendar.</string>
     <string name="settings_backup_restart">Restart the app to apply everything.</string>
+    <string name="err_add_file">Could not add the file</string>
 </resources>

@@ -482,4 +482,5 @@
     <string name="mapui_change_in_settings">Сменить можно в «Настройки → Карты»</string>
     <string name="settings_data_hint_ios">Копия всего, что DateBook хранит сам: настройки, свои адреса, выбранные способы связи, адреса и номера контактов. Сами события, их типы и итоги — уже в вашем календаре.</string>
     <string name="settings_backup_restart">Закройте и снова откройте приложение — тогда применится всё.</string>
+    <string name="err_add_file">Не удалось добавить файл</string>
 </resources>
