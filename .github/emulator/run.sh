@@ -41,7 +41,7 @@ sleep 3
 $UI check "Новое"   # заодно закрывает окно «не отвечает», если оно вылезло
 shot 1_start
 
-$UI tap "Повестка";             shot 2_agenda
+$UI tap "Список";             shot 2_agenda
 $UI tap "Звонок: Иван Петров";  shot 3_details
 $UI check "Закрыть"
 
