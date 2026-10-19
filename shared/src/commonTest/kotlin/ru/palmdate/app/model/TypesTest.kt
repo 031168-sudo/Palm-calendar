@@ -15,6 +15,7 @@ private object FakeStrings : StringProvider {
     override val tags: List<String> = listOf("ru", "en")
     override val language: String = "ru"
     override fun plural(key: String, n: Int): String = "$key[$n]"
+    override fun array(key: String): List<String> = emptyList()
 }
 
 class TypesTest {

@@ -9,6 +9,7 @@ class MapStringProvider(
     private val plurals: Map<String, Map<String, Map<String, String>>>,    // язык → ключ → количество → строка
     private val currentLanguage: () -> String,
     override val tags: List<String> = listOf("ru", "en"),
+    private val arrays: Map<String, Map<String, List<String>>> = emptyMap(),   // язык → ключ → список
 ) : StringProvider {
 
     override val language: String get() = currentLanguage()
@@ -23,6 +24,8 @@ class MapStringProvider(
         val raw = lookup(tag, key) ?: return key
         return if (args.isEmpty()) raw.replace("%%", "%") else format(raw, args)
     }
+
+    override fun array(key: String): List<String> = arrays[language]?.get(key) ?: arrays["en"]?.get(key) ?: emptyList()
 
     override fun plural(key: String, n: Int): String {
         val byQty = plurals[language]?.get(key) ?: plurals["en"]?.get(key) ?: return key

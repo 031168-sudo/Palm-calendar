@@ -27,4 +27,4 @@ object IosLang {
         }
 }
 
-val IosStrings = MapStringProvider(GENERATED_STRINGS, GENERATED_PLURALS, currentLanguage = { IosLang.language })
+val IosStrings = MapStringProvider(GENERATED_STRINGS, GENERATED_PLURALS, currentLanguage = { IosLang.language }, arrays = GENERATED_ARRAYS)

@@ -50,7 +50,12 @@ interface PlatformActions {
 
     /** Окно «Настроить…» для своего правила повтора. onResult — новое правило (RRULE) или null. */
     @Composable
-    fun RepeatDialog(rrule: String?, anchor: LocalDate, allDay: Boolean, onDismiss: () -> Unit, onResult: (String?) -> Unit)
+    fun RepeatDialog(rrule: String?, anchor: LocalDate, allDay: Boolean, onDismiss: () -> Unit, onResult: (String?) -> Unit) {
+        RepeatSpecDialog(
+            initial = ru.palmdate.app.model.RepeatSpec.parse(rrule, anchor) ?: ru.palmdate.app.model.RepeatSpec.defaultFor(anchor),
+            anchor = anchor, allDay = allDay, onDismiss = onDismiss, onSave = { onResult(it) },
+        )
+    }
 }
 
 private object NoPlatform : PlatformActions {
@@ -66,9 +71,6 @@ private object NoPlatform : PlatformActions {
     override fun openDocument(doc: TripDoc) {}
     override fun runPrimaryAction(e: PalmEvent, call: (ContactRef) -> Unit, mail: (PalmEvent) -> Unit) {}
     override fun openInCalendar(e: PalmEvent) {}
-
-    @Composable
-    override fun RepeatDialog(rrule: String?, anchor: LocalDate, allDay: Boolean, onDismiss: () -> Unit, onResult: (String?) -> Unit) {}
 }
 
 val LocalPlatform = staticCompositionLocalOf<PlatformActions> { NoPlatform }

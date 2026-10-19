@@ -74,6 +74,7 @@ val genIosStrings by tasks.registering {
         val sb = StringBuilder("package ru.palmdate.app.model\n\n// Создано автоматически из app/src/main/res/values*/strings.xml (задача genIosStrings)\n\n")
         val strOut = StringBuilder("internal val GENERATED_STRINGS: Map<String, Map<String, String>> = mapOf(\n")
         val plOut = StringBuilder("internal val GENERATED_PLURALS: Map<String, Map<String, Map<String, String>>> = mapOf(\n")
+        val arOut = StringBuilder("internal val GENERATED_ARRAYS: Map<String, Map<String, List<String>>> = mapOf(\n")
         for ((tag, dir) in listOf("en" to "values", "ru" to "values-ru")) {
             val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(File(resDir, "$dir/strings.xml"))
             val strings = doc.getElementsByTagName("string")
@@ -96,11 +97,23 @@ val genIosStrings by tasks.registering {
                 plOut.append("),\n")
             }
             plOut.append("    ),\n")
+            arOut.append("    ${lit(tag)} to mapOf(\n")
+            for (tagName in listOf("string-array", "integer-array")) {
+                val ars = doc.getElementsByTagName(tagName)
+                for (i in 0 until ars.length) {
+                    val e = ars.item(i) as org.w3c.dom.Element
+                    val items = e.getElementsByTagName("item")
+                    arOut.append("        ${lit(e.getAttribute("name"))} to listOf(")
+                    for (j in 0 until items.length) arOut.append("${lit(unescape((items.item(j) as org.w3c.dom.Element).textContent))}, ")
+                    arOut.append("),\n")
+                }
+            }
+            arOut.append("    ),\n")
         }
-        strOut.append(")\n\n"); plOut.append(")\n")
+        strOut.append(")\n\n"); plOut.append(")\n\n"); arOut.append(")\n")
         val f = File(outDir.get().asFile, "ru/palmdate/app/model/GeneratedStrings.kt")
         f.parentFile.mkdirs()
-        f.writeText(sb.toString() + strOut + plOut)
+        f.writeText(sb.toString() + strOut + plOut + arOut)
     }
 }
 tasks.configureEach { if (name.startsWith("compileKotlin") || name.contains("SourcesJar")) dependsOn(genIosStrings) }

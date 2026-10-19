@@ -10,7 +10,6 @@ import ru.palmdate.app.data.OwnAddresses
 import ru.palmdate.app.data.toJava
 import ru.palmdate.app.model.ContactRef
 import ru.palmdate.app.model.PalmEvent
-import ru.palmdate.app.model.RepeatSpec
 import java.io.File
 
 /** Что экраны просят у Android: карты, открыть файл, хранилища, окно своего повтора. */
@@ -37,15 +36,6 @@ class AndroidPlatform(private val ctx: Context) : PlatformActions {
             Intent(Intent.ACTION_VIEW)
                 .setDataAndType(uri, doc.mime ?: "*/*")
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-        )
-    }
-
-    @Composable
-    override fun RepeatDialog(rrule: String?, anchor: LocalDate, allDay: Boolean, onDismiss: () -> Unit, onResult: (String?) -> Unit) {
-        val a = anchor.toJava()
-        ru.palmdate.app.ui.RepeatDialog(
-            initial = RepeatSpec.parse(rrule, a) ?: RepeatSpec.defaultFor(a),
-            anchor = a, allDay = allDay, onDismiss = onDismiss, onSave = { onResult(it) },
         )
     }
 }

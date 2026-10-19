@@ -54,11 +54,6 @@ object IosPlatform : PlatformActions {
     }
 
     override fun openInCalendar(e: PalmEvent) {}
-
-    @Composable
-    override fun RepeatDialog(rrule: String?, anchor: LocalDate, allDay: Boolean, onDismiss: () -> Unit, onResult: (String?) -> Unit) {
-        // Своё правило повтора на iPhone пока недоступно
-    }
 }
 
 /** Настройки, зависящие от системы. На iPhone пока только язык. */

@@ -37,9 +37,6 @@ object Lang {
     /** Запомнить контекст приложения и прочитать сохранённый выбор. Можно вызывать повторно. */
     fun init(context: Context) {
         L10n.provider = AndroidStrings
-        ru.palmdate.app.model.RepeatHooks.describe = { r ->
-            ru.palmdate.app.model.RepeatSpec.parse(r, java.time.LocalDate.now())?.describe()
-        }
         val appCtx = context.applicationContext ?: context
         if (app !== appCtx) { app = appCtx; cache.clear() }
         mode = runCatching {
@@ -133,6 +130,14 @@ private object AndroidStrings : StringProvider {
     override val tags: List<String> get() = Lang.TAGS
 
     override val language: String get() = Lang.locale.language
+
+    override fun array(key: String): List<String> {
+        val c = Lang.context
+        val r = c.resources
+        val sid = r.getIdentifier(key, "array", c.packageName)
+        require(sid != 0) { "Нет списка $key" }
+        return runCatching { r.getStringArray(sid).toList() }.getOrElse { r.getIntArray(sid).map { it.toString() } }
+    }
 
     private val pluralIds = java.util.concurrent.ConcurrentHashMap<String, Int>()
 

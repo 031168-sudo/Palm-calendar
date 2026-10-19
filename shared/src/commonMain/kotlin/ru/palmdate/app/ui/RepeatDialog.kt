@@ -37,8 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import ru.palmdate.app.Lang
-import ru.palmdate.app.R
+import ru.palmdate.app.model.L10n
 import ru.palmdate.app.model.MonthMode
 import ru.palmdate.app.model.RepEnd
 import ru.palmdate.app.model.RepFreq
@@ -46,11 +45,11 @@ import ru.palmdate.app.model.RepeatSpec
 import ru.palmdate.app.model.nthWeekdayLabel
 import ru.palmdate.app.str
 import ru.palmdate.app.ui.theme.Palm
-import ru.palmdate.app.data.toKx
-import java.time.DayOfWeek
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
+import ru.palmdate.app.time.plusMonths
+import ru.palmdate.app.time.startOfDayUtcMillis
+import ru.palmdate.app.time.utcMillisToDate
 
 /**
  * «Настроить повтор» — как в Google Календаре: каждые N дней/недель/месяцев/лет, дни недели
@@ -58,7 +57,7 @@ import java.time.ZoneOffset
  */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-internal fun RepeatDialog(
+fun RepeatSpecDialog(
     initial: RepeatSpec,
     anchor: LocalDate,
     allDay: Boolean,
@@ -71,7 +70,7 @@ internal fun RepeatDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Palm.paper,
-        title = { Text(str(R.string.rep_title), style = Palm.title, color = Palm.ink) },
+        title = { Text(str("rep_title"), style = Palm.title, color = Palm.ink) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 // Итог словами — так же, как покажется в карточке
@@ -79,7 +78,7 @@ internal fun RepeatDialog(
                 Spacer(Modifier.height(12.dp))
 
                 // Каждые N …
-                Text(str(R.string.rep_every), style = Palm.small, color = Palm.inkSoft)
+                Text(str("rep_every"), style = Palm.small, color = Palm.inkSoft)
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     StepIcon(Icons.Filled.Remove) { spec = spec.copy(interval = (spec.interval - 1).coerceAtLeast(1)) }
@@ -89,15 +88,15 @@ internal fun RepeatDialog(
                 Spacer(Modifier.height(8.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(
-                        RepFreq.DAILY to R.string.rep_unit_day, RepFreq.WEEKLY to R.string.rep_unit_week,
-                        RepFreq.MONTHLY to R.string.rep_unit_month, RepFreq.YEARLY to R.string.rep_unit_year,
+                        RepFreq.DAILY to "rep_unit_day", RepFreq.WEEKLY to "rep_unit_week",
+                        RepFreq.MONTHLY to "rep_unit_month", RepFreq.YEARLY to "rep_unit_year",
                     ).forEach { (f, label) -> Chip(str(label), selected = spec.freq == f) { spec = spec.copy(freq = f) } }
                 }
 
                 // Дни недели
                 if (spec.freq == RepFreq.WEEKLY) {
                     Spacer(Modifier.height(12.dp))
-                    val letters = Lang.context.resources.getStringArray(R.array.wd_letter)
+                    val letters = L10n.array("wd_letter")
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         DayOfWeek.entries.forEach { d ->
                             val on = d in spec.days
@@ -110,7 +109,7 @@ internal fun RepeatDialog(
                                         if (next.isNotEmpty()) spec = spec.copy(days = next)   // хотя бы один день
                                     },
                                 contentAlignment = Alignment.Center,
-                            ) { Text(letters[d.value - 1], style = Palm.small, color = if (on) Color.White else Palm.ink) }
+                            ) { Text(letters[d.ordinal], style = Palm.small, color = if (on) Color.White else Palm.ink) }
                         }
                     }
                 }
@@ -120,7 +119,7 @@ internal fun RepeatDialog(
                     Spacer(Modifier.height(12.dp))
                     val nthLabel = nthWeekdayLabel(RepeatSpec.nthOf(anchor).coerceAtMost(4), anchor.dayOfWeek)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Chip(str(R.string.rep_month_day, anchor.dayOfMonth), selected = spec.monthMode == MonthMode.DAY && spec.monthDay == anchor.dayOfMonth) {
+                        Chip(str("rep_month_day", anchor.dayOfMonth), selected = spec.monthMode == MonthMode.DAY && spec.monthDay == anchor.dayOfMonth) {
                             spec = spec.copy(monthMode = MonthMode.DAY, monthDay = anchor.dayOfMonth)
                         }
                         // «n-я среда» — только если это не пятая; пятая бывает не в каждом месяце
@@ -136,25 +135,25 @@ internal fun RepeatDialog(
                         }
                         // Правило из Google, которого нет среди этих вариантов (например «каждое 5-е число»), — оставляем как есть
                         if (spec.monthMode == MonthMode.DAY && spec.monthDay != anchor.dayOfMonth) {
-                            Chip(str(R.string.rep_month_day, spec.monthDay), selected = true) {}
+                            Chip(str("rep_month_day", spec.monthDay), selected = true) {}
                         }
                     }
                 }
 
                 // Окончание
                 Spacer(Modifier.height(14.dp))
-                Text(str(R.string.rep_ends), style = Palm.small, color = Palm.inkSoft)
+                Text(str("rep_ends"), style = Palm.small, color = Palm.inkSoft)
                 Spacer(Modifier.height(6.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip(str(R.string.rep_end_never), selected = spec.end == RepEnd.NEVER) { spec = spec.copy(end = RepEnd.NEVER) }
-                    Chip(str(R.string.rep_end_date), selected = spec.end == RepEnd.DATE) {
+                    Chip(str("rep_end_never"), selected = spec.end == RepEnd.NEVER) { spec = spec.copy(end = RepEnd.NEVER) }
+                    Chip(str("rep_end_date"), selected = spec.end == RepEnd.DATE) {
                         spec = spec.copy(end = RepEnd.DATE, until = spec.until ?: anchor.plusMonths(3))
                     }
-                    Chip(str(R.string.rep_end_count), selected = spec.end == RepEnd.COUNT) { spec = spec.copy(end = RepEnd.COUNT) }
+                    Chip(str("rep_end_count"), selected = spec.end == RepEnd.COUNT) { spec = spec.copy(end = RepEnd.COUNT) }
                 }
                 if (spec.end == RepEnd.DATE) {
                     Spacer(Modifier.height(8.dp))
-                    Chip((spec.until ?: anchor).toKx().pretty()) { pickDate = true }
+                    Chip((spec.until ?: anchor).pretty()) { pickDate = true }
                 }
                 if (spec.end == RepEnd.COUNT) {
                     Spacer(Modifier.height(8.dp))
@@ -166,25 +165,25 @@ internal fun RepeatDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(spec.toRrule(anchor, allDay)) }) { Text(str(R.string.save)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(str(R.string.cancel)) } },
+        confirmButton = { TextButton(onClick = { onSave(spec.toRrule(anchor, allDay)) }) { Text(str("save")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(str("cancel")) } },
     )
 
     if (pickDate) {
         val state = rememberDatePickerState(
-            initialSelectedDateMillis = (spec.until ?: anchor).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            initialSelectedDateMillis = (spec.until ?: anchor).startOfDayUtcMillis(),
         )
         DatePickerDialog(
             onDismissRequest = { pickDate = false },
             confirmButton = {
                 TextButton(onClick = {
                     state.selectedDateMillis?.let {
-                        spec = spec.copy(until = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate())
+                        spec = spec.copy(until = utcMillisToDate(it))
                     }
                     pickDate = false
-                }) { Text(str(R.string.save)) }
+                }) { Text(str("save")) }
             },
-            dismissButton = { TextButton(onClick = { pickDate = false }) { Text(str(R.string.cancel)) } },
+            dismissButton = { TextButton(onClick = { pickDate = false }) { Text(str("cancel")) } },
         ) { DatePicker(state) }
     }
 }

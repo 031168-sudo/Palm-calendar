@@ -19,6 +19,9 @@ interface StringProvider {
 
     /** Строка с числом: «3 звонка» / «3 calls»; число подставляется в %d. */
     fun plural(key: String, n: Int): String
+
+    /** Список строк (названия дней недели и т. п.) на выбранном языке; числовые списки — числами в виде строк. */
+    fun array(key: String): List<String>
 }
 
 object L10n {
@@ -31,4 +34,5 @@ object L10n {
     val tags: List<String> get() = p().tags
     val language: String get() = p().language
     fun plural(key: String, n: Int): String = p().plural(key, n)
+    fun array(key: String): List<String> = p().array(key)
 }

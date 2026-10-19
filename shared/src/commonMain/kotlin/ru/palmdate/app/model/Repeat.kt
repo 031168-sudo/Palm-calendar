@@ -1,16 +1,18 @@
 package ru.palmdate.app.model
 
-import ru.palmdate.app.Lang
-import ru.palmdate.app.R
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import ru.palmdate.app.plu
 import ru.palmdate.app.str
-import java.time.DayOfWeek
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
+import ru.palmdate.app.time.lengthOfMonth
+import ru.palmdate.app.time.now
+import ru.palmdate.app.time.plusMonths
+import ru.palmdate.app.time.value
+import ru.palmdate.app.ui.shortMonth
 
 /**
  * Свои правила повтора — как «Настроить…» в Google Календаре: каждые N дней/недель/месяцев/лет,
@@ -48,12 +50,14 @@ data class RepeatSpec(
 
         private val CODES = listOf("MO", "TU", "WE", "TH", "FR", "SA", "SU")
         fun code(d: DayOfWeek) = CODES[d.value - 1]
-        private fun dayOf(code: String) = CODES.indexOf(code).takeIf { it >= 0 }?.let { DayOfWeek.of(it + 1) }
+        private fun dayOf(code: String) = CODES.indexOf(code).takeIf { it >= 0 }?.let { DayOfWeek.entries[it] }
 
-        private val UNTIL_UTC = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
+        private fun p2(n: Int) = n.toString().padStart(2, '0')
+        private fun LocalDate.basic() = year.toString().padStart(4, '0') + p2(monthNumber) + p2(dayOfMonth)
+        private fun parseDate(u: String) = LocalDate(u.substring(0, 4).toInt(), u.substring(4, 6).toInt(), u.substring(6, 8).toInt())
 
         /** RRULE → настройки; null — правило сложнее, чем умеем (тогда показываем как «своё»). */
-        fun parse(rrule: String?, anchor: LocalDate, zone: ZoneId = ZoneId.systemDefault()): RepeatSpec? {
+        fun parse(rrule: String?, anchor: LocalDate, zone: TimeZone = TimeZone.currentSystemDefault()): RepeatSpec? {
             if (rrule.isNullOrBlank()) return null
             val p = rrule.uppercase().removePrefix("RRULE:").split(";").filter { it.isNotBlank() }
                 .associate { it.substringBefore("=") to it.substringAfter("=") }
@@ -90,9 +94,11 @@ data class RepeatSpec(
             p["COUNT"]?.let { c -> spec = spec.copy(end = RepEnd.COUNT, count = c.toIntOrNull() ?: return null) }
             p["UNTIL"]?.let { u ->
                 val d = runCatching {
-                    if (u.contains("T")) LocalDateTime.parse(u.removeSuffix("Z"), DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss"))
-                        .atZone(ZoneOffset.UTC).withZoneSameInstant(zone).toLocalDate()
-                    else LocalDate.parse(u.take(8), DateTimeFormatter.BASIC_ISO_DATE)
+                    if (u.contains("T")) {
+                        val t = u.substringAfter("T").removeSuffix("Z")
+                        LocalDateTime(parseDate(u).year, parseDate(u).monthNumber, parseDate(u).dayOfMonth, t.substring(0, 2).toInt(), t.substring(2, 4).toInt(), t.substring(4, 6).toInt())
+                            .toInstant(TimeZone.UTC).toLocalDateTime(zone).date
+                    } else parseDate(u)
                 }.getOrNull() ?: return null
                 spec = spec.copy(end = RepEnd.DATE, until = d)
             }
@@ -101,7 +107,7 @@ data class RepeatSpec(
     }
 
     /** Настройки → RRULE. Самые простые правила записываются так же, как наши кнопки («FREQ=WEEKLY»). */
-    fun toRrule(anchor: LocalDate, allDay: Boolean, zone: ZoneId = ZoneId.systemDefault()): String {
+    fun toRrule(anchor: LocalDate, allDay: Boolean, zone: TimeZone = TimeZone.currentSystemDefault()): String {
         val parts = ArrayList<String>()
         parts += "FREQ=$freq"
         if (interval > 1) parts += "INTERVAL=$interval"
@@ -121,8 +127,10 @@ data class RepeatSpec(
             RepEnd.COUNT -> parts += "COUNT=${count.coerceAtLeast(1)}"
             RepEnd.DATE -> {
                 val d = until ?: anchor
-                parts += "UNTIL=" + if (allDay) d.format(DateTimeFormatter.BASIC_ISO_DATE)
-                else UNTIL_UTC.format(d.atTime(23, 59, 59).atZone(zone).withZoneSameInstant(ZoneOffset.UTC))
+                parts += "UNTIL=" + if (allDay) d.basic() else {
+                    val u = LocalDateTime(d.year, d.monthNumber, d.dayOfMonth, 23, 59, 59).toInstant(zone).toLocalDateTime(TimeZone.UTC)
+                    u.date.basic() + "T" + p2(u.hour) + p2(u.minute) + p2(u.second) + "Z"
+                }
             }
             RepEnd.NEVER -> {}
         }
@@ -131,44 +139,46 @@ data class RepeatSpec(
 
     /** Словами: «Каждые 2 недели по пн, ср, до 31 дек 2026». */
     fun describe(): String {
-        val res = Lang.context.resources
         val base = when (freq) {
-            RepFreq.DAILY -> if (interval == 1) str(R.string.repeat_daily) else plu(R.plurals.rep_every_days, interval)
+            RepFreq.DAILY -> if (interval == 1) str("repeat_daily") else plu("rep_every_days", interval)
             RepFreq.WEEKLY -> {
-                val w = if (interval == 1) str(R.string.repeat_weekly) else plu(R.plurals.rep_every_weeks, interval)
+                val w = if (interval == 1) str("repeat_weekly") else plu("rep_every_weeks", interval)
                 if (days.isEmpty()) w
-                else str(R.string.rep_on_days, w, days.sortedBy { it.value }.joinToString(", ") { res.getStringArray(R.array.wd_short)[it.value - 1] })
+                else str("rep_on_days", w, days.sortedBy { it.value }.joinToString(", ") { L10n.array("wd_short")[it.value - 1] })
             }
             RepFreq.MONTHLY -> {
                 val detail = monthDetail()
                 when {
                     interval == 1 && monthMode == MonthMode.DAY -> detail
                     interval == 1 -> detail
-                    else -> str(R.string.rep_join, plu(R.plurals.rep_every_months, interval), detail.replaceFirstChar { it.lowercase() })
+                    else -> str("rep_join", plu("rep_every_months", interval), detail.replaceFirstChar { it.lowercase() })
                 }
             }
-            RepFreq.YEARLY -> if (interval == 1) str(R.string.repeat_yearly) else plu(R.plurals.rep_every_years, interval)
+            RepFreq.YEARLY -> if (interval == 1) str("repeat_yearly") else plu("rep_every_years", interval)
         }
         val tail = when (end) {
             RepEnd.NEVER -> null
-            RepEnd.DATE -> str(R.string.rep_until, (until ?: LocalDate.now()).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Lang.locale)))
-            RepEnd.COUNT -> plu(R.plurals.rep_times, count)
+            RepEnd.DATE -> str("rep_until", (until ?: LocalDate.now()).medium())
+            RepEnd.COUNT -> plu("rep_times", count)
         }
-        return if (tail == null) base else str(R.string.rep_join, base, tail)
+        return if (tail == null) base else str("rep_join", base, tail)
     }
 
     /** «Каждое 14-е число» / «Каждую вторую среду». */
     fun monthDetail(): String = when (monthMode) {
-        MonthMode.DAY -> str(R.string.rep_month_day, monthDay)
+        MonthMode.DAY -> str("rep_month_day", monthDay)
         MonthMode.NTH -> nthWeekdayLabel(nth, weekday)
     }
 }
 
+/** Дата с годом: «31 дек 2026» / «Dec 31, 2026». */
+private fun LocalDate.medium(): String =
+    if (L10n.language == "ru") "$dayOfMonth ${shortMonth()} $year" else "${shortMonth()} $dayOfMonth, $year"
+
 /** «Каждую вторую среду» / «Every second Wednesday» (n = -1 — последняя). */
 fun nthWeekdayLabel(n: Int, wd: DayOfWeek): String {
-    val res = Lang.context.resources
-    val g = res.getIntArray(R.array.wd_gender)[wd.value - 1]
-    val ords = res.getStringArray(when (g) { 0 -> R.array.rep_ord_m; 1 -> R.array.rep_ord_f; else -> R.array.rep_ord_n })
+    val g = L10n.array("wd_gender")[wd.value - 1].toInt()
+    val ords = L10n.array(when (g) { 0 -> "rep_ord_m"; 1 -> "rep_ord_f"; else -> "rep_ord_n" })
     val idx = if (n == -1) 5 else (n - 1).coerceIn(0, 4)
-    return str(R.string.rep_month_nth, res.getStringArray(R.array.rep_each_g)[g], ords[idx], res.getStringArray(R.array.wd_acc)[wd.value - 1])
+    return str("rep_month_nth", L10n.array("rep_each_g")[g], ords[idx], L10n.array("wd_acc")[wd.value - 1])
 }
