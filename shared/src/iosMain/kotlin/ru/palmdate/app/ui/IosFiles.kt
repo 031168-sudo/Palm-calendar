@@ -50,7 +50,8 @@ internal object IosFiles {
         else IosStore.putString(key(eventId), docs.joinToString("\n") { "${it.id}\t${clean(it.label)}\t${clean(it.name)}\t${it.path}" })
     }
 
-    private fun safeName(name: String) = name.replace(Regex("[^\\p{L}\\p{N}._ -]"), "_").take(80)
+    // Без регулярных выражений: Kotlin/Native не знает классов \p{L}
+    private fun safeName(name: String) = name.map { if (it.isLetterOrDigit() || it == '.' || it == '_' || it == ' ' || it == '-') it else '_' }.joinToString("").take(80)
 
     /** Скопировать выбранный файл (uri — ссылка «file://…») и запомнить под подписью. */
     fun add(eventId: Long, uri: String, label: String) {
