@@ -1,0 +1,6 @@
+ru.palmdate.app: 20388
+20388	0	UIKitApplication:ru.palmdate.app[0ebe][rb-legacy]
+ru.palmdate.app: 22032
+22032	0	UIKitApplication:ru.palmdate.app[f923][rb-legacy]
+ru.palmdate.app: 22825
+22825	0	UIKitApplication:ru.palmdate.app[df7d][rb-legacy]
