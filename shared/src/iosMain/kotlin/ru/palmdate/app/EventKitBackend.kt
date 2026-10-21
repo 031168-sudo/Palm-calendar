@@ -40,6 +40,7 @@ import platform.EventKit.EKSourceType
 import platform.EventKit.EKEvent
 import platform.EventKit.EKEventStore
 import platform.EventKit.EKEventStoreChangedNotification
+import platform.EventKit.EKRecurrenceDayOfWeek
 import platform.EventKit.EKRecurrenceEnd
 import platform.EventKit.EKRecurrenceRule
 import platform.Foundation.NSDate
@@ -479,8 +480,34 @@ class EventKitBackend : AppBackend {
 
     /* ---------- повторы: RRULE ⇄ EKRecurrenceRule (простые правила) ---------- */
 
+    private val dayCodes = listOf("MO", "TU", "WE", "TH", "FR", "SA", "SU")  // номер по ISO: понедельник = 1
+
+    /** «MO» / «2WE» / «-1WE» → день недели EventKit (воскресенье = 1) с номером недели месяца. */
+    private fun parseDayOfWeek(part: String): EKRecurrenceDayOfWeek? {
+        val code = part.takeLast(2)
+        val iso = dayCodes.indexOf(code) + 1
+        if (iso == 0) return null
+        val num = part.dropLast(2).toLongOrNull() ?: 0L
+        return EKRecurrenceDayOfWeek.dayOfWeek((iso % 7 + 1).toLong(), num)
+    }
+
+    /** UNTIL из RRULE («20261231» или «20261231T205959Z») → конец повтора. */
+    private fun parseUntil(u: String): EKRecurrenceEnd? {
+        if (u.length < 8) return null
+        val y = u.substring(0, 4).toIntOrNull() ?: return null
+        val mo = u.substring(4, 6).toIntOrNull() ?: return null
+        val d = u.substring(6, 8).toIntOrNull() ?: return null
+        val instant = if (u.contains("T") && u.length >= 15) {
+            val h = u.substring(9, 11).toIntOrNull() ?: 0
+            val mi = u.substring(11, 13).toIntOrNull() ?: 0
+            val se = u.substring(13, 15).toIntOrNull() ?: 0
+            LocalDateTime(y, mo, d, h, mi, se).toInstant(kotlinx.datetime.TimeZone.UTC)
+        } else LocalDateTime(y, mo, d, 23, 59, 59).toInstant(tz)
+        return EKRecurrenceEnd.recurrenceEndWithEndDate(NSDate.dateWithTimeIntervalSince1970(instant.epochSeconds.toDouble()))
+    }
+
     private fun parseRule(rrule: String): EKRecurrenceRule? {
-        val m = rrule.split(";").mapNotNull { p -> p.indexOf('=').takeIf { it > 0 }?.let { p.substring(0, it).uppercase() to p.substring(it + 1) } }.toMap()
+        val m = rrule.removePrefix("RRULE:").split(";").mapNotNull { p -> p.indexOf('=').takeIf { it > 0 }?.let { p.substring(0, it).uppercase() to p.substring(it + 1) } }.toMap()
         val f = when (m["FREQ"]) {
             "DAILY" -> EKRecurrenceFrequency.EKRecurrenceFrequencyDaily
             "WEEKLY" -> EKRecurrenceFrequency.EKRecurrenceFrequencyWeekly
@@ -490,7 +517,11 @@ class EventKitBackend : AppBackend {
         }
         val interval = m["INTERVAL"]?.toLongOrNull() ?: 1L
         val end = m["COUNT"]?.toLongOrNull()?.let { EKRecurrenceEnd.recurrenceEndWithOccurrenceCount(it.toULong()) }
-        return EKRecurrenceRule(f, interval, end)
+            ?: m["UNTIL"]?.let { parseUntil(it) }
+        val days = m["BYDAY"]?.split(",")?.mapNotNull { parseDayOfWeek(it.trim()) }?.takeIf { it.isNotEmpty() }
+        val monthDays = m["BYMONTHDAY"]?.split(",")?.mapNotNull { it.trim().toIntOrNull() }?.takeIf { it.isNotEmpty() }
+        if (days == null && monthDays == null) return EKRecurrenceRule(f, interval, end)
+        return EKRecurrenceRule(f, interval, days, monthDays, null, null, null, null, end)
     }
 
     private fun ruleOf(ev: EKEvent): String? {
@@ -505,7 +536,25 @@ class EventKitBackend : AppBackend {
         return buildString {
             append("FREQ=$f")
             if (r.interval > 1) append(";INTERVAL=${r.interval}")
-            r.recurrenceEnd?.occurrenceCount?.takeIf { it > 0uL }?.let { append(";COUNT=$it") }
+            val days = r.daysOfTheWeek?.filterIsInstance<EKRecurrenceDayOfWeek>().orEmpty()
+            if (days.isNotEmpty()) {
+                // EventKit: воскресенье = 1; в RRULE — по ISO, понедельник первым
+                val parts = days.map { d ->
+                    val iso = ((d.dayOfTheWeek.toInt() + 5) % 7) + 1
+                    iso to ((if (d.weekNumber != 0L) d.weekNumber.toString() else "") + dayCodes[iso - 1])
+                }.sortedBy { it.first }
+                append(";BYDAY=" + parts.joinToString(",") { it.second })
+            }
+            val md = r.daysOfTheMonth?.mapNotNull { (it as? Number)?.toInt() }.orEmpty()
+            if (md.isNotEmpty()) append(";BYMONTHDAY=" + md.joinToString(","))
+            r.recurrenceEnd?.let { e ->
+                if (e.occurrenceCount > 0uL) append(";COUNT=${e.occurrenceCount}")
+                else e.endDate?.let { dt ->
+                    val u = Instant.fromEpochSeconds(dt.timeIntervalSince1970.toLong()).toLocalDateTime(kotlinx.datetime.TimeZone.UTC)
+                    fun p2(n: Int) = n.toString().padStart(2, '0')
+                    append(";UNTIL=" + u.year.toString().padStart(4, '0') + p2(u.monthNumber) + p2(u.dayOfMonth) + "T" + p2(u.hour) + p2(u.minute) + p2(u.second) + "Z")
+                }
+            }
         }
     }
 
