@@ -56,7 +56,8 @@ fun CalendarsSheet(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Layers, null, tint = Palm.navy, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(str("calendars_title"), style = Palm.title, color = Palm.ink)
+                Text(str("calendars_title"), style = Palm.title, color = Palm.ink, modifier = Modifier.weight(1f))
+                SheetCloseButton(onDismiss)
             }
             Spacer(Modifier.height(6.dp))
             Box(Modifier.fillMaxWidth().height(2.dp).background(Palm.navy))

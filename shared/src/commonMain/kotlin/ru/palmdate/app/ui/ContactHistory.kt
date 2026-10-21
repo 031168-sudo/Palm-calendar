@@ -139,6 +139,8 @@ fun ContactHistorySheet(
                 }
                 val call = LocalCaller.current
                 PalmButton(str("action_call"), filled = true) { call(contact) }
+                Spacer(Modifier.width(6.dp))
+                SheetCloseButton(onDismiss)
             }
             Spacer(Modifier.height(8.dp))
             Box(Modifier.fillMaxWidth().height(2.dp).background(Palm.navy))

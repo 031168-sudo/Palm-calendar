@@ -88,6 +88,10 @@ fun StatsSheet(
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(str("stats_title"), style = Palm.title, color = Palm.navy, modifier = Modifier.weight(1f))
+                SheetCloseButton(onDismiss)
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 // Период
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     StatPeriod.entries.forEach { p ->

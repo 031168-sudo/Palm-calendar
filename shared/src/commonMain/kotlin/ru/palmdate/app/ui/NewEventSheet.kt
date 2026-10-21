@@ -194,7 +194,12 @@ fun NewEventSheet(
                 ))
             }
             SheetTitle(
-                action = if (step == Step.WHEN && !presetPending) ({ PalmButton(str("done"), filled = true, onClick = done) }) else null,
+                action = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        SheetCloseButton(onDismiss)
+                        if (step == Step.WHEN && !presetPending) PalmButton(str("done"), filled = true, onClick = done)
+                    }
+                },
                 type = type ?: presetType,
                 who = 
                 mail?.let { m -> m.kind.verb + ": " + ((if (m.kind == ru.palmdate.app.model.MailKind.REPLY) m.subject else null) ?: m.peer ?: "") }
@@ -1291,11 +1296,16 @@ fun EventDetailsSheet(
                     val routeText = str("action_route")
                     val action = primaryActionLabel(event)?.takeIf { it != routeText }
                     val routeAddr = if (event.fromContacts || isMail) null else place ?: event.contact?.address
-                    if (action != null || routeAddr != null || onHistory != null) {
+                    if (action != null || routeAddr != null || onHistory != null || (event.type == EventType.MEETING && !event.contact?.phone.isNullOrBlank())) {
                         Spacer(Modifier.height(10.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             action?.let { PalmButton(it, onClick = onAction) }
                             routeAddr?.let { a -> PalmButton(routeText, onClick = { platform.openMap(a) }) }
+                            // У встречи с человеком — «Позвонить» (выбор способа связи — как у звонка)
+                            val meetingCall = LocalCaller.current
+                            event.contact?.takeIf { event.type == EventType.MEETING && !it.phone.isNullOrBlank() }?.let { c ->
+                                PalmButton(str("action_call")) { meetingCall(c) }
+                            }
                             onHistory?.let { PalmButton(str("history_title"), onClick = it) }
                         }
                     }

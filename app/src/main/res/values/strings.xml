@@ -88,6 +88,7 @@
     <string name="err_open_file">Could not open the file</string>
     <string name="error_generic">Error</string>
     <string name="go_to">Go to</string>
+    <string name="has_repeat">Repeats</string>
     <string name="has_documents">Has documents</string>
     <string name="has_reminder">Has a reminder</string>
     <string name="no_reminder">No reminder</string>

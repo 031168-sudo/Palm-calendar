@@ -87,6 +87,7 @@
     <string name="err_open_file">Не удалось открыть файл</string>
     <string name="error_generic">Ошибка</string>
     <string name="go_to">Перейти</string>
+    <string name="has_repeat">Повторяется</string>
     <string name="has_documents">Есть документы</string>
     <string name="has_reminder">Есть напоминание</string>
     <string name="no_reminder">Без напоминания</string>

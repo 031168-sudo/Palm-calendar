@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
+import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.DisabledByDefault
 import androidx.compose.material.icons.outlined.Notifications
@@ -182,13 +183,21 @@ fun EventLine(
                         if (!e.allDay && e.end.isAfter(e.start)) add(str("until_time", e.end.format(HM)))
                         if (e.outcome == null) e.note?.let { add(it.lineSequence().first()) }
                     }.joinToString(" · ")
-                    if (sub.isNotEmpty() || e.hasFiles || e.hasAlarm != null) {
+                    val repeats = e.recurring && !e.fromContacts
+                    if (sub.isNotEmpty() || e.hasFiles || e.hasAlarm != null || repeats) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            // Значки в начале второй строки: колокольчик напоминания, затем документы выезда
+                            // Значки в начале второй строки: колокольчик, повтор, документы
                             e.hasAlarm?.let { on ->
                                 Icon(
                                     if (on) Icons.Outlined.Notifications else Icons.Outlined.NotificationsOff,
                                     str(if (on) "has_reminder" else "no_reminder"),
+                                    tint = Palm.inkSoft, modifier = Modifier.size(14.dp),
+                                )
+                                if (repeats || e.hasFiles || sub.isNotEmpty()) Spacer(Modifier.width(4.dp))
+                            }
+                            if (repeats) {
+                                Icon(
+                                    Icons.Outlined.Autorenew, str("has_repeat"),
                                     tint = Palm.inkSoft, modifier = Modifier.size(14.dp),
                                 )
                                 if (e.hasFiles || sub.isNotEmpty()) Spacer(Modifier.width(4.dp))

@@ -101,3 +101,9 @@ fun PalmSheet(
         }
     }
 }
+
+/** Кнопка «Закрыть» в шапке нижнего окна — такая же, как в карточке события. */
+@Composable
+fun SheetCloseButton(onDismiss: () -> Unit) {
+    PalmButton(ru.palmdate.app.str("close"), filled = true, onClick = onDismiss)
+}
