@@ -91,6 +91,11 @@ internal object Sample {
         ContactStat(ContactRef("k4", "Анна Волкова"), calls = 1, meetings = 2, mails = 1),
     )
 
+    /** День только с выбранными событиями (проверка адаптивных строк названия). */
+    fun dayWith(vararg ids: Long): CalState = CalState(
+        mode = ViewMode.DAY, date = today, events = events.filter { it.eventId in ids },
+    )
+
     fun state(mode: ViewMode, date: LocalDate = today): CalState {
         val r = CalState(mode = mode, date = date).range
         return CalState(
@@ -158,6 +163,8 @@ abstract class ScreenshotBase(
     }
 
     @Test fun day() = shot("1_day") { Main(ViewMode.DAY) }
+    @Test fun dayFew() = shot("12_day_few") { CalendarFrame(Sample.dayWith(12, 4), MainActions(), pane = null) }
+    @Test fun dayMid() = shot("13_day_mid") { CalendarFrame(Sample.dayWith(12, 4, 3, 5, 7), MainActions(), pane = null) }
     @Test fun agenda() = shot("2_agenda") { Main(ViewMode.AGENDA) }
     @Test fun week() = shot("3_week") { Main(ViewMode.WEEK) }
     @Test fun month() = shot("4_month") { Main(ViewMode.MONTH) }
