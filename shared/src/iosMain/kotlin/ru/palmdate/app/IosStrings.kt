@@ -11,7 +11,10 @@ import ru.palmdate.app.model.MapStringProvider
 /** Выбор языка на iPhone: "AUTO" (как в системе), "RU" или "EN". Хранится в настройках приложения. */
 object IosLang {
     private const val KEY = "app_lang"
-    var mode: String = NSUserDefaults.standardUserDefaults.stringForKey(KEY) ?: "AUTO"
+    // Состояние Compose: любой экран, который при отрисовке читает язык (str(...), переключатель в настройках),
+    // перерисуется сам при смене — без этого кнопка не подсвечивалась, а тексты менялись только после перезапуска окна.
+    // По умолчанию — «Авто» (язык телефона).
+    var mode: String by androidx.compose.runtime.mutableStateOf(NSUserDefaults.standardUserDefaults.stringForKey(KEY) ?: "AUTO")
         private set
 
     fun setMode(m: String) {
