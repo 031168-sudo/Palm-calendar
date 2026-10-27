@@ -1,0 +1,34 @@
+name: ASC distribute
+
+# Раздаёт уже загруженную сборку внешней группе TestFlight (если при загрузке раздача не удалась).
+# Версия и номер сборки — в .github/asc-distribute-trigger.txt, например: «0.2 36».
+on:
+  workflow_dispatch:
+  push:
+    branches: [ kmp ]
+    paths: [ '.github/asc-distribute-trigger.txt' ]
+
+jobs:
+  distribute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Distribute
+        env:
+          K: ${{ secrets.ASC_KEY_P8 }}
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          pip3 install --quiet pyjwt cryptography requests
+          KEY_ID=$(echo "$KEY_ID" | tr -d '[:space:]'); ISSUER_ID=$(echo "$ISSUER_ID" | tr -d '[:space:]')
+          export KEY_ID ISSUER_ID
+          mkdir -p ~/private_keys
+          python3 - <<'PY'
+          import os
+          body = "".join(os.environ["K"].replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").split())
+          key = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(body[i:i+64] for i in range(0, len(body), 64)) + "\n-----END PRIVATE KEY-----\n"
+          open(os.path.expanduser("~/private_keys/AuthKey_" + os.environ["KEY_ID"] + ".p8"), "w").write(key)
+          PY
+          read V B < .github/asc-distribute-trigger.txt
+          ASC_VERSION=$V ASC_BUILD=$B python3 .github/scripts/asc_distribute.py
