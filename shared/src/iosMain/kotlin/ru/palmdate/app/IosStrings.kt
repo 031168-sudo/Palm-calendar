@@ -1,5 +1,8 @@
 package ru.palmdate.app
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import platform.Foundation.NSLocale
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.preferredLanguages
@@ -14,7 +17,7 @@ object IosLang {
     // Состояние Compose: любой экран, который при отрисовке читает язык (str(...), переключатель в настройках),
     // перерисуется сам при смене — без этого кнопка не подсвечивалась, а тексты менялись только после перезапуска окна.
     // По умолчанию — «Авто» (язык телефона).
-    var mode: String by androidx.compose.runtime.mutableStateOf(NSUserDefaults.standardUserDefaults.stringForKey(KEY) ?: "AUTO")
+    var mode: String by mutableStateOf(NSUserDefaults.standardUserDefaults.stringForKey(KEY) ?: "AUTO")
         private set
 
     fun setMode(m: String) {
