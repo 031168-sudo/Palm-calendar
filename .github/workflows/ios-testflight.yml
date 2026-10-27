@@ -112,7 +112,7 @@ jobs:
           tok = jwt.encode({"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"}, key, algorithm="ES256", headers={"kid": kid})
           req = urllib.request.Request("https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=ru.palmdate.app", headers={"Authorization": "Bearer " + tok})
           try:
-              r = urllib.request.urlopen(req); body = r.read().decode()[:300]; msg = f"HTTP {r.status} {body}"
+              r = urllib.request.urlopen(req, timeout=30); body = r.read().decode()[:300]; msg = f"HTTP {r.status} {body}"
           except urllib.error.HTTPError as e:
               msg = f"HTTP {e.code} {e.read().decode()[:300]}"
           except Exception as e:
