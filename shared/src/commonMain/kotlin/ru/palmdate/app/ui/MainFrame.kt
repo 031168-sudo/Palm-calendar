@@ -432,6 +432,12 @@ private fun DayBody(
     onEvent: (PalmEvent) -> Unit,
 ) {
     val timed = events.filter { !it.allDay }
+    // Адаптивный «День»: мало событий — название показываем целиком (до 3 строк), много — одной строкой
+    val titleLines = when {
+        timed.size <= 3 -> 3
+        timed.size <= 6 -> 2
+        else -> 1
+    }
     val byHour = timed.groupBy { if (it.start.toLocalDate() < date) 0 else it.start.hour }
     // Показываем все 24 часа; рабочие часы (из настроек) — обычным пунктиром, нерабочие — бледно-зелёным
     val settings = ru.palmdate.app.data.CurrentSettings.current
@@ -510,7 +516,7 @@ private fun DayBody(
                     row.events.forEachIndexed { i, e ->
                         val ti = i + (if (needEmpty) 1 else 0)
                         val t = if (e.start.minute == 0 && i == 0) label else e.start.format(HM)
-                        EventLine(e, t, hl && i == 0 && startsOnHour, onIcon, onEvent, ruleColor = rule, decor = decorFor(times[ti], next(ti)))
+                        EventLine(e, t, hl && i == 0 && startsOnHour, onIcon, onEvent, ruleColor = rule, decor = decorFor(times[ti], next(ti)), titleLines = titleLines)
                     }
                 }
             }

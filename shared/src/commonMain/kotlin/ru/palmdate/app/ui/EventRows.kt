@@ -110,6 +110,7 @@ fun EventLine(
     primary: String? = null, // свой заголовок строки (в истории контакта имя не нужно)
     ruleColor: Color = Palm.rule,
     decor: LaneDecor? = null,
+    titleLines: Int = 1, // только «День»: при малом числе событий название может занимать больше строк
 ) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 44.dp).laneDraw(decor),
@@ -168,7 +169,7 @@ fun EventLine(
                         primary ?: (if (e.type == EventType.MAIL) e.displayTitle else e.contact?.name ?: e.displayTitle),
                         style = Palm.body.copy(textDecoration = if (struck) TextDecoration.LineThrough else null),
                         color = if (struck) Palm.inkSoft else Palm.ink,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        maxLines = titleLines, overflow = TextOverflow.Ellipsis,
                     )
                     val sub = buildList {
                         // Итог важнее типа: "Не дозвонился — перезвонить после обеда"

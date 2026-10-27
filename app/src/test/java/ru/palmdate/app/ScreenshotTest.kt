@@ -74,7 +74,7 @@ internal object Sample {
             mail = MailInfo(MailKind.REPLY, subject = "Счёт за сентябрь", peerName = "Иван Петров", peerAddr = "ivan@x.ru")),
         ev(6, "Звонок: Сергей Кузнецов", at(0, 16, 30), 15, EventType.CALL, sergey, outcome = Outcome.NO_ANSWER),
         ev(7, "Планёрка", at(0, 18), 60, null, color = RED),
-        ev(12, "Конференция", at(0, 12, 30), 300, null, color = GREEN),   // длинное: дорожки длительности и наложение
+        ev(12, "Конференция по развитию региональных продаж и партнёрской сети", at(0, 12, 30), 300, null, color = GREEN),   // длинное: дорожки длительности и наложение
         ev(8, "Выезд: Большой театр", at(1, 8), 180, EventType.TRIP, color = GREEN),
         ev(9, "Встреча: Иван Петров", at(1, 14), 60, EventType.MEETING, ivan),
         ev(10, "Написать: Сергей Кузнецов", at(2, 10), 15, EventType.MAIL, sergey,
@@ -92,6 +92,11 @@ internal object Sample {
         ContactStat(olga, calls = 3, meetings = 9, mails = 0),
         ContactStat(sergey, calls = 8, meetings = 0, mails = 6),
         ContactStat(ContactRef("k4", "Анна Волкова"), calls = 1, meetings = 2, mails = 1),
+    )
+
+    /** День только с выбранными событиями (проверка адаптивных строк названия). */
+    fun dayWith(vararg ids: Long): CalState = CalState(
+        mode = ViewMode.DAY, date = today, events = events.filter { it.eventId in ids },
     )
 
     fun state(mode: ViewMode, date: LocalDate = today): CalState {
@@ -161,6 +166,8 @@ abstract class ScreenshotBase(
     }
 
     @Test fun day() = shot("1_day") { Main(ViewMode.DAY) }
+    @Test fun dayFew() = shot("12_day_few") { CalendarFrame(Sample.dayWith(12, 4), MainActions(), pane = null) }
+    @Test fun dayMid() = shot("13_day_mid") { CalendarFrame(Sample.dayWith(12, 4, 3, 5, 7), MainActions(), pane = null) }
     @Test fun agenda() = shot("2_agenda") { Main(ViewMode.AGENDA) }
     @Test fun week() = shot("3_week") { Main(ViewMode.WEEK) }
     @Test fun month() = shot("4_month") { Main(ViewMode.MONTH) }

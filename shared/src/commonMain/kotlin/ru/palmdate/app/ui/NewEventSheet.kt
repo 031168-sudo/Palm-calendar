@@ -322,7 +322,7 @@ private fun SheetTitle(
         Text(
             listOfNotNull(label ?: type?.label ?: str("new_event"), who).joinToString(" · "),
             style = Palm.title, color = Palm.ink,
-            modifier = Modifier.weight(1f, fill = action != null), maxLines = 2,
+            modifier = Modifier.weight(1f, fill = action != null),
         )
         if (onClick != null) {
             Spacer(Modifier.width(6.dp))
