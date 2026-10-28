@@ -61,6 +61,7 @@ fun LocalDate.lengthOfMonth(): Int =
 
 fun LocalDate.atStartOfDay(): LocalDateTime = LocalDateTime(year, monthNumber, dayOfMonth, 0, 0)
 fun LocalDate.atTime(hour: Int, minute: Int): LocalDateTime = LocalDateTime(year, monthNumber, dayOfMonth, hour, minute)
+fun LocalDate.atTime(t: LocalTime): LocalDateTime = LocalDateTime(year, monthNumber, dayOfMonth, t.hour, t.minute)
 
 /** Ближайший [first] не позже этой даты (начало недели). */
 fun LocalDate.previousOrSame(first: DayOfWeek): LocalDate =
@@ -75,6 +76,7 @@ fun utcMillisToDate(ms: Long): LocalDate = Instant.fromEpochMilliseconds(ms).toL
 // ---------- LocalDateTime ----------
 
 fun LocalDateTime.toLocalDate(): LocalDate = date
+fun LocalDateTime.toLocalTime(): LocalTime = time
 
 fun LocalDateTime.isAfter(other: LocalDateTime): Boolean = this > other
 fun LocalDateTime.isBefore(other: LocalDateTime): Boolean = this < other

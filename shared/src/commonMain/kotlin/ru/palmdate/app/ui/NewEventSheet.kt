@@ -626,6 +626,9 @@ private fun TimeEditDialog(event: PalmEvent, onDismiss: () -> Unit, onSave: (Loc
     val initialMinutes = if (event.allDay) 0
     else minutesBetween(event.start, event.end).toInt().coerceAtLeast(5)
     var minutes by remember { mutableStateOf(initialMinutes) }
+    var pickDate by remember { mutableStateOf(false) }
+    var pickStart by remember { mutableStateOf(false) }
+    var pickEnd by remember { mutableStateOf(false) }
     val options = (durationShortOptions() +
         (if (initialMinutes !in setOf(0, 15, 30, 60, 120)) listOf(initialMinutes to reminderLabel(initialMinutes)) else emptyList()) +
         listOf(0 to str("dur_all_day")))
@@ -638,7 +641,7 @@ private fun TimeEditDialog(event: PalmEvent, onDismiss: () -> Unit, onSave: (Loc
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowLeft) { start = start.minusDays(1) }
                     Text(start.toLocalDate().pretty(), style = Palm.body, color = Palm.ink,
-                        modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                        modifier = Modifier.weight(1f).tappable { pickDate = true }, textAlign = TextAlign.Center)
                     StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowRight) { start = start.plusDays(1) }
                 }
                 if (minutes != 0) {
@@ -648,7 +651,7 @@ private fun TimeEditDialog(event: PalmEvent, onDismiss: () -> Unit, onSave: (Loc
                         Text(str("time_start"), style = Palm.small, color = Palm.inkSoft, modifier = Modifier.width(72.dp))
                         StepIcon(Icons.Filled.Remove) { start = start.minusMinutes(timeStep()) }
                         Text(start.format(HM), style = Palm.title, color = Palm.navy,
-                            modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                            modifier = Modifier.weight(1f).tappable { pickStart = true }, textAlign = TextAlign.Center)
                         StepIcon(Icons.Filled.Add) { start = start.plusMinutes(timeStep()) }
                     }
                     // Конец: меняет длительность; начало не двигается
@@ -658,7 +661,7 @@ private fun TimeEditDialog(event: PalmEvent, onDismiss: () -> Unit, onSave: (Loc
                         Text(
                             end.format(HM) + if (end.toLocalDate() != start.toLocalDate()) " · " + end.toLocalDate().pretty() else "",
                             style = Palm.title, color = Palm.navy,
-                            modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(1f).tappable { pickEnd = true }, textAlign = TextAlign.Center,
                         )
                         StepIcon(Icons.Filled.Add) { minutes += timeStep().toInt() }
                     }
@@ -680,6 +683,12 @@ private fun TimeEditDialog(event: PalmEvent, onDismiss: () -> Unit, onSave: (Loc
         confirmButton = { TextButton(onClick = { onSave(start, minutes) }) { Text(str("save")) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(str("cancel")) } },
     )
+    if (pickDate) DatePickDialog(start.toLocalDate(), { pickDate = false }) { start = it.atTime(start.toLocalTime()) }
+    if (pickStart) TimePickDialog(start.toLocalTime(), { pickStart = false }) { start = start.toLocalDate().atTime(it) }
+    if (pickEnd) {
+        val end = start.plusMinutes(minutes.toLong())
+        TimePickDialog(end.toLocalTime(), { pickEnd = false }) { minutes = minutesForEnd(start, it, end.toLocalDate()) }
+    }
 }
 
 /** Строка адреса: тап по адресу — карты; стрелка справа — выбор из адресов контакта. */
@@ -844,12 +853,21 @@ private fun WhenPicker(
 ) {
     val allDay = minutes == 0
     val platform = LocalPlatform.current
+    var pickDate by remember { mutableStateOf(false) }
+    var pickStart by remember { mutableStateOf(false) }
+    var pickEnd by remember { mutableStateOf(false) }
+    if (pickDate) DatePickDialog(start.toLocalDate(), { pickDate = false }) { onStart(it.atTime(start.toLocalTime())) }
+    if (pickStart) TimePickDialog(start.toLocalTime(), { pickStart = false }) { onStart(start.toLocalDate().atTime(it)) }
+    if (pickEnd) {
+        val end = start.plusMinutes(minutes.toLong())
+        TimePickDialog(end.toLocalTime(), { pickEnd = false }) { onMinutes(minutesForEnd(start, it, end.toLocalDate())) }
+    }
 
     // Дата
     Row(verticalAlignment = Alignment.CenterVertically) {
         StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowLeft) { onStart(start.minusDays(1)) }
         Text(start.toLocalDate().pretty(), style = Palm.title, color = Palm.ink,
-            modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+            modifier = Modifier.weight(1f).tappable { pickDate = true }, textAlign = TextAlign.Center)
         StepIcon(Icons.AutoMirrored.Filled.KeyboardArrowRight) { onStart(start.plusDays(1)) }
     }
     Spacer(Modifier.height(6.dp))
@@ -859,7 +877,7 @@ private fun WhenPicker(
         Row(verticalAlignment = Alignment.CenterVertically) {
             StepIcon(Icons.Filled.Remove) { onStart(start.minusMinutes(timeStep())) }
             Text(start.format(HM), style = Palm.title.copy(fontSize = Palm.title.fontSize * 1.6f),
-                color = Palm.navy, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                color = Palm.navy, modifier = Modifier.weight(1f).tappable { pickStart = true }, textAlign = TextAlign.Center)
             StepIcon(Icons.Filled.Add) { onStart(start.plusMinutes(timeStep())) }
         }
         // Конец (меняет длительность, начало не двигается)
@@ -869,7 +887,7 @@ private fun WhenPicker(
             StepIcon(Icons.Filled.Remove) { onMinutes(maxOf(5, minutes - timeStep().toInt())) }
             Text(
                 end.format(HM) + if (end.toLocalDate() != start.toLocalDate()) " · " + end.toLocalDate().pretty() else "",
-                style = Palm.title, color = Palm.navy, modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
+                style = Palm.title, color = Palm.navy, modifier = Modifier.weight(1f).tappable { pickEnd = true }, textAlign = TextAlign.Center,
             )
             StepIcon(Icons.Filled.Add) { onMinutes(minutes + timeStep().toInt()) }
         }
