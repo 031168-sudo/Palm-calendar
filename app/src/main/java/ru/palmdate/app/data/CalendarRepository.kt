@@ -693,8 +693,11 @@ class CalendarRepository(
                 values.put(Events.DTEND, ms + minutes * 60_000L)
             }
         } else {
-            val seriesStart = resolver.query(uri, arrayOf(Events.DTSTART), null, null, null)
-                ?.use { if (it.moveToFirst()) it.getLong(0) else null } ?: error(str(R.string.err_event_not_found))
+            var rule: String? = null
+            val seriesStart = resolver.query(uri, arrayOf(Events.DTSTART, Events.RRULE), null, null, null)
+                ?.use { if (it.moveToFirst()) { rule = it.getString(1); it.getLong(0) } else null } ?: error(str(R.string.err_event_not_found))
+            // Правило передаём вместе с началом: без него Android строит разы как у одиночного события, и серия «пропадает»
+            rule?.let { values.put(Events.RRULE, it) }
             if (allDay) {
                 val days = e.start.toLocalDate().daysUntil(start.toLocalDate()).toLong()
                 val seriesDate = Instant.ofEpochMilli(seriesStart).atZone(if (e.allDay) ZoneOffset.UTC else zone).toLocalDate().toKx()
