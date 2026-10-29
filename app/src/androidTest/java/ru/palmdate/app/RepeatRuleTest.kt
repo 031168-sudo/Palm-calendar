@@ -63,7 +63,9 @@ class RepeatRuleTest {
             .format(d.plusDays(3).atTime(23, 59, 59).atZone(zone).withZoneSameInstant(java.time.ZoneOffset.UTC))
     })
     @Test fun nthWeekdayMonthly() = assertEquals(3, count("RepC") { d ->
+        // 5-я неделя месяца (29–31 число) — «последний такой день», иначе первый раз не совпадает с правилом
         val nth = (d.dayOfMonth - 1) / 7 + 1
-        "FREQ=MONTHLY;BYDAY=${nth.coerceAtMost(4)}${d.dayOfWeek.name.take(2)};COUNT=3"
+        val pos = if (nth >= 5) "-1" else nth.toString()
+        "FREQ=MONTHLY;BYDAY=$pos${d.dayOfWeek.name.take(2)};COUNT=3"
     })
 }

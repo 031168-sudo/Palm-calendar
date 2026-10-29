@@ -52,7 +52,7 @@ adb shell input text "check123"
 shot 4_note_typed
 adb shell settings put system user_rotation 1
 shot 5_rotated
-$UI check "check123"
+$UI check "heck123"   # первая буква становится заглавной: Check123
 $UI tap "Сохранить"
 shot 6_note_saved
 $UI check "Закрыть"
@@ -68,7 +68,7 @@ if [ "$DEV" = "fold" ]; then
   adb shell wm size $((W / 2))x$H
   shot 8_folded
   $UI check "Закрыть"
-  $UI check "check123"
+  $UI check "heck123"   # первая буква становится заглавной: Check123
   adb shell wm size reset
   shot 9_unfolded
   $UI check "Закрыть"

@@ -57,7 +57,9 @@ class ZeroDurationTest {
             val e = repo.eventsBetween(today.minusDays(1), today.plusDays(40)).first { it.eventId == id && !it.start.toLocalDate().isBefore(today) }
             assertEquals("до: длина $title", 0L, minutesBetween(e.start, e.end))
             try { repo.setTime(e, e.start, 60, ru.palmdate.app.model.DeleteScope.ALL) } catch (t: Throwable) { throw AssertionError("setTime($title): $t", t) }
-            val e2 = repo.eventsBetween(today.minusDays(1), today.plusDays(40)).first { it.eventId != -1L && it.title == e.title && it.start == e.start }
+            val after = repo.eventsBetween(today.minusDays(1), today.plusDays(40)).filter { it.title.equals(e.title, ignoreCase = true) }
+            val e2 = after.firstOrNull { it.eventId != -1L && it.start == e.start }
+                ?: throw AssertionError("после setTime($title) нет раза ${e.start}; есть: " + after.joinToString { "${it.eventId}:${it.start}-${it.end}" })
             assertEquals("после: длина $title", 60L, minutesBetween(e2.start, e2.end))
         } finally {
             cr.delete(Events.CONTENT_URI, "${Events.TITLE} = ?", arrayOf(title))
