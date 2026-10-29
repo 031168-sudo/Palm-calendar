@@ -82,6 +82,21 @@ class ContactsRepository(private val context: Context) {
         return byLookupKey(key, null)
     }
 
+    /**
+     * Запасной поиск: контакт по номеру телефона. Нужен, когда ключ контакта из метки события
+     * на новом телефоне не совпал (историю контакта иначе не найти), а номер остался тот же.
+     */
+    fun byPhone(number: String): ContactRef? {
+        if (number.isBlank()) return null
+        val key = runCatching {
+            resolver.query(
+                Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number)),
+                arrayOf(ContactsContract.PhoneLookup.LOOKUP_KEY), null, null, null,
+            )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        }.getOrNull() ?: return null
+        return byLookupKey(key, number)
+    }
+
     /** Все номера контакта с подписями ("Мобильный", "Рабочий"…), основной первым, без дублей. */
     fun phones(lookupKey: String): List<PhoneNumber> {
         val list = ArrayList<PhoneNumber>()

@@ -225,7 +225,9 @@ class CalendarRepository(
                     .also { links.upsertMail(it); mailById[r.id] = it }
             })?.toInfo()
             val contact = link?.lookupKey?.let { key ->
-                contacts.byLookupKey(key, link.phone ?: links.rememberedPhone(key))
+                val phone = link.phone ?: links.rememberedPhone(key)
+                // Ключ контакта мог измениться (новый телефон): тогда ищем по номеру
+                contacts.byLookupKey(key, phone) ?: phone?.let { contacts.byPhone(it) }
             }
             // all-day события хранятся в UTC, обычные — в локальной зоне
             val tz = if (r.allDay) ZoneOffset.UTC else zone
