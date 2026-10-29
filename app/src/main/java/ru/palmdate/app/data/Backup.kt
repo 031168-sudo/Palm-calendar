@@ -4,6 +4,7 @@ import ru.palmdate.app.R
 import ru.palmdate.app.str
 import android.content.ContentUris
 import android.content.Context
+import android.database.Cursor
 import android.provider.CalendarContract
 import android.util.Base64
 import java.io.File
@@ -27,13 +28,51 @@ class Backup(private val context: Context, private val links: LinkDao) {
     /** Название и время начала события в календаре (для сопоставления на новом телефоне). */
     private data class Ref(val title: String, val begin: Long)
 
-    private fun refOf(eventId: Long): Ref? = refCache.getOrPut(eventId) {
-        runCatching {
+    private fun refOf(eventId: Long): Ref? {
+        if (refCache.containsKey(eventId)) return refCache[eventId]
+        val cursor: Cursor? = try {
             resolver.query(
                 ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId),
                 arrayOf(CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART), null, null, null,
-            )?.use { c -> if (c.moveToFirst()) Ref(c.getString(0).orEmpty(), c.getLong(1)) else null }
-        }.getOrNull()
+            )
+        } catch (e: Exception) {
+            null
+        }
+        val ref: Ref? = cursor?.use { c -> if (c.moveToFirst()) Ref(c.getString(0).orEmpty(), c.getLong(1)) else null }
+        refCache[eventId] = ref
+        return ref
+    }
+
+    /** Номер события с таким названием и временем начала на этом телефоне, или null. */
+    private fun findEvent(title: String, begin: Long): Long? {
+        val cursor: Cursor? = try {
+            resolver.query(
+                CalendarContract.Events.CONTENT_URI, arrayOf(CalendarContract.Events._ID),
+                "${CalendarContract.Events.TITLE} = ? AND ${CalendarContract.Events.DTSTART} = ?",
+                arrayOf(title, begin.toString()), null,
+            )
+        } catch (e: Exception) {
+            null
+        }
+        return cursor?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
+    }
+
+    /** Номер события (или его раза) с таким названием, который идёт в момент [begin], или null. */
+    private fun findInstance(title: String, begin: Long): Long? {
+        val cursor: Cursor? = try {
+            CalendarContract.Instances.query(
+                resolver, arrayOf(CalendarContract.Instances.EVENT_ID, CalendarContract.Instances.TITLE), begin, begin + 1,
+            )
+        } catch (e: Exception) {
+            null
+        }
+        return cursor?.use { c ->
+            var found: Long? = null
+            while (found == null && c.moveToNext()) {
+                if (c.getString(1) == title) found = c.getLong(0)
+            }
+            found
+        }
     }
 
     /**
@@ -45,20 +84,7 @@ class Backup(private val context: Context, private val links: LinkDao) {
         if (title == null || begin == null) return oldId // копия старого формата
         val here = refOf(oldId)
         if (here != null && here.title == title && (instance || here.begin == begin)) return oldId
-        val found = runCatching {
-            if (instance) {
-                CalendarContract.Instances.query(
-                    resolver, arrayOf(CalendarContract.Instances.EVENT_ID), begin, begin + 1,
-                    "${CalendarContract.Instances.TITLE} = ?", arrayOf(title), null,
-                )?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
-            } else {
-                resolver.query(
-                    CalendarContract.Events.CONTENT_URI, arrayOf(CalendarContract.Events._ID),
-                    "${CalendarContract.Events.TITLE} = ? AND ${CalendarContract.Events.DTSTART} = ?",
-                    arrayOf(title, begin.toString()), null,
-                )?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
-            }
-        }.getOrNull()
+        val found: Long? = if (instance) findInstance(title, begin) else findEvent(title, begin)
         return found ?: oldId
     }
 
