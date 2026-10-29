@@ -135,6 +135,10 @@ interface LinkDao {
     @Query("SELECT * FROM links WHERE lookupKey = :lookupKey")
     suspend fun byContact(lookupKey: String): List<EventLink>
 
+    /** Запасной поиск истории: связи по номеру, если ключ контакта на новом телефоне другой. */
+    @Query("SELECT * FROM links WHERE phone = :phone")
+    suspend fun byPhone(phone: String): List<EventLink>
+
     @Query("DELETE FROM links WHERE eventId = :eventId")
     suspend fun delete(eventId: Long)
 

@@ -68,7 +68,10 @@ class CalendarRepository(
      * Повторяющиеся события разворачиваются в отдельные разы.
      */
     suspend fun historyFor(lookupKey: String): List<PalmEvent> {
-        val ids = links.byContact(lookupKey).map { it.eventId }
+        // Связи по ключу контакта, а если ключ изменился (новый телефон) — ещё и по его номерам
+        val byKey = links.byContact(lookupKey)
+        val byPhone = contacts.phones(lookupKey).map { it.number }.distinct().flatMap { links.byPhone(it) }
+        val ids = (byKey + byPhone).map { it.eventId }.distinct()
         val today = LocalDate.now()
         val from = today.minusYears(3)
         val to = today.plusYears(1)
