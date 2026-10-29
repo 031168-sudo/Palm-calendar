@@ -3,9 +3,9 @@ name: iOS TestFlight
 # Собирает подписанное приложение для iPhone и отправляет в TestFlight. Запуск — вручную (Run workflow).
 on:
   workflow_dispatch:
-  # запуск: изменить файл .github/testflight-trigger.txt в ветке kmp
+  # запуск: изменить файл .github/testflight-trigger.txt в ветке main
   push:
-    branches: [ kmp ]
+    branches: [ main ]
     paths: [ '.github/testflight-trigger.txt' ]
 
 permissions:

@@ -1,10 +1,10 @@
 name: ASC testers
 
 # Меняет тестировщиков TestFlight: убирает и добавляет в внешнюю группу.
-# Список — в .github/testers-change.txt (JSON в base64, чтобы адреса не лежали открытым текстом). Изменить файл и запушить в kmp.
+# Список — в .github/testers-change.txt (JSON в base64, чтобы адреса не лежали открытым текстом). Изменить файл и запушить в main.
 on:
   push:
-    branches: [ kmp ]
+    branches: [ main ]
     paths: [ '.github/testers-change.txt' ]
 
 jobs:

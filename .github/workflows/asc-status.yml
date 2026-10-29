@@ -1,10 +1,10 @@
 name: ASC status
 
-# Проверяет у Apple, что стало с отправленными сборками (изменить .github/asc-status-trigger.txt в ветке kmp).
+# Проверяет у Apple, что стало с отправленными сборками (изменить .github/asc-status-trigger.txt в ветке main).
 on:
   workflow_dispatch:
   push:
-    branches: [ kmp ]
+    branches: [ main ]
     paths: [ '.github/asc-status-trigger.txt' ]
 
 jobs:

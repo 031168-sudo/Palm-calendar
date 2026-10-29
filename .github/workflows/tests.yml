@@ -2,7 +2,7 @@ name: Tests and screenshots
 
 on:
   push:
-    branches: [ main, kmp ]
+    branches: [ main ]
   pull_request:
   workflow_dispatch:
 

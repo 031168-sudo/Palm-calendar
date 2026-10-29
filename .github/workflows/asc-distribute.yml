@@ -5,7 +5,7 @@ name: ASC distribute
 on:
   workflow_dispatch:
   push:
-    branches: [ kmp ]
+    branches: [ main ]
     paths: [ '.github/asc-distribute-trigger.txt' ]
 
 jobs:

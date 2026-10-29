@@ -3,7 +3,7 @@ name: iOS app (simulator)
 # Собирает iPhone-приложение на macOS-раннере, запускает в симуляторе и делает скриншот.
 on:
   push:
-    branches: [ kmp ]
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:

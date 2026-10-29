@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [ main, kmp ]
+    branches: [ main ]
   pull_request:
   workflow_dispatch:
 
@@ -58,18 +58,3 @@ jobs:
             --notes "$MSG" \
             --target "${{ github.sha }}" \
             --latest
-
-      # Тестовые сборки ветки kmp (общий код для Android и iPhone): отдельный релиз kmp-N с прямой ссылкой на APK.
-      # Не «последний» — основная ссылка latest по-прежнему ведёт на сборку из main.
-      - name: Publish kmp test release
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/kmp'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="kmp-${{ github.run_number }}"
-          MSG=$(git log -1 --pretty=%s)
-          gh release create "$TAG" DateBook.apk \
-            --title "DateBook kmp ${{ github.run_number }}" \
-            --notes "$MSG" \
-            --target "${{ github.sha }}" \
-            --prerelease --latest=false

@@ -3,7 +3,7 @@ name: iOS check
 # Проверка, что общий код (shared) собирается под iOS. Идёт на macOS-раннере GitHub.
 on:
   push:
-    branches: [ kmp ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:

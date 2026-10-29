@@ -1,8 +1,20 @@
 # DateBook — что нужно знать, чтобы продолжить работу
 
-Android-календарь в духе Palm Tungsten T3 Date Book / Agendus: события с типом (звонок, встреча, задача,
-выезд, письмо, событие), привязанные к людям из телефонной книги, — «лёгкая CRM» (история контакта, итоги,
-статистика). Kotlin + Jetpack Compose. Владелец — Андрей (общение на русском, на «ты»).
+> ## ГЛАВНОЕ (с 29.10.2026): ОДНО приложение для Android и iPhone, ОДНА ветка `main`
+> - Код общий (Kotlin Multiplatform): `shared/` — экраны и логика для обеих платформ, `app/` — Android-часть,
+>   `iosApp/` + `shared/src/iosMain` — iPhone-часть. Ветку `kmp` закрыли (влита в `main`, её последнее состояние — тег `kmp-final`).
+> - **Любая правка делается один раз в `main` и попадает в обе версии.** Не править «только Android» или «только iPhone»,
+>   если это не платформенная вещь (календарь Google/EventKit, файлы, почтовые программы и т.п.) — тогда сделать аналог на второй платформе
+>   или явно записать в журнал, чего не хватает.
+> - **Перед любой работой:** `git pull` (свежий `main`) и перечитать этот файл — правки мог сделать другой чат.
+> - **После каждой правки:** сборка Android (релиз `build-N`, ссылка на APK) + сборка iPhone в TestFlight
+>   (изменить число в `.github/testflight-trigger.txt` и запушить в `main`), проверки зелёные; запись в «Журнал» внизу этого файла.
+> - История: до 29.10 Android правили в `main`, iPhone — в ветке `kmp` (общий код), и правки из `kmp` (например, «Повестка» → «Список»)
+>   не попадали в Android-APK. 29.10 `kmp` влили в `main`; теперь работает один чат — «Единое приложение».
+
+Календарь в духе Palm Tungsten T3 Date Book / Agendus: события с типом (звонок, встреча, задача, выезд, письмо, событие), привязанные
+к людям из телефонной книги, — «лёгкая CRM» (история контакта, итоги, статистика). Kotlin + Compose Multiplatform. Android синхронизируется
+с Google Календарём, iPhone — с календарём Apple (EventKit). Владелец — Андрей (общение на русском, на «ты»).
 
 Репозиторий: https://github.com/031168-sudo/Palm-calendar (публичный). Ветка `main`.
 
@@ -10,68 +22,63 @@ Android-календарь в духе Palm Tungsten T3 Date Book / Agendus: с�
 
 - **Сначала обсуждаем, делаем только после слова «делай».** Если он описывает идею или проблему — предложить,
   как сделать, задать вопросы и ждать «делай». Исключение: явные ошибки, которые он показывает скриншотом
-  и просит исправить.
+  и просит исправить; совсем мелкие и однозначные просьбы («фон белый», «поменяй порядок значков») можно делать сразу.
 - Правки можно копить в `BACKLOG.md` и делать пачкой по команде.
 - После каждой сборки присылать **прямую ссылку на APK**, не zip:
   `https://github.com/031168-sudo/Palm-calendar/releases/download/build-N/DateBook.apk`
   (N — номер прогона workflow «Build APK»). Последняя всегда: `.../releases/latest/download/DateBook.apk`.
-- Пишем простым языком, без жаргона. Отвечать коротко: что сделано, ссылка, что проверить.
-- «Palm» не использовать в названии и иконке приложения (в описании для магазина — можно). Публикация — RuStore.
-- Честно говорить, что проверено (тесты/скриншоты/эмулятор), а что нет (на его телефоне).
+  Для iPhone — сказать, что сборка ушла в TestFlight (номер сборки), и что придёт обновление в приложении TestFlight.
+- Андрей не любит технических объяснений: писать простым языком, без жаргона, коротко: что сделано, ссылка, что проверить.
+- «Palm» не использовать в названии и иконке приложения (в описании для магазина — можно). Публикация Android — RuStore.
+- Честно говорить, что проверено (тесты/скриншоты/эмулятор/симулятор), а что нет (на его телефоне).
 
 ## Сборка и проверки (всё на GitHub Actions, локально gradle/maven недоступны)
 
-- `.github/workflows/build.yml` — сборка APK, релиз `build-N` с `DateBook.apk`. Ошибки компиляции выводятся
-  как `::error::` аннотации: читать через
+- `build.yml` — Android APK, релиз `build-N` с `DateBook.apk` (пуш в `main`). Ошибки компиляции — `::error::` аннотации:
   `gh api repos/031168-sudo/Palm-calendar/check-runs/<id>/annotations` (логи и artifacts скачать нельзя — 403).
-- `.github/workflows/tests.yml` — `gradle :app:testDebugUnitTest`: тесты логики (`LogicTest`, `RotationTest`)
-  и скриншоты Roborazzi (`ScreenshotTest`: телефон, телефон тёмный, раскладушка сложена/разложена/«ноутбук»,
-  планшет, планшет горизонтально светлый/тёмный; экраны: день, повестка, неделя, месяц, год, карточка звонка,
-  карточка письма, «Новое», шаг «Когда», статистика). Скриншоты публикуются в ветку **`screenshots`**:
-  `git fetch -f origin screenshots:refs/remotes/origin/screenshots && git archive origin/screenshots | tar -x -C <папка>`
-  — так их можно посмотреть самому (Read по png).
-- `.github/workflows/emulator.yml` — настоящий эмулятор (Pixel Tablet и «7.6in Foldable», API 34):
-  `.github/emulator/run.sh` + `ui.py` (нажатия по тексту через uiautomator), `SeedCalendar` (androidTest)
-  заполняет тестовый календарь. Проверяет карточку, поворот с набранной заметкой, складывание (имитация:
-  `wm size` вдвое уже). Скриншоты — ветки **`emulator-tablet`**, **`emulator-fold`**. ~10 мин.
-- Версии: gradle 8.10.2, AGP 8.7.3, Kotlin 2.0.21, KSP, compose BOM 2024.10.01, compileSdk/targetSdk 35,
-  minSdk 26, Robolectric 4.14.1, Roborazzi 1.32.0, androidx.window 1.3.0. Подпись — постоянный
-  `app/debug.keystore` (пароль android). versionCode = номер прогона.
+- `tests.yml` — `gradle :app:testDebugUnitTest`: тесты логики и скриншоты Roborazzi (телефон, тёмный, English, раскладушка
+  сложена/разложена/«ноутбук», планшет…). Скриншоты — ветка **`screenshots`**:
+  `git fetch -f origin screenshots:refs/remotes/origin/screenshots && git archive origin/screenshots | tar -x -C <папка>`.
+- `emulator.yml` — эмулятор Android (Pixel Tablet, «7.6in Foldable»): `.github/emulator/run.sh` + `ui.py`, `SeedCalendar`.
+  Скриншоты — ветки **`emulator-tablet`**, **`emulator-fold`**. ~10 мин.
+- `ios.yml` (компиляция общего кода под iOS), `ios-app.yml` (приложение на симуляторе, скриншоты — ветка `ios-screens`),
+  `ios-testflight.yml` (TestFlight; запуск — изменить `.github/testflight-trigger.txt` и запушить в `main`),
+  `asc-*.yml` — раздача тестировщикам и статусы у Apple. Подробности iPhone-части, секреты и правила Apple — `docs/kmp-plan.md`.
+- Версии Android: gradle 8.10.2, AGP 8.7.3, Kotlin 2.0.21, compileSdk/targetSdk 35, minSdk 26; подпись — `app/debug.keystore`
+  (пароль android); versionCode = номер прогона. iPhone: `MARKETING_VERSION` в `iosApp/project.yml`, номер сборки — номер прогона.
 - Коммиты завершать строками атрибуции из системных указаний.
-- Андрей обычно подтверждает словом «Делай»; совсем мелкие и однозначные просьбы («фон белый», «поменяй порядок значков») можно
-  делать сразу. Проверять сборку/тесты, потом ссылка на APK.
-- `git push` пишет «repository moved» — это нормально, пуш идёт: `git push origin HEAD:main`. Не делать `--amend` уже
-  отправленных коммитов (будет отказ); откат — новым коммитом.
+- `git push` пишет «repository moved» — это нормально: `git push origin HEAD:main`. Не делать `--amend` отправленных коммитов.
 
-## Устройство приложения (app/src/main/java/ru/palmdate/app)
+## Устройство (модули)
+
+- **`shared/src/commonMain/kotlin/ru/palmdate/app`** — общее: `DayModel` (состояние и действия главного экрана), `CalState`,
+  `AppBackend` (граница с системой: календарь, контакты, документы, хранилище), `model/` (типы, итоги, повторы, `PalmEvent`),
+  `ui/` — все экраны: `MainFrame.kt` (шапка, день, панель, раскладки телефон/планшет/книжка/«ноутбук»), `Views.kt`
+  (список/неделя/месяц/год), `EventRows.kt` (`EventLine`), `NewEventSheet.kt` («Новое» + карточка события), `PalmSheet.kt`,
+  `SettingsSheet.kt`, `StatsSheet.kt`, `ContactHistory.kt`, `RepeatDialog.kt`, `Pickers.kt`, `TextRules.kt`, `DayScreen.kt` (склейка окон).
+  Платформенное — за интерфейсами `ui/Platform.kt` (`PlatformActions`, `expect`-функции), `ui/SettingsPlatform.kt`.
+  Тексты — `str("ключ")`/`plu("ключ", n)`; сами строки — в `app/src/main/res/values{,-ru}/strings.xml` (для iPhone из них
+  генерируется код задачей `genIosStrings`). Русских литералов в коде быть не должно.
+- **`app/`** — Android: `MainActivity`, `DayViewModel` (тонкая обёртка над `DayModel`), `data/` (`CalendarRepository` — CalendarContract,
+  `ContactsRepository`, `LinkDb` Room, `AndroidBackend`, `Settings`, `Backup`, `TripFiles`, `MailApps`, `CallOptions`, `OwnAddresses`),
+  `ui/` (`AndroidPlatform`, `AndroidSettings`, `Caller`, `MailUi`, `Actions`).
+- **`shared/src/iosMain` + `iosApp/`** — iPhone: `EventKitBackend`, `IosStore`, `IosPlatform`, почта, «Связаться», карты, копия, файлы.
+- Каждый Kotlin-файл верхнего уровня = класс по имени файла: имена файлов в `app` и `shared` не должны совпадать (см. `docs/kmp-plan.md`).
+
+## Android: календарь и данные
 
 - **События живут в системном календаре Android** (CalendarContract → синхронизация с Google).
   Тип/контакт/номер — в Room (`data/LinkDb.kt`, БД `palmdate.db` v5: links, contact_phone, outcomes,
   mail_links, trip_files) **и** дублируются меткой в описании события `[palm:t=TYPE;c=lookupKey;p=phone;m=mail]`
-  (`CalendarRepository.Marker`) + строка «Итог: …» — чтобы всё восстанавливалось.
+  (`CalendarRepository.Marker`) + строка «Итог: …» — чтобы всё восстанавливалось. На iPhone — та же метка в заметках EventKit.
 - Повторяющиеся: DURATION вместо DTEND; весь день — в UTC; напоминания весь день — отрицательные минуты.
   **Android пересчитывает разы, только если в update есть DTSTART** — передавать всегда.
   Изменения повтора/времени и удаление «этот и следующие» — «с открытого раза»: старая серия получает UNTIL,
-  с этого раза создаётся новая (`setRepeat`, `setTime`, `deleteFollowing`, `newSeriesFrom`). Удаление одного
-  раза — исключение со STATUS_CANCELED.
-- `model/Model.kt`: EventType (CALL, MEETING, TASK, TRIP, MAIL, OTHER; BIRTHDAY — только дни рождения из
-  контактов, выбрать нельзя; старый «Праздник» = обычное событие), Outcome (подписи по типу), MailInfo/MailKind,
-  PalmEvent, NewEvent, DeleteScope, ContactStat.
-- `DayViewModel.kt` — состояние экрана (CalState), навигация, все действия.
-- UI (`ui/`): `DayScreen.kt` — главный экран: `CalendarFrame` (телефон / две колонки `AdaptiveFrame` /
-  «ноутбук»), `MainLayout` (шапка + вид + `ButtonBar`), `EventLine`. `Views.kt` — повестка/неделя/месяц/год.
-  `NewEventSheet.kt` — окно «Новое» (шаги) и `EventDetailsSheet` (карточка; `asPane` — колонкой справа).
-  `PalmSheet.kt` — своя нижняя панель под синей шапкой (до 640dp ширины). `Caller.kt` + `data/CallOptions.kt` —
-  «Связаться»: телефон + установленные мессенджеры (WhatsApp, Telegram, Viber — чат по номеру; MAX — через
-  отметку в контакте), «всегда так для этого человека». `ContactHistory.kt`, `StatsSheet.kt` (статистика:
-  состоявшиеся звонки/встречи по людям, сортировка, меню). `SettingsSheet.kt`. `MailUi.kt` — почта.
-  `Hinge.kt` — сгиб складного (из MainActivity через WindowInfoTracker → `LocalHinge`).
-- Тема: `ui/theme/PalmTheme.kt`, светлая/тёмная по системе; синяя шапка, «бумажный» фон.
-- Настройки: `data/Settings.kt` (`SettingsStore`, JSON в prefs; пароль почты — EncryptedSharedPreferences,
-  пробелы убираются). Резервная копия: `data/Backup.kt`.
-- Поворот/складывание не пересоздают экран (`android:configChanges` в манифесте).
-- Широкий экран (≥600dp): карточка — колонкой справа (книжка — по сгибу); ≥800dp у левой колонки — нижняя
-  панель в одну строку. «Ноутбук» (полусложен, сгиб горизонтально): сверху календарь, снизу карточка и кнопки.
+  с этого раза создаётся новая. При смене времени повторяющегося — выбор «только этот раз / этот и следующие / вся серия».
+  Удаление одного раза — исключение со STATUS_CANCELED.
+- EventType: CALL, MEETING, TASK, TRIP, MAIL, OTHER; BIRTHDAY — только дни рождения из контактов.
+- Поворот/складывание не пересоздают экран (`android:configChanges`). Широкий экран (≥600dp): карточка колонкой справа
+  (книжка — по сгибу); «ноутбук» — сверху календарь, снизу карточка и кнопки.
 
 ## Выезд (тип TRIP — «Выезд» / «Trip»)
 
@@ -171,7 +178,7 @@ Android-календарь в духе Palm Tungsten T3 Date Book / Agendus: с�
 перезаписывает начало/длительность/правило (`touchSeries`) — Android заново строит разы.
 В тексте ошибки смены времени остаются сырые поля события (`eventDump`).
 
-## Журнал сделанного (последняя сессия; build-N — номер сборки)
+## Журнал сделанного (build-N — номер сборки)
 
 - build-51: письма в истории контакта и статистике; в статистике столбцы «Контакт» (сортировка по всему) и «Письма».
 - build-54..56: тип «Выезд» (адрес, документы), тап по иконке → маршрут, значок документа во второй строке.
@@ -184,6 +191,11 @@ Android-календарь в духе Palm Tungsten T3 Date Book / Agendus: с�
 - build-80..83: у встречи всегда строка адреса; можно добавить свой (рядом с адресами контакта) — он не теряется при выборе адреса контакта; адрес у задачи и события.
 - Не проверено на телефоне Андрея: смена языка при открытых окнах, «Авто» при другом языке телефона,
   колокольчик на реальных событиях, порядок значков у выезда с документами.
+
+- 29.10: ветки объединены — общий код (бывшая `kmp`) стал `main`, из него собираются Android-APK и iPhone. В Android пришли правки,
+  сделанные раньше только в `kmp`: «Повестка» → «Список» (English: List), заглавная первая буква в записях, файлы при создании события,
+  выбор «этот раз / этот и следующие / вся серия» при смене времени повторяющегося, значок повтора в строке события, «Закрыть» на всех
+  нижних окнах, «Позвонить» в карточке встречи. В iPhone пришла шапка «Недели» без полоски дней.
 
 ## Что обсуждали, но не делали / отложено
 
@@ -201,4 +213,4 @@ Android-календарь в духе Palm Tungsten T3 Date Book / Agendus: с�
 (`TimePickDialog`, оба в `ui/Pickers.kt`). Конец по часам меняет длительность (`minutesForEnd`: конец не раньше начала, иначе на следующий день); начало при этом не двигается.
 
 ## Шапка «Недели»
-В «Дне» и «Повестке» в шапке полоска дней недели; в «Неделе» её нет (видна вся неделя) — только стрелки ‹ › сдвига на неделю, как в «Месяце»/«Годе» (`showStrip`/`byWeek` в `DayScreen.kt`).
+В «Дне» и «Повестке» в шапке полоска дней недели; в «Неделе» её нет (видна вся неделя) — только стрелки ‹ › сдвига на неделю, как в «Месяце»/«Годе» (`showStrip`/`byWeek` в `shared/.../ui/MainFrame.kt`).
