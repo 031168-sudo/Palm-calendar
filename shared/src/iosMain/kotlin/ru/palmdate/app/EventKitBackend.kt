@@ -237,7 +237,32 @@ class EventKitBackend : AppBackend {
 
     private fun contactRef(key: String, fallbackName: String, phone: String?): ContactRef {
         val c = contactCache.getOrPut(key) { loadContact(key) }
-        return if (c != null) c.copy(phone = phone ?: c.phone) else ContactRef(key, fallbackName, phone)
+        if (c != null) return c.copy(phone = phone ?: c.phone)
+        // Ключ контакта мог измениться (новый телефон): ищем по номеру из метки события
+        phone?.let { contactByPhone(it) }?.let { return it.copy(phone = phone) }
+        return ContactRef(key, fallbackName, phone)
+    }
+
+    /** Цифры номера, последние 10 — чтобы «+7 999…» и «8 999…» совпадали. */
+    private fun phoneKey(s: String?): String = s.orEmpty().filter { it.isDigit() }.takeLast(10)
+
+    private var phoneIndex: Map<String, ContactRef>? = null
+
+    /** Контакт по номеру телефона (запасной поиск, когда ключ контакта изменился). */
+    private fun contactByPhone(phone: String): ContactRef? {
+        val key = phoneKey(phone)
+        if (key.length < 7) return null
+        val index = phoneIndex ?: HashMap<String, ContactRef>().also { m ->
+            allContacts().forEach { c ->
+                val ref = toRef(c)
+                c.phoneNumbers.filterIsInstance<CNLabeledValue>().forEach { lv ->
+                    val k = phoneKey((lv.value as? CNPhoneNumber)?.stringValue)
+                    if (k.isNotEmpty() && !m.containsKey(k)) m[k] = ref
+                }
+            }
+            phoneIndex = m
+        }
+        return index[key]
     }
 
     private fun toPalm(ev: EKEvent): PalmEvent {
@@ -299,8 +324,11 @@ class EventKitBackend : AppBackend {
 
     override suspend fun historyFor(lookupKey: String): List<PalmEvent> {
         val today = LocalDate.now()
+        // Ключ контакта мог измениться (новый телефон): тогда совпадаем по номеру из метки
+        val numbers = phones(lookupKey).map { phoneKey(it.number) }.filter { it.isNotEmpty() }.toSet()
         return fetch(today.minusYears(5), today.plusYears(1)).map { toPalm(it) }
-            .filter { it.contact?.lookupKey == lookupKey }.sortedByDescending { it.start }
+            .filter { it.contact?.lookupKey == lookupKey || (numbers.isNotEmpty() && phoneKey(it.contact?.phone) in numbers) }
+            .sortedByDescending { it.start }
     }
 
     override suspend fun contactStats(from: LocalDate): List<ContactStat> {
@@ -582,7 +610,7 @@ class EventKitBackend : AppBackend {
     private fun loadContact(key: String): ContactRef? =
         runCatching { contacts.unifiedContactWithIdentifier(key, keys, null)?.let { toRef(it) } }.getOrNull()
 
-    override fun invalidateContacts() { contactCache.clear() }
+    override fun invalidateContacts() { contactCache.clear(); phoneIndex = null }
 
     /** Все контакты (объединённые) через обычный перебор — так надёжнее, чем предикат контейнера. */
     private fun allContacts(max: Int = 2000): List<CNContact> {
