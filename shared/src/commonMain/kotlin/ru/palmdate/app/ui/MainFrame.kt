@@ -342,7 +342,9 @@ private fun Header(
 ) {
     val date = state.date
     val today = LocalDate.now()
-    val showStrip = state.mode == ViewMode.DAY || state.mode == ViewMode.WEEK || state.mode == ViewMode.AGENDA
+    // Полоска дней — только в «Дне» и «Повестке»; в «Неделе» видна вся неделя, там только стрелки
+    val showStrip = state.mode == ViewMode.DAY || state.mode == ViewMode.AGENDA
+    val byWeek = showStrip || state.mode == ViewMode.WEEK
 
     Column(modifier.fillMaxWidth().background(Palm.paper).statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.Bottom) {
@@ -358,7 +360,7 @@ private fun Header(
             }
             Spacer(Modifier.weight(1f))
             Arrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, str("nav_back")) {
-                if (showStrip) onShiftWeek(-1) else onShiftPeriod(-1)
+                if (byWeek) onShiftWeek(-1) else onShiftPeriod(-1)
             }
             if (showStrip) {
                 val monday = weekStart(date)
@@ -398,7 +400,7 @@ private fun Header(
                 }
             }
             Arrow(Icons.AutoMirrored.Filled.KeyboardArrowRight, str("nav_forward")) {
-                if (showStrip) onShiftWeek(1) else onShiftPeriod(1)
+                if (byWeek) onShiftWeek(1) else onShiftPeriod(1)
             }
             Spacer(Modifier.width(4.dp))
         }
