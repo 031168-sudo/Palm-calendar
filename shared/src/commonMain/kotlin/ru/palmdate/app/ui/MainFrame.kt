@@ -370,10 +370,14 @@ private fun Header(
     // чтобы вкладка не «прыгала» при листании дат. Блок справа (стрелки + дни недели) — одной ширины во всех видах.
     val fullWidth = rememberTabTextWidth(state.mode, compact = false)
     val compactWidth = rememberTabTextWidth(state.mode, compact = true)
+    // Высота вкладки одна во всех видах (по полному размеру шрифта), чтобы она не ездила вверх-вниз
+    val tabHeight = rememberTabHeight()
+    // День и Список: стрелки по краям дней недели (блок постоянной ширины); Неделя/Месяц/Год: стрелки рядом справа
+    val rightBlock = if (showStrip) RIGHT_BLOCK else ARROWS_BLOCK
     Column(modifier.fillMaxWidth().background(Palm.paper).statusBarsPadding()) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val tabPad = TAB_PAD_START + TAB_PAD_END
-            val roomForTab = maxWidth - RIGHT_BLOCK - 4.dp
+            val roomForTab = maxWidth - rightBlock - 4.dp
             // Полное название, если его не придётся уменьшать сильнее чем до 75%; иначе — короткое
             val compact = (roomForTab - tabPad) < fullWidth * 0.75f
             val titleWidth = if (compact) compactWidth else fullWidth
@@ -386,15 +390,17 @@ private fun Header(
             Box(
                 Modifier
                     .width(tabWidth)
+                    .height(tabHeight)
                     .clip(TabShape)
                     .background(Palm.navy)
                     .clickable(onClick = onTitle)
-                    .padding(start = TAB_PAD_START, end = TAB_PAD_END, top = 6.dp, bottom = 5.dp),
+                    .padding(start = TAB_PAD_START, end = TAB_PAD_END),
+                contentAlignment = Alignment.CenterStart,
             ) {
                 Text(tabTitle(state, compact), style = style, color = Color.White, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.weight(1f))
-            Row(Modifier.width(RIGHT_BLOCK), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.width(rightBlock), verticalAlignment = Alignment.CenterVertically) {
             Arrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, str("nav_back")) {
                 if (byWeek) onShiftWeek(-1) else onShiftPeriod(-1)
             }
@@ -452,6 +458,19 @@ private val TAB_PAD_START = 12.dp
 private val TAB_PAD_END = 26.dp // место под косой край вкладки
 /** Стрелки (2 × 32) + 7 дней (24) с промежутками — одинаково во всех видах. */
 private val RIGHT_BLOCK = 32.dp * 2 + 24.dp * 7 + 2.dp * 6
+/** Неделя/Месяц/Год: две стрелки рядом справа с зазором, чтобы не промахнуться пальцем. */
+private val ARROWS_BLOCK = 32.dp * 2 + 16.dp
+
+/** Высота вкладки: строка заголовка полного размера + поля сверху и снизу. Одна для всех видов. */
+@Composable
+private fun rememberTabHeight(): Dp {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    return remember(density.density, density.fontScale) {
+        val px = measurer.measure("Ag", Palm.title, maxLines = 1).size.height
+        with(density) { px.toDp() } + 11.dp
+    }
+}
 
 /**
  * Ширина текста самого длинного названия вкладки для вида [mode] (по всем дням года), с небольшим запасом.
