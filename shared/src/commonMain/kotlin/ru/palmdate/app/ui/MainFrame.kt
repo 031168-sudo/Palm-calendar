@@ -318,9 +318,24 @@ private fun TabletopHint() {
     }
 }
 
-private fun tabTitle(s: CalState): String = tabTitle(s.mode, s.date)
+private fun tabTitle(s: CalState, compact: Boolean = false): String = tabTitle(s.mode, s.date, compact)
 
-private fun tabTitle(mode: ViewMode, d: LocalDate): String {
+/** Дата цифрами: «26.10» / «10/26». */
+private fun LocalDate.numeric(): String =
+    if (L10n.language == "ru") "$dayOfMonth.${monthNumber.toString().padStart(2, '0')}" else "$monthNumber/$dayOfMonth"
+
+/**
+ * Название вкладки. [compact] — короткий вариант для узкого экрана (сложенная раскладушка, крупный шрифт),
+ * когда полное название пришлось бы сильно уменьшать.
+ */
+private fun tabTitle(mode: ViewMode, d: LocalDate, compact: Boolean = false): String {
+    if (compact) return when (mode) {
+        ViewMode.DAY -> d.dayMonth()
+        ViewMode.AGENDA -> str("view_agenda_from", d.numeric())
+        ViewMode.WEEK -> { val a = weekStart(d); "${a.numeric()}–${a.plusDays(6).numeric()}" }
+        ViewMode.MONTH -> "${d.shortMonth().replaceFirstChar { it.uppercase() }} ${d.year}"
+        ViewMode.YEAR -> "${d.year}"
+    }
     return when (mode) {
         ViewMode.DAY -> d.pretty()
         ViewMode.AGENDA -> str("view_agenda_from", d.dayMonth())
@@ -353,11 +368,15 @@ private fun Header(
 
     // Ширина вкладки постоянная для каждого вида: по самому длинному названию этого вида (+ запас),
     // чтобы вкладка не «прыгала» при листании дат. Блок справа (стрелки + дни недели) — одной ширины во всех видах.
-    val titleWidth = rememberTabTextWidth(state.mode)
+    val fullWidth = rememberTabTextWidth(state.mode, compact = false)
+    val compactWidth = rememberTabTextWidth(state.mode, compact = true)
     Column(modifier.fillMaxWidth().background(Palm.paper).statusBarsPadding()) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val tabPad = TAB_PAD_START + TAB_PAD_END
             val roomForTab = maxWidth - RIGHT_BLOCK - 4.dp
+            // Полное название, если его не придётся уменьшать сильнее чем до 75%; иначе — короткое
+            val compact = (roomForTab - tabPad) < fullWidth * 0.75f
+            val titleWidth = if (compact) compactWidth else fullWidth
             val tabWidth = minOf(titleWidth + tabPad, roomForTab).coerceAtLeast(tabPad + 24.dp)
             // Не помещается (узкий телефон, крупный шрифт) — чуть уменьшаем шрифт, но не обрезаем название
             val fit = ((tabWidth - tabPad) / titleWidth).coerceIn(0.6f, 1f)
@@ -372,7 +391,7 @@ private fun Header(
                     .clickable(onClick = onTitle)
                     .padding(start = TAB_PAD_START, end = TAB_PAD_END, top = 6.dp, bottom = 5.dp),
             ) {
-                Text(tabTitle(state), style = style, color = Color.White, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
+                Text(tabTitle(state, compact), style = style, color = Color.White, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.weight(1f))
             Row(Modifier.width(RIGHT_BLOCK), verticalAlignment = Alignment.CenterVertically) {
@@ -439,17 +458,17 @@ private val RIGHT_BLOCK = 32.dp * 2 + 24.dp * 7 + 2.dp * 6
  * Считается один раз на вид / язык / размер шрифта.
  */
 @Composable
-private fun rememberTabTextWidth(mode: ViewMode): Dp {
+private fun rememberTabTextWidth(mode: ViewMode, compact: Boolean): Dp {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val lang = L10n.language
-    return remember(mode, lang, density.density, density.fontScale) {
+    return remember(mode, compact, lang, density.density, density.fontScale) {
         val year = LocalDate.now().year
         val titles: Set<String> = if (mode == ViewMode.YEAR) {
             (year - 10..year + 30).map { "$it" }.toSet()
         } else {
             val first = LocalDate(year, 1, 1)
-            (0L..370L).map { tabTitle(mode, first.plusDays(it)) }.toSet()
+            (0L..370L).map { tabTitle(mode, first.plusDays(it), compact) }.toSet()
         }
         val px = titles.maxOf { t -> measurer.measure(t, Palm.title, maxLines = 1, softWrap = false).size.width }
         with(density) { px.toDp() } + 4.dp
