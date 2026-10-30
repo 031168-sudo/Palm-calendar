@@ -95,6 +95,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.times
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.foundation.layout.BoxWithConstraints
 import ru.palmdate.app.model.PalmEvent
 import ru.palmdate.app.ui.theme.Palm
 import ru.palmdate.app.weekStart
@@ -314,9 +318,10 @@ private fun TabletopHint() {
     }
 }
 
-private fun tabTitle(s: CalState): String {
-    val d = s.date
-    return when (s.mode) {
+private fun tabTitle(s: CalState): String = tabTitle(s.mode, s.date)
+
+private fun tabTitle(mode: ViewMode, d: LocalDate): String {
+    return when (mode) {
         ViewMode.DAY -> d.pretty()
         ViewMode.AGENDA -> str("view_agenda_from", d.dayMonth())
         ViewMode.WEEK -> {
@@ -346,25 +351,38 @@ private fun Header(
     val showStrip = state.mode == ViewMode.DAY || state.mode == ViewMode.AGENDA
     val byWeek = showStrip || state.mode == ViewMode.WEEK
 
+    // Ширина вкладки постоянная для каждого вида: по самому длинному названию этого вида (+ запас),
+    // чтобы вкладка не «прыгала» при листании дат. Блок справа (стрелки + дни недели) — одной ширины во всех видах.
+    val titleWidth = rememberTabTextWidth(state.mode)
     Column(modifier.fillMaxWidth().background(Palm.paper).statusBarsPadding()) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val tabPad = TAB_PAD_START + TAB_PAD_END
+            val roomForTab = maxWidth - RIGHT_BLOCK - 4.dp
+            val tabWidth = minOf(titleWidth + tabPad, roomForTab).coerceAtLeast(tabPad + 24.dp)
+            // Не помещается (узкий телефон, крупный шрифт) — чуть уменьшаем шрифт, но не обрезаем название
+            val fit = ((tabWidth - tabPad) / titleWidth).coerceIn(0.6f, 1f)
+            val style = if (fit < 1f) Palm.title.copy(fontSize = Palm.title.fontSize * fit) else Palm.title
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.Bottom) {
             // Тап по вкладке — str("go_to") к дате (там же кнопка str("today_cap"))
             Box(
                 Modifier
+                    .width(tabWidth)
                     .clip(TabShape)
                     .background(Palm.navy)
                     .clickable(onClick = onTitle)
-                    .padding(start = 12.dp, end = 26.dp, top = 6.dp, bottom = 5.dp),
+                    .padding(start = TAB_PAD_START, end = TAB_PAD_END, top = 6.dp, bottom = 5.dp),
             ) {
-                Text(tabTitle(state), style = Palm.title, color = Color.White, maxLines = 1)
+                Text(tabTitle(state), style = style, color = Color.White, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
             }
             Spacer(Modifier.weight(1f))
+            Row(Modifier.width(RIGHT_BLOCK), verticalAlignment = Alignment.CenterVertically) {
             Arrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, str("nav_back")) {
                 if (byWeek) onShiftWeek(-1) else onShiftPeriod(-1)
             }
+            if (!showStrip) Spacer(Modifier.weight(1f))
             if (showStrip) {
                 val monday = weekStart(date)
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceBetween) {
                     for (i in 0L..6L) {
                         val d = monday.plusDays(i)
                         // В виде "Неделя" подсвечена вся неделя, в остальных — выбранный день
@@ -402,10 +420,39 @@ private fun Header(
             Arrow(Icons.AutoMirrored.Filled.KeyboardArrowRight, str("nav_forward")) {
                 if (byWeek) onShiftWeek(1) else onShiftPeriod(1)
             }
+            }
             Spacer(Modifier.width(4.dp))
+        }
         }
         // Синяя линия под вкладкой — как граница заголовка в Palm OS
         Box(Modifier.fillMaxWidth().height(2.dp).background(Palm.navy))
+    }
+}
+
+private val TAB_PAD_START = 12.dp
+private val TAB_PAD_END = 26.dp // место под косой край вкладки
+/** Стрелки (2 × 32) + 7 дней (24) с промежутками — одинаково во всех видах. */
+private val RIGHT_BLOCK = 32.dp * 2 + 24.dp * 7 + 2.dp * 6
+
+/**
+ * Ширина текста самого длинного названия вкладки для вида [mode] (по всем дням года), с небольшим запасом.
+ * Считается один раз на вид / язык / размер шрифта.
+ */
+@Composable
+private fun rememberTabTextWidth(mode: ViewMode): Dp {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val lang = L10n.language
+    return remember(mode, lang, density.density, density.fontScale) {
+        val year = LocalDate.now().year
+        val titles: Set<String> = if (mode == ViewMode.YEAR) {
+            (year - 10..year + 30).map { "$it" }.toSet()
+        } else {
+            val first = LocalDate(year, 1, 1)
+            (0L..370L).map { tabTitle(mode, first.plusDays(it)) }.toSet()
+        }
+        val px = titles.maxOf { t -> measurer.measure(t, Palm.title, maxLines = 1, softWrap = false).size.width }
+        with(density) { px.toDp() } + 4.dp
     }
 }
 
