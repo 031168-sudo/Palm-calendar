@@ -127,6 +127,16 @@ class EventKitBackend : AppBackend {
         return hit ?: store.eventWithIdentifier(ident)
     }
 
+    /** Именно этот раз серии (без подмены первым разом, если не нашли). */
+    private fun exactOccurrence(e: PalmEvent): EKEvent? {
+        val ident = idMap[e.eventId] ?: return null
+        val day = e.start.date
+        return fetch(day, day.plusDays(1)).firstOrNull {
+            (it.eventIdentifier ?: it.calendarItemIdentifier) == ident &&
+                it.startDate!!.timeIntervalSince1970.toLong() * 1000 == e.instanceStart
+        }
+    }
+
     private fun colorOf(cal: EKCalendar?): Int {
         val cg = cal?.CGColor ?: return 0xFF4285F4.toInt()
         val key = cal.calendarIdentifier
@@ -281,7 +291,9 @@ class EventKitBackend : AppBackend {
         }
         val cal = ev.calendar
         cal?.let { calMap[hid(it.calendarIdentifier)] = it }
-        val oc = outcomeRe.find(notes ?: "")
+        // У повторяющегося итог есть только у отдельно сохранённого раза; строка итога в самой серии
+        // (так было до исправления — один итог на все разы) не показывается.
+        val oc = if (ev.hasRecurrenceRules && !ev.isDetached) null else outcomeRe.find(notes ?: "")
         val outcome = oc?.let { Outcome.fromLabel(it.groupValues[1]) }
         val fallbackName = title.substringAfter(": ", title)
         return PalmEvent(
@@ -501,9 +513,18 @@ class EventKitBackend : AppBackend {
         return eventId
     }
 
-    override suspend fun setOutcome(e: PalmEvent, outcome: Outcome?, note: String?) = editMaster(e.eventId) { ev ->
+    override suspend fun setOutcome(e: PalmEvent, outcome: Outcome?, note: String?) {
+        val line = outcome?.let { outcomeLine(it, e.type, note) }
+        if (!e.recurring) {
+            editMaster(e.eventId) { ev -> val n = ev.notes; ev.notes = compose(line, body(n), markerOf(n)) }
+            return
+        }
+        // Повторяющееся: итог только у этого раза. Раз сохраняется отдельно внутри серии (как исключение) —
+        // его хранит и синхронизирует сам календарь, остальные разы не меняются.
+        val ev = exactOccurrence(e) ?: return
         val n = ev.notes
-        ev.notes = compose(outcome?.let { outcomeLine(it, e.type, note) }, body(n), markerOf(n))
+        ev.notes = compose(line, body(n), markerOf(n))
+        store.saveEvent(ev, EKSpan.EKSpanThisEvent, true, null)
     }
 
     /* ---------- повторы: RRULE ⇄ EKRecurrenceRule (простые правила) ---------- */
