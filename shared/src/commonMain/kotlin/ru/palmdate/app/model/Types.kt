@@ -101,6 +101,12 @@ enum class Outcome(val kind: OutcomeKind) {
     RESCHEDULED(OutcomeKind.MOVED),
     CANCELLED(OutcomeKind.BAD);
 
+    /**
+     * Итог, после которого напоминание не нужно: сделано, отменено, перенесено (у переноса новое событие со своим напоминанием).
+     * Такие итоги снимают напоминания события, а при возврате к «не сделано» напоминания восстанавливаются как были.
+     */
+    val silencesAlarms: Boolean get() = this == DONE || this == CANCELLED || this == RESCHEDULED
+
     /** Подпись с учётом типа события: звонок "состоялся", встреча "состоялась", задача "выполнена". */
     fun label(type: EventType?): String = str(labelKey(type))
 

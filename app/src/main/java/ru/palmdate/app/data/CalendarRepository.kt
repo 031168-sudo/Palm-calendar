@@ -319,7 +319,8 @@ class CalendarRepository(
      * У обычного события итог дописывается строкой "Итог: …" в описание — его видно в Google Календаре.
      * У повторяющегося описание общее на всю серию, поэтому итог хранится только в приложении.
      */
-    suspend fun setOutcome(e: PalmEvent, outcome: Outcome?, note: String?) {
+    suspend fun setOutcome(e0: PalmEvent, outcome: Outcome?, note: String?) {
+        val e = silenceAlarms(e0, outcome)
         if (outcome == null) links.clearOutcome(e.eventId, e.instanceStart)
         else links.setOutcome(OutcomeRow(e.eventId, e.instanceStart, outcome.name, note?.trim()?.takeIf { it.isNotEmpty() }))
 
@@ -331,6 +332,44 @@ class CalendarRepository(
             val newDesc = OutcomeLine.replace(desc, outcome?.let { OutcomeLine.make(it, e.type, note) })
             resolver.update(uri, ContentValues().apply { put(Events.DESCRIPTION, newDesc) }, null, null)
         }
+    }
+
+    /** Напоминания, снятые отметкой «сделано/отменено/перенесено»: id события → минуты («15,60»). */
+    private val savedAlarms = context.getSharedPreferences("saved_alarms", Context.MODE_PRIVATE)
+
+    /**
+     * Отметили «сделано/отменено/перенесено» — снимаем напоминания (запомнив их), вернули «не сделано» — восстанавливаем.
+     * У повторяющегося напоминания общие на серию, поэтому этот раз сначала выделяем отдельным событием
+     * (как при смене времени «только этот раз»): у остальных разов напоминания остаются.
+     * Возвращает событие, к которому дальше писать итог (у выделенного раза — новый id).
+     */
+    private suspend fun silenceAlarms(e: PalmEvent, outcome: Outcome?): PalmEvent {
+        val was = e.outcome?.silencesAlarms == true
+        val now = outcome?.silencesAlarms == true
+        if (now && !was) {
+            val current = reminders(e.eventId)
+            if (current.isEmpty()) return e
+            val target = if (e.recurring) detachInstance(e) else e
+            savedAlarms.edit().putString(target.eventId.toString(), current.joinToString(",")).apply()
+            setReminders(target.eventId, emptyList())
+            return target
+        }
+        if (!now && was) {
+            val saved = savedAlarms.getString(e.eventId.toString(), null) ?: return e
+            savedAlarms.edit().remove(e.eventId.toString()).apply()
+            val minutes = saved.split(",").mapNotNull { it.trim().toIntOrNull() }
+            // Если напоминания успели поставить вручную — не трогаем
+            if (reminders(e.eventId).isEmpty()) setReminders(e.eventId, minutes)
+        }
+        return e
+    }
+
+    /** Выделить один раз серии отдельным событием (в серии он пропадает). Итог и связи переходят к нему. */
+    private suspend fun detachInstance(e: PalmEvent): PalmEvent {
+        val s = series(e.eventId)
+        cancelInstance(e)
+        val newId = newSeriesFrom(e.eventId, s, e.instanceStart, s.allDay, s.lengthMs, null, e.instanceStart, onlyThis = true)
+        return e.copy(eventId = newId, recurring = false, rrule = null)
     }
 
     /** Строка итога в описании события: "Итог: Не дозвонился — перезвонить после обеда". */

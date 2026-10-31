@@ -516,15 +516,40 @@ class EventKitBackend : AppBackend {
     override suspend fun setOutcome(e: PalmEvent, outcome: Outcome?, note: String?) {
         val line = outcome?.let { outcomeLine(it, e.type, note) }
         if (!e.recurring) {
-            editMaster(e.eventId) { ev -> val n = ev.notes; ev.notes = compose(line, body(n), markerOf(n)) }
+            editMaster(e.eventId) { ev ->
+                val n = ev.notes; ev.notes = compose(line, body(n), markerOf(n))
+                silenceAlarms(ev, e, outcome)
+            }
             return
         }
-        // Повторяющееся: итог только у этого раза. Раз сохраняется отдельно внутри серии (как исключение) —
-        // его хранит и синхронизирует сам календарь, остальные разы не меняются.
+        // Повторяющееся: итог (и снятие напоминаний) только у этого раза. Раз сохраняется отдельно внутри серии
+        // (как исключение) — его хранит и синхронизирует сам календарь, остальные разы не меняются.
         val ev = exactOccurrence(e) ?: return
         val n = ev.notes
         ev.notes = compose(line, body(n), markerOf(n))
+        silenceAlarms(ev, e, outcome)
         store.saveEvent(ev, EKSpan.EKSpanThisEvent, true, null)
+    }
+
+    /**
+     * Отметили «сделано/отменено/перенесено» — снимаем напоминания у этого события (раза), запомнив их минуты;
+     * вернули «не сделано» — восстанавливаем те же. Сохранение — у вызывающего.
+     */
+    private fun silenceAlarms(ev: EKEvent, e: PalmEvent, outcome: Outcome?) {
+        val was = e.outcome?.silencesAlarms == true
+        val now = outcome?.silencesAlarms == true
+        val key = "alarms_off_${e.eventId}_${e.instanceStart}"
+        val current = ev.alarms?.filterIsInstance<EKAlarm>().orEmpty()
+        if (now && !was && current.isNotEmpty()) {
+            IosStore.putString(key, current.map { (-it.relativeOffset / 60).toInt() }.joinToString(","))
+            current.forEach { ev.removeAlarm(it) }
+        } else if (!now && was) {
+            val saved = IosStore.getString(key) ?: return
+            IosStore.remove(key)
+            // Если напоминания успели поставить вручную — не трогаем
+            if (current.isEmpty()) saved.split(",").mapNotNull { it.trim().toIntOrNull() }
+                .forEach { ev.addAlarm(EKAlarm.alarmWithRelativeOffset(-it * 60.0)) }
+        }
     }
 
     /* ---------- повторы: RRULE ⇄ EKRecurrenceRule (простые правила) ---------- */
