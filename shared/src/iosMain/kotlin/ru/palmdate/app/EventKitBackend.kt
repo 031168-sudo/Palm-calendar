@@ -309,7 +309,8 @@ class EventKitBackend : AppBackend {
             calendarName = cal?.title ?: "",
             accountName = cal?.source?.title ?: "",
             calendarId = cal?.let { hid(it.calendarIdentifier) } ?: -1,
-            recurring = ev.hasRecurrenceRules,
+            // Раз, изменённый внутри серии, тоже повторяющийся — иначе дальнейшие правки ушли бы во всю серию
+            recurring = ev.hasRecurrenceRules || ev.isDetached,
             instanceStart = ev.startDate!!.timeIntervalSince1970.toLong() * 1000,
             outcome = outcome,
             outcomeNote = oc?.groupValues?.get(2)?.takeIf { it.isNotBlank() && outcome != null },
@@ -522,9 +523,31 @@ class EventKitBackend : AppBackend {
             }
             return
         }
-        // Повторяющееся: итог (и снятие напоминаний) только у этого раза. Раз сохраняется отдельно внутри серии
-        // (как исключение) — его хранит и синхронизирует сам календарь, остальные разы не меняются.
         val ev = exactOccurrence(e) ?: return
+        // «Сделано/отменено/перенесено» у раза с напоминаниями: как на Android — раз убираем из серии и создаём
+        // отдельным событием в то же время, без напоминаний (менять напоминание у одного раза внутри серии
+        // календарь Google через iPhone принимает плохо). Остальные разы серии не меняются.
+        val goingSilent = outcome?.silencesAlarms == true && e.outcome?.silencesAlarms != true
+        val alarms = ev.alarms?.filterIsInstance<EKAlarm>().orEmpty()
+        if (goingSilent && alarms.isNotEmpty()) {
+            val copy = EKEvent.eventWithEventStore(store)
+            copy.calendar = ev.calendar
+            copy.title = ev.title
+            copy.allDay = ev.allDay
+            copy.timeZone = ev.timeZone
+            copy.startDate = ev.startDate
+            copy.endDate = ev.endDate
+            copy.location = ev.location
+            val n0 = ev.notes
+            copy.notes = compose(line, body(n0), markerOf(n0))
+            if (!store.saveEvent(copy, EKSpan.EKSpanThisEvent, true, null)) return
+            store.removeEvent(ev, EKSpan.EKSpanThisEvent, true, null)
+            val newId = idOf(copy)
+            IosStore.putString("alarms_off_${newId}_${e.instanceStart}", alarms.map { (-it.relativeOffset / 60).toInt() }.joinToString(","))
+            return
+        }
+        // Остальные итоги повторяющегося — только у этого раза: раз сохраняется отдельно внутри серии
+        // (как исключение) — его хранит и синхронизирует сам календарь, остальные разы не меняются.
         val n = ev.notes
         ev.notes = compose(line, body(n), markerOf(n))
         silenceAlarms(ev, e, outcome)
