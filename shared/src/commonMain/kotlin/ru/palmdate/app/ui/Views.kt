@@ -104,7 +104,7 @@ fun AgendaView(
                 item(key = "e$d") {
                     Text(
                         str("views_no_events"), style = Palm.small, color = Palm.rule,
-                        modifier = Modifier.padding(start = 52.dp, top = 4.dp, bottom = 4.dp),
+                        modifier = Modifier.padding(start = timeLabelWidth(), top = 4.dp, bottom = 4.dp),
                     )
                 }
             } else {

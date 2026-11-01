@@ -43,6 +43,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.remember
 import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.MailKind
 import ru.palmdate.app.model.Outcome
@@ -61,8 +65,24 @@ fun TimeLabel(text: String, highlight: Boolean) {
         style = Palm.time,
         color = if (highlight) Palm.nowLine else Palm.inkSoft,
         textAlign = TextAlign.End,
-        modifier = Modifier.width(52.dp).padding(end = 10.dp),
+        maxLines = 1,
+        softWrap = false,
+        modifier = Modifier.width(timeLabelWidth()).padding(end = 10.dp),
     )
+}
+
+/**
+ * Ширина колонки времени: 52dp, а при крупном шрифте в настройках телефона (iPhone «Размер текста»,
+ * Android «Размер шрифта») — шире, чтобы «12:00» не переносилось на вторую строку.
+ */
+@Composable
+fun timeLabelWidth(): Dp {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    return remember(density.density, density.fontScale) {
+        val px = measurer.measure("00:00", Palm.time, maxLines = 1, softWrap = false).size.width
+        maxOf(52.dp, with(density) { px.toDp() } + 14.dp)
+    }
 }
 
 
@@ -75,8 +95,8 @@ class LaneDecor(val spans: List<LaneSpan>, val lanes: Int, val band: Boolean) {
 }
 
 /** Рисует за строкой: бледную заливку на ширину строки и вертикальные линии длительности в своей дорожке. */
-fun Modifier.laneDraw(d: LaneDecor?): Modifier = if (d == null || d.spans.isEmpty()) this else drawBehind {
-    val labelW = 52.dp.toPx()
+fun Modifier.laneDraw(d: LaneDecor?, labelWidth: Dp = 52.dp): Modifier = if (d == null || d.spans.isEmpty()) this else drawBehind {
+    val labelW = labelWidth.toPx()
     d.spans.forEach { sp ->
         val y0 = sp.from * size.height
         val y1 = sp.to * size.height
@@ -113,7 +133,7 @@ fun EventLine(
     titleLines: Int = 1, // только «День»: при малом числе событий название может занимать больше строк
 ) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 44.dp).laneDraw(decor),
+        Modifier.fillMaxWidth().heightIn(min = 44.dp).laneDraw(decor, timeLabelWidth()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TimeLabel(timeLabel, highlight)

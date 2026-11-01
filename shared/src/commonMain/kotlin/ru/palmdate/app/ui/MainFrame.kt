@@ -407,6 +407,8 @@ private fun Header(
             if (!showStrip) Spacer(Modifier.weight(1f))
             if (showStrip) {
                 val monday = weekStart(date)
+                // Буквы дней — по размеру ячейки: при крупном шрифте телефона «ПН» иначе не влезает и ломается
+                val dayStyle = rememberDayLetterStyle()
                 Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceBetween) {
                     for (i in 0L..6L) {
                         val d = monday.plusDays(i)
@@ -429,7 +431,9 @@ private fun Header(
                         ) {
                             Text(
                                 letter,
-                                style = Palm.time.copy(
+                                maxLines = 1,
+                                softWrap = false,
+                                style = dayStyle.copy(
                                     textDecoration = if (d == today && !selected) TextDecoration.Underline else null,
                                 ),
                                 color = when {
@@ -460,6 +464,21 @@ private val TAB_PAD_END = 26.dp // место под косой край вкл�
 private val RIGHT_BLOCK = 32.dp * 2 + 24.dp * 7 + 2.dp * 6
 /** Неделя/Месяц/Год: две стрелки рядом справа с зазором, чтобы не промахнуться пальцем. */
 private val ARROWS_BLOCK = 32.dp * 2 + 16.dp
+
+/** Шрифт букв дней недели в шапке: обычный, а если самая широкая буква не влезает в ячейку 24dp — уменьшенный. */
+@Composable
+private fun rememberDayLetterStyle(): androidx.compose.ui.text.TextStyle {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val lang = L10n.language
+    return remember(lang, density.density, density.fontScale) {
+        val widest = kotlinx.datetime.DayOfWeek.values().maxOf { dw ->
+            measurer.measure(dayOfWeekName(dw, NameStyle.NARROW).uppercase(), Palm.time, maxLines = 1, softWrap = false).size.width
+        }
+        val room = with(density) { 22.dp.toPx() }
+        if (widest <= room) Palm.time else Palm.time.copy(fontSize = Palm.time.fontSize * (room / widest))
+    }
+}
 
 /** Высота вкладки: строка заголовка полного размера + поля сверху и снизу. Одна для всех видов. */
 @Composable
@@ -618,7 +637,7 @@ private fun EmptyLine(label: String, highlight: Boolean, rule: Color, decor: Lan
         Modifier
             .fillMaxWidth()
             .height(44.dp)
-            .laneDraw(decor)
+            .laneDraw(decor, timeLabelWidth())
             .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {

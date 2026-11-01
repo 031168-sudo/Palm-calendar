@@ -117,6 +117,7 @@ internal object Sample {
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 abstract class ScreenshotBase(
     private val device: String, private val hinge: Hinge? = null, private val lang: LangMode = LangMode.RU,
+    private val fontScale: Float = 1f, // крупный шрифт в настройках телефона (на iPhone — «Размер текста»)
 ) {
     @org.junit.Before fun setLanguage() {
         Lang.init(androidx.test.core.app.ApplicationProvider.getApplicationContext())
@@ -128,7 +129,11 @@ abstract class ScreenshotBase(
     private fun shot(name: String, content: @Composable () -> Unit) {
         compose.setContent {
             PalmTheme {
-                CompositionLocalProvider(LocalSheetTop provides 96.dp, LocalHinge provides hinge) {
+                val base = androidx.compose.ui.platform.LocalDensity.current
+                CompositionLocalProvider(
+                    LocalSheetTop provides 96.dp, LocalHinge provides hinge,
+                    androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(base.density, base.fontScale * fontScale),
+                ) {
                     Box(Modifier.fillMaxSize()) { content() }
                 }
             }
@@ -226,6 +231,9 @@ class PhoneScreens : ScreenshotBase("phone")
 
 @Config(sdk = [34], qualifiers = "w393dp-h851dp-xhdpi")
 class PhoneEnglishScreens : ScreenshotBase("phone_en", lang = LangMode.EN)
+
+@Config(sdk = [34], qualifiers = "w393dp-h851dp-xhdpi")
+class PhoneLargeFontScreens : ScreenshotBase("phone_bigfont", fontScale = 1.35f)
 
 @Config(sdk = [34], qualifiers = "w393dp-h851dp-night-xhdpi")
 class PhoneDarkScreens : ScreenshotBase("phone_dark")
