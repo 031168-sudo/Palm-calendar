@@ -839,8 +839,10 @@ class CalendarRepository(
     }
 
     /** Отдельно изменённый раз → серия и исходное время раза (для «этот и следующие / вся серия»). */
-    private fun PalmEvent.asSeries(): PalmEvent =
-        if (seriesId == null) this else copy(eventId = seriesId, instanceStart = seriesInstance ?: instanceStart, seriesId = null, seriesInstance = null)
+    private fun PalmEvent.asSeries(): PalmEvent {
+        val sid = seriesId ?: return this
+        return copy(eventId = sid, instanceStart = seriesInstance ?: instanceStart, seriesId = null, seriesInstance = null)
+    }
 
     /** Убрать один раз из серии (исключение со STATUS_CANCELED). */
     private fun cancelInstance(e: PalmEvent) {
