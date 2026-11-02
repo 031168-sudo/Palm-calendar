@@ -200,6 +200,28 @@ class CalendarRepository(
             }
         }
 
+        // Разы серии, изменённые отдельно (исключения Google): у них нет своего правила повтора —
+        // берём серию (ORIGINAL_ID), её правило и исходное время раза, чтобы показывать их повторяющимися
+        val exceptionOf = HashMap<Long, Pair<Long, Long>>() // id раза → (id серии, исходное время раза)
+        raws.filter { !it.recurring }.map { it.id }.distinct().chunked(500).forEach { chunk ->
+            resolver.query(
+                Events.CONTENT_URI, arrayOf("_id", Events.ORIGINAL_ID, Events.ORIGINAL_INSTANCE_TIME),
+                "_id IN (${chunk.joinToString(",")}) AND ${Events.ORIGINAL_ID} IS NOT NULL", null, null,
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val orig = c.getString(1)?.toLongOrNull() ?: continue
+                    exceptionOf[c.getLong(0)] = orig to (if (c.isNull(2)) 0L else c.getLong(2))
+                }
+            }
+        }
+        val seriesRule = HashMap<Long, String>()
+        exceptionOf.values.map { it.first }.distinct().chunked(500).forEach { chunk ->
+            resolver.query(
+                Events.CONTENT_URI, arrayOf("_id", Events.RRULE),
+                "_id IN (${chunk.joinToString(",")})", null, null,
+            )?.use { c -> while (c.moveToNext()) c.getString(1)?.takeIf { it.isNotEmpty() }?.let { seriesRule[c.getLong(0)] = it } }
+        }
+
         // Есть ли у события напоминание (любое) — колокольчик во второй строке
         val alarmIds = HashSet<Long>()
         ids.chunked(500).forEach { chunk ->
@@ -247,9 +269,11 @@ class CalendarRepository(
                 calendarName = r.calName,
                 accountName = accountByCal[r.calId] ?: "",
                 calendarId = r.calId,
-                recurring = r.recurring,
-                rrule = r.rrule,
+                recurring = r.recurring || exceptionOf[r.id]?.let { it.first in seriesRule } == true,
+                rrule = r.rrule ?: exceptionOf[r.id]?.let { seriesRule[it.first] },
                 instanceStart = r.begin,
+                seriesId = exceptionOf[r.id]?.first?.takeIf { it in seriesRule },
+                seriesInstance = exceptionOf[r.id]?.takeIf { it.first in seriesRule }?.second,
                 outcome = Outcome.parse(outcome?.status),
                 outcomeNote = outcome?.note,
                 mail = mail,
@@ -324,7 +348,8 @@ class CalendarRepository(
         if (outcome == null) links.clearOutcome(e.eventId, e.instanceStart)
         else links.setOutcome(OutcomeRow(e.eventId, e.instanceStart, outcome.name, note?.trim()?.takeIf { it.isNotEmpty() }))
 
-        if (e.recurring) return
+        // У серии описание общее — итог только в приложении; у отдельно изменённого раза описание своё
+        if (e.recurring && e.seriesId == null) return
         runCatching {
             val uri = ContentUris.withAppendedId(Events.CONTENT_URI, e.eventId)
             val desc = resolver.query(uri, arrayOf(Events.DESCRIPTION), null, null, null)
@@ -349,7 +374,8 @@ class CalendarRepository(
         if (now && !was) {
             val current = reminders(e.eventId)
             if (current.isEmpty()) return e
-            val target = if (e.recurring) detachInstance(e) else e
+            // Отдельно изменённый раз — уже своя запись со своими напоминаниями, выделять не нужно
+            val target = if (e.recurring && e.seriesId == null) detachInstance(e) else e
             savedAlarms.edit().putString(target.eventId.toString(), current.joinToString(",")).apply()
             setReminders(target.eventId, emptyList())
             return target
@@ -578,7 +604,8 @@ class CalendarRepository(
      * Сменить повтор «с этого раза»: прошлые разы (и их итоги) остаются как были,
      * с открытого раза — новое правило или одиночное событие. Если открыт первый раз — меняется вся серия.
      */
-    suspend fun setRepeat(e: PalmEvent, rrule: String?) {
+    suspend fun setRepeat(e0: PalmEvent, rrule: String?) {
+        val e = e0.asSeries()
         if (!e.recurring) return setRepeatWhole(e.eventId, rrule)
         val s = series(e.eventId)
         if (e.instanceStart <= s.start) return setRepeatWhole(e.eventId, rrule)
@@ -697,7 +724,13 @@ class CalendarRepository(
         } ?: "нет данных"
     }.getOrElse { "dump: ${it.message}" }
 
-    private suspend fun setTimeRaw(e: PalmEvent, start: LocalDateTime, minutes: Int, scope: DeleteScope) {
+    private suspend fun setTimeRaw(e0: PalmEvent, start: LocalDateTime, minutes: Int, scope: DeleteScope) {
+        // Отдельно изменённый раз серии: «только этот» — правим сам раз как одиночное событие, иначе — серию
+        val e = when {
+            e0.seriesId == null -> e0
+            scope == DeleteScope.ONE -> e0.copy(recurring = false, rrule = null, seriesId = null, seriesInstance = null)
+            else -> e0.asSeries()
+        }
         if (e.recurring) {
             val s = series(e.eventId)
             val allDay = minutes == 0
@@ -727,6 +760,8 @@ class CalendarRepository(
         values.put(Events.ALL_DAY, if (allDay) 1 else 0)
         values.put(Events.EVENT_TIMEZONE, if (allDay) "UTC" else TimeZone.getDefault().id)
         if (!e.recurring) {
+            // У одиночного — DTEND без DURATION (у отдельно изменённых разов Google DURATION бывает заполнена)
+            values.putNull(Events.DURATION)
             if (allDay) {
                 val d = start.toLocalDate()
                 values.put(Events.DTSTART, d.startOfDayUtcMillis())
@@ -789,10 +824,23 @@ class CalendarRepository(
 
     /** Удалить только этот раз повторяющегося события (в Google он тоже пропадёт). */
     suspend fun deleteOne(e: PalmEvent) {
+        if (e.seriesId != null) {
+            // Отдельно изменённый раз: не стираем запись (тогда Google вернёт исходный раз), а отменяем её
+            resolver.update(
+                ContentUris.withAppendedId(Events.CONTENT_URI, e.eventId),
+                ContentValues().apply { put(Events.STATUS, Events.STATUS_CANCELED) }, null, null,
+            ).takeIf { it > 0 } ?: error(str(R.string.err_delete_occurrence))
+            links.clearOutcome(e.eventId, e.instanceStart)
+            return
+        }
         if (!e.recurring) return delete(e.eventId)
         cancelInstance(e)
         links.clearOutcome(e.eventId, e.instanceStart)
     }
+
+    /** Отдельно изменённый раз → серия и исходное время раза (для «этот и следующие / вся серия»). */
+    private fun PalmEvent.asSeries(): PalmEvent =
+        if (seriesId == null) this else copy(eventId = seriesId, instanceStart = seriesInstance ?: instanceStart, seriesId = null, seriesInstance = null)
 
     /** Убрать один раз из серии (исключение со STATUS_CANCELED). */
     private fun cancelInstance(e: PalmEvent) {
@@ -805,7 +853,8 @@ class CalendarRepository(
     }
 
     /** Удалить этот раз и все следующие; прошлые остаются. С первого раза — вся серия. */
-    suspend fun deleteFollowing(e: PalmEvent) {
+    suspend fun deleteFollowing(e0: PalmEvent) {
+        val e = e0.asSeries()
         if (!e.recurring) return delete(e.eventId)
         val s = series(e.eventId)
         if (e.instanceStart <= s.start) return delete(e.eventId)
