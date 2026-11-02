@@ -77,6 +77,7 @@ import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.EventNote
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.DisabledByDefault
@@ -184,6 +185,7 @@ class MainActions(
     val onGoTo: () -> Unit = {},
     val onStats: () -> Unit = {},
     val onSettings: () -> Unit = {},
+    val onSearch: () -> Unit = {},
     val onMode: (ViewMode) -> Unit = {},
 )
 
@@ -265,6 +267,7 @@ private fun ActionsBar(state: CalState, actions: MainActions) = ButtonBar(
     onGoTo = actions.onGoTo,
     onStats = actions.onStats,
     onSettings = actions.onSettings,
+    onSearch = actions.onSearch,
     onMode = actions.onMode,
 )
 
@@ -666,6 +669,7 @@ private fun ButtonBar(
     onGoTo: () -> Unit,
     onStats: () -> Unit,
     onSettings: () -> Unit,
+    onSearch: () -> Unit,
     onMode: (ViewMode) -> Unit,
 ) {
     @Composable
@@ -704,6 +708,7 @@ private fun ButtonBar(
                 BarTextButton(str("today_cap"), onClick = onToday, modifier = Modifier.width(104.dp))
                 BarTextButton(str("go_to"), onClick = onGoTo, modifier = Modifier.width(104.dp))
                 Spacer(Modifier.width(10.dp))
+                BarIcon(Icons.Outlined.Search, str("search_title"), onSearch)
                 BarIcon(Icons.Outlined.BarChart, str("stats_title"), onStats)
                 BarIcon(Icons.Outlined.Settings, str("settings_title"), onSettings)
             }
@@ -723,6 +728,7 @@ private fun ButtonBar(
                 BarTextButton(str("today_cap"), onClick = onToday, modifier = Modifier.weight(1f))
                 BarTextButton(str("go_to"), onClick = onGoTo, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(10.dp)) // промежуток побольше перед значками
+                BarIcon(Icons.Outlined.Search, str("search_title"), onSearch)
                 BarIcon(Icons.Outlined.BarChart, str("stats_title"), onStats)
                 BarIcon(Icons.Outlined.Settings, str("settings_title"), onSettings)
             }
@@ -746,7 +752,14 @@ private fun BarTextButton(text: String, modifier: Modifier, filled: Boolean = fa
             .padding(horizontal = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = Palm.button, color = if (filled) Color.White else Palm.navy, maxLines = 1, softWrap = false)
+        // Третий значок (поиск) сузил кнопки: если надпись не влезает (узкий экран, крупный шрифт) — чуть уменьшаем её
+        androidx.compose.foundation.layout.BoxWithConstraints(contentAlignment = Alignment.Center) {
+            val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+            val w = measurer.measure(text, Palm.button, maxLines = 1, softWrap = false).size.width
+            val room = constraints.maxWidth
+            val style = if (w <= room || w == 0) Palm.button else Palm.button.copy(fontSize = Palm.button.fontSize * (room.toFloat() / w).coerceAtLeast(0.6f))
+            Text(text, style = style, color = if (filled) Color.White else Palm.navy, maxLines = 1, softWrap = false)
+        }
     }
 }
 

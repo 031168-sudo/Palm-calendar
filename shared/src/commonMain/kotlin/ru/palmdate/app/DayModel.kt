@@ -195,6 +195,12 @@ class DayModel(private val scope: CoroutineScope, private val backend: AppBacken
     suspend fun history(lookupKey: String): List<PalmEvent> =
         withContext(ioDispatcher) { backend.historyFor(lookupKey) }
 
+    /** Все события для поиска (лупа): 2 года назад и 2 года вперёд от сегодня. */
+    suspend fun searchPool(): List<PalmEvent> = withContext(ioDispatcher) {
+        val today = LocalDate.now()
+        backend.eventsBetween(today.minusYears(2), today.plusYears(2).plusDays(1))
+    }
+
     /** Статистика по людям: состоявшиеся звонки и встречи с даты [from]. */
     suspend fun contactStats(from: LocalDate): List<ContactStat> =
         withContext(ioDispatcher) { backend.contactStats(from) }

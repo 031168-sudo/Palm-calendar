@@ -371,6 +371,11 @@
     <string name="stats_menu_new_call">New call</string>
     <string name="stats_menu_new_meeting">New meeting</string>
     <string name="stats_subtitle">Completed calls and meetings (outcome “Completed”) and sent emails</string>
+    <string name="search_title">Search</string>
+    <string name="search_hint">Find an event</string>
+    <string name="search_clear">Clear</string>
+    <string name="search_prompt">Type a title, name or address</string>
+    <string name="search_nothing">Nothing found</string>
     <string name="stats_title">Statistics</string>
     <string name="stats_year">Year</string>
     <string name="time_from_this">Time (from this one on)</string>

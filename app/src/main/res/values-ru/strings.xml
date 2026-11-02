@@ -370,6 +370,11 @@
     <string name="stats_menu_new_call">Создать звонок</string>
     <string name="stats_menu_new_meeting">Создать встречу</string>
     <string name="stats_subtitle">Состоявшиеся звонки и встречи (с итогом «Состоялось») и отправленные письма</string>
+    <string name="search_title">Поиск</string>
+    <string name="search_hint">Найти событие</string>
+    <string name="search_clear">Очистить</string>
+    <string name="search_prompt">Введите название, имя или адрес</string>
+    <string name="search_nothing">Ничего не найдено</string>
     <string name="stats_title">Статистика</string>
     <string name="stats_year">Год</string>
     <string name="time_from_this">Время (с этого раза)</string>

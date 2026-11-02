@@ -219,6 +219,11 @@ abstract class ScreenshotBase(
         )
     }
 
+    @Test fun search() = shot("14_search") {
+        Main(ViewMode.DAY)
+        ru.palmdate.app.ui.SearchSheet(load = { Sample.events }, onEvent = {}, onDismiss = {}, initialQuery = "а")
+    }
+
     @Test fun stats() = shot("10_stats") {
         Main(ViewMode.DAY)
         StatsSheet(load = { Sample.stats }, onAction = {}, onDismiss = {})

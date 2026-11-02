@@ -121,6 +121,7 @@ fun DayScreen(model: DayModel, settings: SettingsPlatform) {
     var showCalendars by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showStats by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
     // Новое событие из статистики: тип и человек выбраны заранее
     var newPreset by remember {
         mutableStateOf<Pair<EventType, ru.palmdate.app.model.ContactRef>?>(
@@ -226,6 +227,7 @@ fun DayScreen(model: DayModel, settings: SettingsPlatform) {
             onToday = model::today,
             onGoTo = { pickDate = true },
             onStats = { showStats = true },
+            onSearch = { showSearch = true },
             onSettings = { showSettings = true },
             onMode = { model.setMode(it) },
         ),
@@ -294,6 +296,15 @@ fun DayScreen(model: DayModel, settings: SettingsPlatform) {
             contactByEmail = model::contactByEmail,
             presetType = newPreset?.first,
             presetContact = newPreset?.second,
+        )
+    }
+
+    // Поиск остаётся открытым под карточкой события (на телефоне) — закрыл карточку и снова в найденном
+    if (showSearch) {
+        SearchSheet(
+            load = model::searchPool,
+            onEvent = { if (wide) showSearch = false; details = it },
+            onDismiss = { showSearch = false },
         )
     }
 
