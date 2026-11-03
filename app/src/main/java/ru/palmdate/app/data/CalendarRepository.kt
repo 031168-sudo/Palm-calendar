@@ -392,10 +392,41 @@ class CalendarRepository(
 
     /** Выделить один раз серии отдельным событием (в серии он пропадает). Итог и связи переходят к нему. */
     private suspend fun detachInstance(e: PalmEvent): PalmEvent {
-        val s = series(e.eventId)
-        cancelInstance(e)
-        val newId = newSeriesFrom(e.eventId, s, e.instanceStart, s.allDay, s.lengthMs, null, e.instanceStart, onlyThis = true)
-        return e.copy(eventId = newId, recurring = false, rrule = null)
+        // Как в Google: раз остаётся в серии (исключение) — у него свои напоминания, а повтор виден как раньше
+        val newId = makeException(e, null, null, null)
+        return e.copy(eventId = newId, seriesId = e.eventId, seriesInstance = e.instanceStart)
+    }
+
+    /**
+     * Исключение для одного раза серии — так делает сам Google Календарь, когда меняют «только этот раз»:
+     * отдельная запись, привязанная к серии (ORIGINAL_ID), с исходным временем раза. Раз остаётся частью серии.
+     * [start]/[lengthMs]/[allDay] — новое время (null — время не меняется). Напоминания — как у серии.
+     * Связи, письмо и итог этого раза переходят к записи исключения. Возвращает её id.
+     */
+    private suspend fun makeException(e: PalmEvent, start: Long?, lengthMs: Long?, allDay: Boolean?): Long {
+        val alarms = reminders(e.eventId)
+        val v = ContentValues().apply {
+            put(Events.ORIGINAL_INSTANCE_TIME, e.instanceStart)
+            put(Events.STATUS, Events.STATUS_CONFIRMED)
+            if (start != null && lengthMs != null && allDay != null) {
+                put(Events.DTSTART, start)
+                put(Events.DTEND, start + lengthMs)
+                put(Events.ALL_DAY, if (allDay) 1 else 0)
+                put(Events.EVENT_TIMEZONE, if (allDay) "UTC" else TimeZone.getDefault().id)
+            }
+        }
+        val newId = resolver.insert(ContentUris.withAppendedId(Events.CONTENT_EXCEPTION_URI, e.eventId), v)
+            ?.let { ContentUris.parseId(it) } ?: error(str(R.string.err_change_time))
+        // Напоминания исключения — как у серии (Android может их не скопировать)
+        if (reminders(newId).sorted() != alarms.sorted()) setReminders(newId, alarms)
+        links.byIds(listOf(e.eventId)).firstOrNull()?.let { links.upsert(it.copy(eventId = newId)) }
+        links.mail(e.eventId)?.let { links.upsertMail(it.copy(eventId = newId)) }
+        val newBegin = start ?: e.instanceStart
+        links.outcomes(listOf(e.eventId)).filter { it.instanceStart == e.instanceStart }.forEach { o ->
+            links.setOutcome(o.copy(eventId = newId, instanceStart = newBegin))
+            links.clearOutcome(e.eventId, o.instanceStart)
+        }
+        return newId
     }
 
     /** Строка итога в описании события: "Итог: Не дозвонился — перезвонить после обеда". */
@@ -738,9 +769,8 @@ class CalendarRepository(
             else start.toJava().atZone(zone).toInstant().toEpochMilli()
             val length = if (allDay) 86_400_000L else minutes * 60_000L
             if (scope == DeleteScope.ONE) {
-                // Только этот раз: в серии он пропадает, вместо него — отдельное событие с новым временем
-                cancelInstance(e)
-                newSeriesFrom(e.eventId, s, newStart, allDay, length, null, e.instanceStart, onlyThis = true)
+                // Только этот раз — как в Google: раз остаётся в серии (исключение) со своим временем
+                makeException(e, newStart, length, allDay)
                 return
             }
             // Этот и следующие, открыт не первый раз: прошлое не трогаем, с этого раза — новое время

@@ -315,7 +315,8 @@ class EventKitBackend : AppBackend {
             outcome = outcome,
             outcomeNote = oc?.groupValues?.get(2)?.takeIf { it.isNotBlank() && outcome != null },
             fromContacts = birthday,
-            rrule = ruleOf(ev),
+            // У раза, изменённого внутри серии, своего правила может не быть — берём у серии
+            rrule = ruleOf(ev) ?: if (ev.isDetached) (ev.eventIdentifier ?: ev.calendarItemIdentifier).let { store.eventWithIdentifier(it) }?.let { ruleOf(it) } else null,
             place = ev.location?.takeIf { it.isNotBlank() },
             hasAlarm = if (birthday) null else !ev.alarms.isNullOrEmpty(),
             hasFiles = !birthday && ru.palmdate.app.ui.IosFiles.has(id),
