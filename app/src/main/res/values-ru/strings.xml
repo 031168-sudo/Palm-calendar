@@ -375,6 +375,17 @@
     <string name="search_clear">Очистить</string>
     <string name="search_prompt">Введите название, имя или адрес</string>
     <string name="search_nothing">Ничего не найдено</string>
+    <string name="settings_theme">Тема</string>
+    <string name="settings_theme_mode">Светлая или тёмная</string>
+    <string name="theme_mode_system">Как в телефоне</string>
+    <string name="theme_mode_light">Светлая</string>
+    <string name="theme_mode_dark">Тёмная</string>
+    <string name="theme_classic">Классический КПК</string>
+    <string name="theme_green">Зелёная</string>
+    <string name="theme_burgundy">Бордовая</string>
+    <string name="theme_graphite">Графит</string>
+    <string name="theme_sand">Песочная</string>
+    <string name="theme_pink">Розовая</string>
     <string name="stats_title">Статистика</string>
     <string name="stats_year">Год</string>
     <string name="time_from_this">Время (с этого раза)</string>

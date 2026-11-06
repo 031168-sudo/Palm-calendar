@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -49,6 +51,8 @@ import kotlinx.coroutines.launch
 import ru.palmdate.app.data.AppSettings
 import ru.palmdate.app.data.CurrentSettings
 import ru.palmdate.app.data.StartView
+import ru.palmdate.app.data.ColorTheme
+import ru.palmdate.app.data.ThemeMode
 import ru.palmdate.app.model.CalendarInfo
 import ru.palmdate.app.model.EventType
 import ru.palmdate.app.model.icon
@@ -188,6 +192,12 @@ fun SettingsSheet(
                 platform.langMode,
             ) { m -> if (m != platform.langMode) platform.setLangMode(m) }
             Spacer(Modifier.height(10.dp))
+            SettingsLabel(str("settings_theme"))
+            ThemeChips(s.colorTheme) { v -> set { it.copy(colorTheme = v) } }
+            Spacer(Modifier.height(10.dp))
+            SettingsLabel(str("settings_theme_mode"))
+            Chips(ThemeMode.entries.map { it to it.label }, s.themeMode) { v -> set { it.copy(themeMode = v) } }
+            Spacer(Modifier.height(10.dp))
             SettingsLabel(str("settings_open"))
             Chips(StartView.entries.map { it to it.label }, s.startView) { v -> set { it.copy(startView = v) } }
             Spacer(Modifier.height(10.dp))
@@ -255,6 +265,34 @@ fun SettingsHint(text: String) {
 private fun <T> Chips(options: List<Pair<T, String>>, selected: T, onPick: (T) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { (v, label) -> Chip(label, selected = v == selected) { onPick(v) } }
+    }
+}
+
+/** Выбор цветовой темы: кнопки с кружком основного цвета темы. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ThemeChips(selected: ColorTheme, onPick: (ColorTheme) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ColorTheme.entries.forEach { t ->
+            val sel = t == selected
+            val shape = RoundedCornerShape(8.dp)
+            Row(
+                Modifier
+                    .clip(shape)
+                    .background(if (sel) Palm.navy else Color.Transparent)
+                    .border(1.dp, if (sel) Palm.navy else Palm.rule, shape)
+                    .clickable { onPick(t) }
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier.size(14.dp).clip(CircleShape).background(Palm.swatch(t))
+                        .border(1.dp, if (sel) Color.White else Palm.rule, CircleShape),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(t.label, style = Palm.button, color = if (sel) Color.White else Palm.ink)
+            }
+        }
     }
 }
 

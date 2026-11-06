@@ -376,6 +376,17 @@
     <string name="search_clear">Clear</string>
     <string name="search_prompt">Type a title, name or address</string>
     <string name="search_nothing">Nothing found</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_mode">Light or dark</string>
+    <string name="theme_mode_system">As on phone</string>
+    <string name="theme_mode_light">Light</string>
+    <string name="theme_mode_dark">Dark</string>
+    <string name="theme_classic">Classic PDA</string>
+    <string name="theme_green">Green</string>
+    <string name="theme_burgundy">Burgundy</string>
+    <string name="theme_graphite">Graphite</string>
+    <string name="theme_sand">Sand</string>
+    <string name="theme_pink">Pink</string>
     <string name="stats_title">Statistics</string>
     <string name="stats_year">Year</string>
     <string name="time_from_this">Time (from this one on)</string>

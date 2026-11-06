@@ -84,7 +84,14 @@ class MainActivity : ComponentActivity() {
             }
         }
         setContent {
-            PalmTheme {
+            // Значки системных панелей (часы, батарея) — под выбранный режим, а не только под телефон
+            PalmTheme(onMode = { mode, dark ->
+                val bar = when (mode) {
+                    ru.palmdate.app.data.ThemeMode.SYSTEM -> SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT)
+                    else -> if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                }
+                enableEdgeToEdge(statusBarStyle = bar, navigationBarStyle = bar)
+            }) {
               androidx.compose.runtime.CompositionLocalProvider(
                   ru.palmdate.app.ui.LocalHinge provides hinge.value,
                   ru.palmdate.app.ui.LocalPlatform provides remember { ru.palmdate.app.ui.AndroidPlatform(this@MainActivity) },

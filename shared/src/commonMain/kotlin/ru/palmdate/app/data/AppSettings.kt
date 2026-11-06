@@ -10,6 +10,21 @@ enum class StartView(val labelKey: String) {
     val label: String get() = str(labelKey)
 }
 
+/** Цветовая тема (Настройки → Вид → Тема). Цвета — в ui/theme/PalmTheme.kt. */
+enum class ColorTheme(val labelKey: String) {
+    CLASSIC("theme_classic"), GREEN("theme_green"), BURGUNDY("theme_burgundy"),
+    GRAPHITE("theme_graphite"), SAND("theme_sand"), PINK("theme_pink");
+
+    val label: String get() = str(labelKey)
+}
+
+/** Светлая / тёмная — для любой темы; SYSTEM — как в телефоне. */
+enum class ThemeMode(val labelKey: String) {
+    SYSTEM("theme_mode_system"), LIGHT("theme_mode_light"), DARK("theme_mode_dark");
+
+    val label: String get() = str(labelKey)
+}
+
 /** Через что звонить по кнопке "Позвонить". */
 enum class CallVia(val labelKey: String) {
     PHONE("call_phone"), WHATSAPP("call_whatsapp"), TELEGRAM("call_telegram");
@@ -32,6 +47,8 @@ data class AppSettings(
     val dayFrom: Int = 8,
     val dayTo: Int = 18,
     val durationBand: Boolean = true,   // бледная заливка длительности событий в «Дне»
+    val colorTheme: ColorTheme = ColorTheme.CLASSIC,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
     // Контакты
     val birthdaysShown: Boolean = true,
     val birthdayNotify: Boolean = false,

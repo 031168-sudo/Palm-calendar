@@ -40,7 +40,16 @@ fun MainViewController(): UIViewController {
     ru.palmdate.app.ui.IosBirthdays.start(backend)
     if (platform.Foundation.NSProcessInfo.processInfo.environment["DATEBOOK_SEED"] != null) seedDemo(backend)
     return ComposeUIViewController(configure = { onFocusBehavior = androidx.compose.ui.uikit.OnFocusBehavior.DoNothing }) {
-        PalmTheme {
+        // Строка состояния и системные окна (выбор даты, меню) — под выбранный режим: светлая / тёмная / как в телефоне
+        PalmTheme(onMode = { mode, _ ->
+            val style = when (mode) {
+                ru.palmdate.app.data.ThemeMode.SYSTEM -> platform.UIKit.UIUserInterfaceStyle.UIUserInterfaceStyleUnspecified
+                ru.palmdate.app.data.ThemeMode.LIGHT -> platform.UIKit.UIUserInterfaceStyle.UIUserInterfaceStyleLight
+                ru.palmdate.app.data.ThemeMode.DARK -> platform.UIKit.UIUserInterfaceStyle.UIUserInterfaceStyleDark
+            }
+            platform.UIKit.UIApplication.sharedApplication.windows.filterIsInstance<platform.UIKit.UIWindow>()
+                .forEach { it.overrideUserInterfaceStyle = style }
+        }) {
             CompositionLocalProvider(LocalPlatform provides IosPlatform) {
                 ru.palmdate.app.ui.IosMailHost(model) { ru.palmdate.app.ui.IosCallerHost { ru.palmdate.app.ui.IosMapHost { DayScreen(model, IosSettings) } } }
             }
