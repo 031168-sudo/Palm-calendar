@@ -106,10 +106,12 @@ fun Modifier.laneDraw(d: LaneDecor?, labelWidth: Dp = 52.dp): Modifier = if (d =
                 Offset(labelW, y0), Size(size.width - labelW, y1 - y0),
             )
         }
+        // Линия длительности с точками на концах — цветом темы (заливка выше — цветом календаря)
+        val line = Palm.navy
         val x = labelW + 2.dp.toPx() + sp.lane * 6.dp.toPx() + 3.dp.toPx()
-        drawLine(sp.color, Offset(x, y0), Offset(x, y1), strokeWidth = 3.dp.toPx())
-        if (sp.startsHere) drawCircle(sp.color, 3.dp.toPx(), Offset(x, y0 + 3.dp.toPx()))
-        if (sp.endsHere) drawCircle(sp.color, 3.dp.toPx(), Offset(x, y1 - 3.dp.toPx()))
+        drawLine(line, Offset(x, y0), Offset(x, y1), strokeWidth = 3.dp.toPx())
+        if (sp.startsHere) drawCircle(line, 3.dp.toPx(), Offset(x, y0 + 3.dp.toPx()))
+        if (sp.endsHere) drawCircle(line, 3.dp.toPx(), Offset(x, y1 - 3.dp.toPx()))
     }
 }
 
