@@ -279,8 +279,8 @@ private fun ThemeChips(selected: ColorTheme, onPick: (ColorTheme) -> Unit) {
             Row(
                 Modifier
                     .clip(shape)
-                    .background(if (sel) Palm.navy else Color.Transparent)
-                    .border(1.dp, if (sel) Palm.navy else Palm.rule, shape)
+                    .background(if (sel) Palm.fill else Color.Transparent)
+                    .border(1.dp, if (sel) Palm.fill else Palm.rule, shape)
                     .clickable { onPick(t) }
                     .padding(horizontal = 10.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -290,7 +290,7 @@ private fun ThemeChips(selected: ColorTheme, onPick: (ColorTheme) -> Unit) {
                         .border(1.dp, if (sel) Color.White else Palm.rule, CircleShape),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text(t.label, style = Palm.button, color = if (sel) Color.White else Palm.ink)
+                Text(t.label, style = Palm.button, color = if (sel) Palm.onFill else Palm.ink)
             }
         }
     }

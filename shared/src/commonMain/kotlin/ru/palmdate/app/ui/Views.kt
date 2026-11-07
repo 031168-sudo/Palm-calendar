@@ -91,8 +91,8 @@ fun AgendaView(
                     if (d == today) {
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            str("today"), style = Palm.small, color = Color.White,
-                            modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Palm.navy)
+                            str("today"), style = Palm.small, color = Palm.onFill,
+                            modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Palm.fill)
                                 .padding(horizontal = 6.dp, vertical = 1.dp),
                         )
                     }
@@ -197,10 +197,10 @@ fun WeekView(
                 ) {
                     Text(dayLetter(d), style = Palm.small, color = if (d.dayOfWeek.value >= 6) Palm.nowLine else Palm.inkSoft)
                     Box(
-                        Modifier.size(26.dp).clip(CircleShape).background(if (d == today) Palm.navy else Color.Transparent),
+                        Modifier.size(26.dp).clip(CircleShape).background(if (d == today) Palm.fill else Color.Transparent),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("${d.dayOfMonth}", style = Palm.time, color = if (d == today) Color.White else Palm.ink)
+                        Text("${d.dayOfMonth}", style = Palm.time, color = if (d == today) Palm.onFill else Palm.ink)
                     }
                 }
             }
@@ -325,14 +325,14 @@ fun MonthView(date: LocalDate, events: List<PalmEvent>, onDay: (LocalDate) -> Un
                     ) {
                         Box(
                             Modifier.size(24.dp).clip(CircleShape)
-                                .background(if (d == today) Palm.navy else Color.Transparent),
+                                .background(if (d == today) Palm.fill else Color.Transparent),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
                                 "${d.dayOfMonth}",
                                 style = Palm.time.copy(fontWeight = if (dayEvents.isNotEmpty()) FontWeight.Bold else FontWeight.Normal),
                                 color = when {
-                                    d == today -> Color.White
+                                    d == today -> Palm.onFill
                                     !inMonth -> Palm.rule
                                     d.dayOfWeek.value >= 6 -> Palm.nowLine
                                     else -> Palm.ink
@@ -429,13 +429,13 @@ private fun MiniMonth(
                         contentAlignment = Alignment.Center,
                     ) {
                         // Кружок только у сегодняшнего дня; дни с событиями — жирные синие
-                        if (isToday) Box(Modifier.size(17.dp).clip(CircleShape).background(Palm.navy))
+                        if (isToday) Box(Modifier.size(17.dp).clip(CircleShape).background(Palm.fill))
                         if (inMonth) {
                             Text(
                                 "${d.dayOfMonth}",
                                 style = MiniDay.copy(fontWeight = if (has || isToday) FontWeight.Bold else FontWeight.Normal),
                                 color = when {
-                                    isToday -> Color.White
+                                    isToday -> Palm.onFill
                                     has -> Palm.navy
                                     d.dayOfWeek.value >= 6 -> Palm.nowLine.copy(alpha = 0.7f)
                                     else -> Palm.inkSoft.copy(alpha = 0.7f)

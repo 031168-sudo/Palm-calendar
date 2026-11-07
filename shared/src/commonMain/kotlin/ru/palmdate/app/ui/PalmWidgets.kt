@@ -40,6 +40,6 @@ fun PalmButton(text: String, modifier: Modifier = Modifier, filled: Boolean = fa
             .clickable(onClick = onClick)
             .padding(horizontal = if (compact) 11.dp else 14.dp, vertical = 7.dp),
     ) {
-        Text(text, style = Palm.button, color = if (filled) Color.White else Palm.navy)
+        Text(text, style = Palm.button, color = if (filled) Palm.onFill else Palm.navy)
     }
 }

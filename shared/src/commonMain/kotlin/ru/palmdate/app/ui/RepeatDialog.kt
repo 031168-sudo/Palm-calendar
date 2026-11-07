@@ -102,14 +102,14 @@ fun RepeatSpecDialog(
                             val on = d in spec.days
                             Box(
                                 Modifier.size(36.dp).clip(CircleShape)
-                                    .background(if (on) Palm.navy else Color.Transparent)
+                                    .background(if (on) Palm.fill else Color.Transparent)
                                     .border(1.dp, if (on) Palm.navy else Palm.rule, CircleShape)
                                     .clickable {
                                         val next = if (on) spec.days - d else spec.days + d
                                         if (next.isNotEmpty()) spec = spec.copy(days = next)   // хотя бы один день
                                     },
                                 contentAlignment = Alignment.Center,
-                            ) { Text(letters[d.ordinal], style = Palm.small, color = if (on) Color.White else Palm.ink) }
+                            ) { Text(letters[d.ordinal], style = Palm.small, color = if (on) Palm.onFill else Palm.ink) }
                         }
                     }
                 }

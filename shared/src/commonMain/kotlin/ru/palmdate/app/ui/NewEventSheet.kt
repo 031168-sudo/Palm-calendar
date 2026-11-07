@@ -977,11 +977,11 @@ fun Chip(text: String, selected: Boolean = false, onClick: () -> Unit) {
     Box(
         Modifier
             .clip(shape)
-            .background(if (selected) Palm.navy else Color.Transparent)
+            .background(if (selected) Palm.fill else Color.Transparent)
             .border(1.dp, if (selected) Palm.navy else Palm.rule, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 7.dp),
-    ) { Text(text, style = Palm.button, color = if (selected) Color.White else Palm.ink) }
+    ) { Text(text, style = Palm.button, color = if (selected) Palm.onFill else Palm.ink) }
 }
 
 /* ---------- Подробности события ---------- */
@@ -1635,10 +1635,10 @@ private fun TripFilesSection(
             Text(
                 l,
                 style = Palm.small.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
-                color = if (sel) Color.White else Palm.navy,
+                color = if (sel) Palm.onFill else Palm.navy,
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (sel) Palm.navy else Color.Transparent)
+                    .background(if (sel) Palm.fill else Color.Transparent)
                     .clickable { label = l }
                     .padding(horizontal = 8.dp, vertical = 4.dp),
             )

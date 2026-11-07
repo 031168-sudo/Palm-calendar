@@ -99,10 +99,10 @@ fun StatsSheet(
                         Text(
                             p.label,
                             style = Palm.small.copy(fontWeight = FontWeight.Bold),
-                            color = if (sel) Color.White else Palm.navy,
+                            color = if (sel) Palm.onFill else Palm.navy,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(if (sel) Palm.navy else Color.Transparent)
+                                .background(if (sel) Palm.fill else Color.Transparent)
                                 .clickable { period = p }
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                         )

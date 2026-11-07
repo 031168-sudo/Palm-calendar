@@ -395,12 +395,12 @@ private fun Header(
                     .width(tabWidth)
                     .height(tabHeight)
                     .clip(TabShape)
-                    .background(Palm.navy)
+                    .background(Palm.fill)
                     .clickable(onClick = onTitle)
                     .padding(start = TAB_PAD_START, end = TAB_PAD_END),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                Text(tabTitle(state, compact), style = style, color = Color.White, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                Text(tabTitle(state, compact), style = style, color = Palm.onFill, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.weight(1f))
             Row(Modifier.width(rightBlock), verticalAlignment = Alignment.CenterVertically) {
@@ -424,7 +424,7 @@ private fun Header(
                                 .clip(RoundedCornerShape(4.dp))
                                 .background(
                                     when {
-                                        selected -> Palm.navy
+                                        selected -> Palm.fill
                                         state.mode == ViewMode.WEEK -> Palm.navyLight
                                         else -> Color.Transparent
                                     },
@@ -440,7 +440,7 @@ private fun Header(
                                     textDecoration = if (d == today && !selected) TextDecoration.Underline else null,
                                 ),
                                 color = when {
-                                    selected -> Color.White
+                                    selected -> Palm.onFill
                                     d.dayOfWeek.value >= 6 -> Palm.nowLine
                                     else -> Palm.ink
                                 },
@@ -678,14 +678,14 @@ private fun ButtonBar(
         Column(
             modifier
                 .clip(RoundedCornerShape(8.dp))
-                .background(if (sel) Palm.navy else Color.Transparent)
+                .background(if (sel) Palm.fill else Color.Transparent)
                 .clickable { onMode(m) }
                 .padding(vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(m.icon, null, tint = if (sel) Color.White else Palm.navy, modifier = Modifier.size(20.dp))
+            Icon(m.icon, null, tint = if (sel) Palm.onFill else Palm.navy, modifier = Modifier.size(20.dp))
             Text(m.label, style = Palm.small.copy(fontSize = Palm.small.fontSize * 0.85f),
-                color = if (sel) Color.White else Palm.navy, maxLines = 1)
+                color = if (sel) Palm.onFill else Palm.navy, maxLines = 1)
         }
     }
 
@@ -746,7 +746,7 @@ private fun BarTextButton(text: String, modifier: Modifier, filled: Boolean = fa
         modifier
             .height(BAR_H)
             .clip(shape)
-            .background(if (filled) Palm.navy else Color.Transparent)
+            .background(if (filled) Palm.fill else Color.Transparent)
             .border(1.dp, Palm.navy, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp),
@@ -758,7 +758,7 @@ private fun BarTextButton(text: String, modifier: Modifier, filled: Boolean = fa
             val w = measurer.measure(text, Palm.button, maxLines = 1, softWrap = false).size.width
             val room = constraints.maxWidth
             val style = if (w <= room || w == 0) Palm.button else Palm.button.copy(fontSize = Palm.button.fontSize * (room.toFloat() / w).coerceAtLeast(0.6f))
-            Text(text, style = style, color = if (filled) Color.White else Palm.navy, maxLines = 1, softWrap = false)
+            Text(text, style = style, color = if (filled) Palm.onFill else Palm.navy, maxLines = 1, softWrap = false)
         }
     }
 }

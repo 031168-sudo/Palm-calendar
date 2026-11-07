@@ -27,6 +27,9 @@ data class PalmColors(
     val navyLight: Color,
     val rule: Color,
     val nowLine: Color,
+    // Заливка (вкладка с датой, нажатые кнопки, сегодняшний день) и надписи на ней; обычно = navy и белый
+    val fill: Color = navy,
+    val onFill: Color = Color.White,
 )
 
 /**
@@ -54,6 +57,9 @@ private val Dark = PalmColors(
     nowLine = Color(0xFFE5675A),
 )
 
+private val BONBON = Color(0xFFF1A7CC)
+private val ON_BONBON = Color(0xFF3A1A2A)
+
 private fun pal(paper: Long, ink: Long, inkSoft: Long, navy: Long, navyLight: Long, rule: Long, nowLine: Long) =
     PalmColors(Color(paper), Color(ink), Color(inkSoft), Color(navy), Color(navyLight), Color(rule), Color(nowLine))
 
@@ -72,8 +78,9 @@ private fun palette(t: ColorTheme, dark: Boolean): PalmColors = when (t) {
         else pal(0xFFF6F6F6, 0xFF1C1C1E, 0xFF5E6066, 0xFF3A3F47, 0xFFDDE0E4, 0xFFBDC0C6, 0xFFC0392B)
     ColorTheme.SAND -> if (dark) pal(0xFF1D1913, 0xFFEEE5D6, 0xFFA89B87, 0xFFA06A3A, 0xFF3A2E20, 0xFF4A4032, 0xFFE5675A)
         else pal(0xFFF6EFE2, 0xFF2A2118, 0xFF6B5D4C, 0xFF7A4E2A, 0xFFEADCC6, 0xFFCDBFA8, 0xFFB03A2E)
-    ColorTheme.PINK -> if (dark) pal(0xFF1E1619, 0xFFF2E6EB, 0xFFAC97A0, 0xFFC2457B, 0xFF40232F, 0xFF4C3740, 0xFFF0884A)
-        else pal(0xFFFCF5F7, 0xFF2A1B22, 0xFF6E5A63, 0xFFB03A6E, 0xFFF6DCE7, 0xFFD6BCC7, 0xFFD84315)
+    // Розовая — заливка цвета Pantone 15-2213 «Bonbon» (#F1A7CC), надписи на ней тёмные; текст и линии — насыщенно-розовые, чтобы читались
+    ColorTheme.PINK -> if (dark) pal(0xFF1E1619, 0xFFF2E6EB, 0xFFAC97A0, 0xFFE58BB6, 0xFF40232F, 0xFF4C3740, 0xFFF0884A).copy(fill = BONBON, onFill = ON_BONBON)
+        else pal(0xFFFCF5F7, 0xFF2A1B22, 0xFF6E5A63, 0xFFB03A6E, 0xFFF9E1EC, 0xFFD6BCC7, 0xFFD84315).copy(fill = BONBON, onFill = ON_BONBON)
 }
 
 /**
@@ -92,7 +99,7 @@ object Palm {
     }
 
     /** Образец основного цвета темы — для кружков в настройках (в текущем режиме светлая/тёмная). */
-    fun swatch(t: ColorTheme): Color = palette(t, dark).navy
+    fun swatch(t: ColorTheme): Color = palette(t, dark).fill
 
     val paper get() = colors.paper
     val ink get() = colors.ink
@@ -101,6 +108,9 @@ object Palm {
     val navyLight get() = colors.navyLight
     val rule get() = colors.rule
     val nowLine get() = colors.nowLine
+    /** Заливка выбранного/главного (вкладка, нажатые кнопки, сегодня) и цвет надписей на ней. */
+    val fill get() = colors.fill
+    val onFill get() = colors.onFill
 
     /** Пунктир нерабочих часов — бледно-зелёный. */
     val offRule get() = if (dark) Color(0xFF3F6B4F) else Color(0xFFA6D4B5)
