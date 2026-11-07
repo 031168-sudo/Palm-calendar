@@ -68,9 +68,23 @@ private fun parseHex(s: String): Color? {
  * Окно выбора основного цвета темы «Моя»: образец (вкладка и кнопка в выбранном цвете), палитра готовых
  * оттенков, ползунки «оттенок» и «яркость», код цвета (#RRGGBB). Остальные цвета темы подбираются сами.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ColorPickerDialog(initial: Color, onPick: (Color) -> Unit, onDismiss: () -> Unit) {
+    var color by remember { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(str("custom_color_title"), style = Palm.title, color = Palm.navy) },
+        text = { ColorPickerContent(initial) { color = it } },
+        confirmButton = { TextButton(onClick = { onPick(color) }) { Text(str("done"), color = Palm.navy) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(str("cancel"), color = Palm.inkSoft) } },
+        containerColor = Palm.paper,
+    )
+}
+
+/** Содержимое окна «Свой цвет» (отдельно — для скриншотов в тестах). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun ColorPickerContent(initial: Color, onChange: (Color) -> Unit) {
     val (h0, s0, l0) = initial.toHsl()
     var hue by remember { mutableStateOf(h0) }
     var sat by remember { mutableStateOf(if (s0 < 0.05f) 0.5f else s0) }
@@ -84,80 +98,72 @@ fun ColorPickerDialog(initial: Color, onPick: (Color) -> Unit, onDismiss: () -> 
         code = c.hex()
     }
     val pal = customPalette(color, Palm.dark)
+    androidx.compose.runtime.LaunchedEffect(color) { onChange(color) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(str("custom_color_title"), style = Palm.title, color = Palm.navy) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                // Образец: фон темы, вкладка с датой и залитая кнопка
-                Text(str("custom_preview"), style = Palm.small, color = Palm.inkSoft)
-                Spacer(Modifier.height(4.dp))
-                Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(pal.paper)
-                        .border(1.dp, pal.rule, RoundedCornerShape(8.dp)).padding(10.dp),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.clip(RoundedCornerShape(topEnd = 10.dp)).background(pal.fill).padding(horizontal = 10.dp, vertical = 5.dp)) {
-                            Text(str("today_cap"), style = Palm.button, color = pal.onFill)
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Text(str("view_week"), style = Palm.button, color = pal.navy)
-                    }
-                    Box(Modifier.fillMaxWidth().height(2.dp).background(pal.navy))
-                    Spacer(Modifier.height(6.dp))
-                    Text(str("custom_color_title"), style = Palm.body, color = pal.ink)
-                    Spacer(Modifier.height(6.dp))
-                    Box(Modifier.clip(RoundedCornerShape(8.dp)).background(pal.fill).padding(horizontal = 14.dp, vertical = 6.dp)) {
-                        Text(str("new_event"), style = Palm.button, color = pal.onFill)
-                    }
+    Column(Modifier.verticalScroll(rememberScrollState())) {
+        // Образец: фон темы, вкладка с датой и залитая кнопка
+        Text(str("custom_preview"), style = Palm.small, color = Palm.inkSoft)
+        Spacer(Modifier.height(4.dp))
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(pal.paper)
+                .border(1.dp, pal.rule, RoundedCornerShape(8.dp)).padding(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.clip(RoundedCornerShape(topEnd = 10.dp)).background(pal.fill).padding(horizontal = 10.dp, vertical = 5.dp)) {
+                    Text(str("today_cap"), style = Palm.button, color = pal.onFill)
                 }
-                Spacer(Modifier.height(10.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PRESETS.forEach { c ->
-                        val sel = c.hex() == color.hex()
-                        Box(
-                            Modifier.size(30.dp).clip(CircleShape).background(c)
-                                .border(if (sel) 3.dp else 1.dp, if (sel) Palm.ink else Palm.rule, CircleShape)
-                                .clickable { set(c) },
-                        )
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(str("custom_hue"), style = Palm.small, color = Palm.inkSoft)
+                Spacer(Modifier.width(10.dp))
+                Text(str("view_week"), style = Palm.button, color = pal.navy)
+            }
+            Box(Modifier.fillMaxWidth().height(2.dp).background(pal.navy))
+            Spacer(Modifier.height(6.dp))
+            Text(str("custom_color_title"), style = Palm.body, color = pal.ink)
+            Spacer(Modifier.height(6.dp))
+            Box(Modifier.clip(RoundedCornerShape(8.dp)).background(pal.fill).padding(horizontal = 14.dp, vertical = 6.dp)) {
+                Text(str("new_event"), style = Palm.button, color = pal.onFill)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            PRESETS.forEach { c ->
+                val sel = c.hex() == color.hex()
                 Box(
-                    Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(
-                        Brush.horizontalGradient((0..12).map { Color.hsl(it * 30f % 360f, 0.6f, 0.5f) }),
-                    ),
-                )
-                Slider(
-                    value = hue, valueRange = 0f..359f,
-                    onValueChange = { hue = it; gray = false; code = Color.hsl(it, sat, light.coerceIn(0.12f, 0.88f)).hex() },
-                    colors = SliderDefaults.colors(thumbColor = color, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent),
-                )
-                Text(str("custom_lightness"), style = Palm.small, color = Palm.inkSoft)
-                Box(
-                    Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(
-                        Brush.horizontalGradient(listOf(0.12f, 0.5f, 0.88f).map { Color.hsl(hue, if (gray) 0f else sat, it) }),
-                    ),
-                )
-                Slider(
-                    value = light.coerceIn(0.12f, 0.88f), valueRange = 0.12f..0.88f,
-                    onValueChange = { light = it; code = Color.hsl(hue, if (gray) 0f else sat, it).hex() },
-                    colors = SliderDefaults.colors(thumbColor = color, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent),
-                )
-                OutlinedTextField(
-                    value = code,
-                    onValueChange = { v -> code = v.take(7); parseHex(code)?.let { c -> val keep = code; set(c); code = keep } },
-                    label = { Text(str("custom_code")) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                    modifier = Modifier.fillMaxWidth(),
+                    Modifier.size(30.dp).clip(CircleShape).background(c)
+                        .border(if (sel) 3.dp else 1.dp, if (sel) Palm.ink else Palm.rule, CircleShape)
+                        .clickable { set(c) },
                 )
             }
-        },
-        confirmButton = { TextButton(onClick = { onPick(color) }) { Text(str("done"), color = Palm.navy) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(str("cancel"), color = Palm.inkSoft) } },
-        containerColor = Palm.paper,
-    )
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(str("custom_hue"), style = Palm.small, color = Palm.inkSoft)
+        Box(
+            Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(
+                Brush.horizontalGradient((0..12).map { Color.hsl(it * 30f % 360f, 0.6f, 0.5f) }),
+            ),
+        )
+        Slider(
+            value = hue, valueRange = 0f..359f,
+            onValueChange = { hue = it; gray = false; code = Color.hsl(it, sat, light.coerceIn(0.12f, 0.88f)).hex() },
+            colors = SliderDefaults.colors(thumbColor = color, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent),
+        )
+        Text(str("custom_lightness"), style = Palm.small, color = Palm.inkSoft)
+        Box(
+            Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(
+                Brush.horizontalGradient(listOf(0.12f, 0.5f, 0.88f).map { Color.hsl(hue, if (gray) 0f else sat, it) }),
+            ),
+        )
+        Slider(
+            value = light.coerceIn(0.12f, 0.88f), valueRange = 0.12f..0.88f,
+            onValueChange = { light = it; code = Color.hsl(hue, if (gray) 0f else sat, it).hex() },
+            colors = SliderDefaults.colors(thumbColor = color, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent),
+        )
+        OutlinedTextField(
+            value = code,
+            onValueChange = { v -> code = v.take(7); parseHex(code)?.let { c -> val keep = code; set(c); code = keep } },
+            label = { Text(str("custom_code")) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
 }

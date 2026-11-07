@@ -1,6 +1,8 @@
 package ru.palmdate.app
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -70,16 +72,15 @@ class ThemeScreenshotTest {
     @Test fun customLilacLight() = shot(ColorTheme.CUSTOM, ThemeMode.LIGHT, 0xFFC7B3E8.toInt(), "custom_lilac")
     @Test fun customLilacDark() = shot(ColorTheme.CUSTOM, ThemeMode.DARK, 0xFFC7B3E8.toInt(), "custom_lilac")
 
-    @OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)
     @Test fun colorPicker() {
         compose.setContent {
             PalmTheme {
-                Box(Modifier.fillMaxSize()) {
-                    ru.palmdate.app.ui.ColorPickerDialog(androidx.compose.ui.graphics.Color(0xFF138A8A), onPick = {}, onDismiss = {})
+                Box(Modifier.fillMaxSize().background(ru.palmdate.app.ui.theme.Palm.paper).padding(24.dp)) {
+                    ru.palmdate.app.ui.ColorPickerContent(androidx.compose.ui.graphics.Color(0xFF138A8A)) {}
                 }
             }
         }
         compose.waitForIdle()
-        com.github.takahirom.roborazzi.captureScreenRoboImage("screenshots/themes/color_picker.png")
+        compose.onRoot().captureRoboImage("screenshots/themes/color_picker.png")
     }
 }
