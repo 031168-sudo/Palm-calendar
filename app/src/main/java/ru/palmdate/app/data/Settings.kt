@@ -23,6 +23,7 @@ fun AppSettings.toJson(): JSONObject = JSONObject().apply {
     put("durationBand", durationBand)
     put("colorTheme", colorTheme.name)
     put("themeMode", themeMode.name)
+    put("customColor", customColor)
     put("birthdaysShown", birthdaysShown)
     put("birthdayNotify", birthdayNotify)
     put("birthdayNotifyAt", birthdayNotifyAt)
@@ -53,6 +54,7 @@ fun AppSettings.Companion.fromJson(j: JSONObject): AppSettings {
         durationBand = j.optBoolean("durationBand", true),
         colorTheme = runCatching { ColorTheme.valueOf(j.optString("colorTheme")) }.getOrDefault(d.colorTheme),
         themeMode = runCatching { ThemeMode.valueOf(j.optString("themeMode")) }.getOrDefault(d.themeMode),
+        customColor = j.optInt("customColor", 0),
         birthdaysShown = j.optBoolean("birthdaysShown", true),
         birthdayNotify = j.optBoolean("birthdayNotify", false),
         birthdayNotifyAt = j.optInt("birthdayNotifyAt", 540),

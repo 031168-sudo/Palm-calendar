@@ -41,6 +41,7 @@ object IosStore {
             durationBand = bool("durationBand", true),
             colorTheme = runCatching { ru.palmdate.app.data.ColorTheme.valueOf(m["colorTheme"] ?: "") }.getOrDefault(d0.colorTheme),
             themeMode = runCatching { ru.palmdate.app.data.ThemeMode.valueOf(m["themeMode"] ?: "") }.getOrDefault(d0.themeMode),
+            customColor = m["customColor"]?.toIntOrNull() ?: 0,
             birthdaysShown = bool("birthdaysShown", true),
             birthdayNotify = bool("birthdayNotify", false),
             birthdayNotifyAt = int("birthdayNotifyAt", 540),
@@ -62,6 +63,7 @@ object IosStore {
         sb.append("durationBand=${if (s.durationBand) 1 else 0}\n")
         sb.append("colorTheme=${s.colorTheme.name}\n")
         sb.append("themeMode=${s.themeMode.name}\n")
+        sb.append("customColor=${s.customColor}\n")
         sb.append("birthdaysShown=${if (s.birthdaysShown) 1 else 0}\n")
         sb.append("birthdayNotify=${if (s.birthdayNotify) 1 else 0}\n")
         sb.append("birthdayNotifyAt=${s.birthdayNotifyAt}\n")

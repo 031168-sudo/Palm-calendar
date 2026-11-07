@@ -386,6 +386,12 @@
     <string name="theme_graphite">Графит</string>
     <string name="theme_sand">Песочная</string>
     <string name="theme_pink">Розовая</string>
+    <string name="theme_custom">Моя</string>
+    <string name="custom_color_title">Свой цвет</string>
+    <string name="custom_hue">Оттенок</string>
+    <string name="custom_lightness">Яркость</string>
+    <string name="custom_code">Код цвета</string>
+    <string name="custom_preview">Так будет выглядеть</string>
     <string name="stats_title">Статистика</string>
     <string name="stats_year">Год</string>
     <string name="time_from_this">Время (с этого раза)</string>

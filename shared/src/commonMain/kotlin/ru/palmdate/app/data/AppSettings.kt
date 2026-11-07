@@ -13,7 +13,8 @@ enum class StartView(val labelKey: String) {
 /** Цветовая тема (Настройки → Вид → Тема). Цвета — в ui/theme/PalmTheme.kt. */
 enum class ColorTheme(val labelKey: String) {
     CLASSIC("theme_classic"), GREEN("theme_green"), BURGUNDY("theme_burgundy"),
-    GRAPHITE("theme_graphite"), SAND("theme_sand"), PINK("theme_pink");
+    GRAPHITE("theme_graphite"), SAND("theme_sand"), PINK("theme_pink"),
+    CUSTOM("theme_custom"); // «Моя»: основной цвет выбирает человек, остальные подбираются сами
 
     val label: String get() = str(labelKey)
 }
@@ -49,6 +50,7 @@ data class AppSettings(
     val durationBand: Boolean = true,   // бледная заливка длительности событий в «Дне»
     val colorTheme: ColorTheme = ColorTheme.CLASSIC,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val customColor: Int = 0, // основной цвет темы «Моя» (ARGB); 0 — ещё не выбран
     // Контакты
     val birthdaysShown: Boolean = true,
     val birthdayNotify: Boolean = false,

@@ -39,8 +39,8 @@ class ThemeScreenshotTest {
 
     @After fun reset() { CurrentSettings.provider = { AppSettings() } }
 
-    private fun shot(theme: ColorTheme, mode: ThemeMode) {
-        CurrentSettings.provider = { AppSettings(colorTheme = theme, themeMode = mode) }
+    private fun shot(theme: ColorTheme, mode: ThemeMode, custom: Int = 0, name: String = theme.name.lowercase()) {
+        CurrentSettings.provider = { AppSettings(colorTheme = theme, themeMode = mode, customColor = custom) }
         compose.setContent {
             PalmTheme {
                 CompositionLocalProvider(LocalSheetTop provides 96.dp) {
@@ -49,7 +49,7 @@ class ThemeScreenshotTest {
             }
         }
         compose.waitForIdle()
-        compose.onRoot().captureRoboImage("screenshots/themes/${theme.name.lowercase()}_${mode.name.lowercase()}.png")
+        compose.onRoot().captureRoboImage("screenshots/themes/${name}_${mode.name.lowercase()}.png")
     }
 
     @Test fun classicLight() = shot(ColorTheme.CLASSIC, ThemeMode.LIGHT)
@@ -64,4 +64,22 @@ class ThemeScreenshotTest {
     @Test fun sandDark() = shot(ColorTheme.SAND, ThemeMode.DARK)
     @Test fun pinkLight() = shot(ColorTheme.PINK, ThemeMode.LIGHT)
     @Test fun pinkDark() = shot(ColorTheme.PINK, ThemeMode.DARK)
+    @Test fun customTealLight() = shot(ColorTheme.CUSTOM, ThemeMode.LIGHT, 0xFF138A8A.toInt(), "custom_teal")
+    @Test fun customTealDark() = shot(ColorTheme.CUSTOM, ThemeMode.DARK, 0xFF138A8A.toInt(), "custom_teal")
+    @Test fun customOrangeLight() = shot(ColorTheme.CUSTOM, ThemeMode.LIGHT, 0xFFE8892B.toInt(), "custom_orange")
+    @Test fun customLilacLight() = shot(ColorTheme.CUSTOM, ThemeMode.LIGHT, 0xFFC7B3E8.toInt(), "custom_lilac")
+    @Test fun customLilacDark() = shot(ColorTheme.CUSTOM, ThemeMode.DARK, 0xFFC7B3E8.toInt(), "custom_lilac")
+
+    @OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)
+    @Test fun colorPicker() {
+        compose.setContent {
+            PalmTheme {
+                Box(Modifier.fillMaxSize()) {
+                    ru.palmdate.app.ui.ColorPickerDialog(androidx.compose.ui.graphics.Color(0xFF138A8A), onPick = {}, onDismiss = {})
+                }
+            }
+        }
+        compose.waitForIdle()
+        com.github.takahirom.roborazzi.captureScreenRoboImage("screenshots/themes/color_picker.png")
+    }
 }

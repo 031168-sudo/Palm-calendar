@@ -60,6 +60,8 @@ import ru.palmdate.app.model.color
 import ru.palmdate.app.model.minutesToTime
 import ru.palmdate.app.model.reminderLabel
 import ru.palmdate.app.ui.theme.Palm
+import ru.palmdate.app.ui.theme.DEFAULT_CUSTOM
+import androidx.compose.ui.graphics.toArgb
 
 /** Настройки DateBook — по разделам, одной прокручиваемой панелью. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -193,7 +195,15 @@ fun SettingsSheet(
             ) { m -> if (m != platform.langMode) platform.setLangMode(m) }
             Spacer(Modifier.height(10.dp))
             SettingsLabel(str("settings_theme"))
-            ThemeChips(s.colorTheme) { v -> set { it.copy(colorTheme = v) } }
+            var pickColor by remember { mutableStateOf(false) }
+            ThemeChips(s.colorTheme) { v -> if (v == ColorTheme.CUSTOM) pickColor = true else set { it.copy(colorTheme = v) } }
+            if (pickColor) {
+                ColorPickerDialog(
+                    initial = if (s.customColor != 0) Color(s.customColor) else DEFAULT_CUSTOM,
+                    onPick = { c -> pickColor = false; set { it.copy(colorTheme = ColorTheme.CUSTOM, customColor = c.toArgb()) } },
+                    onDismiss = { pickColor = false },
+                )
+            }
             Spacer(Modifier.height(10.dp))
             SettingsLabel(str("settings_theme_mode"))
             Chips(ThemeMode.entries.map { it to it.label }, s.themeMode) { v -> set { it.copy(themeMode = v) } }

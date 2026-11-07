@@ -6,6 +6,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.luminance
 import ru.palmdate.app.data.ColorTheme
 import ru.palmdate.app.data.CurrentSettings
 import ru.palmdate.app.data.ThemeMode
@@ -68,7 +69,65 @@ private fun pal(paper: Long, ink: Long, inkSoft: Long, navy: Long, navyLight: Lo
  * «Классический КПК» — исходные цвета. navy — основной цвет темы (вкладка, кнопки, заголовки):
  * в тёмной версии он такой, чтобы белый текст на нём читался.
  */
-private fun palette(t: ColorTheme, dark: Boolean): PalmColors = when (t) {
+/** Основной цвет темы «Моя», пока человек его не выбрал. */
+val DEFAULT_CUSTOM = Color(0xFF1E3A6E)
+
+/** Цвет → оттенок (0..360), насыщенность, светлота (0..1). */
+fun Color.toHsl(): Triple<Float, Float, Float> {
+    val r = red; val g = green; val b = blue
+    val max = maxOf(r, g, b); val min = minOf(r, g, b)
+    val l = (max + min) / 2f
+    if (max == min) return Triple(0f, 0f, l)
+    val d = max - min
+    val s = if (l > 0.5f) d / (2f - max - min) else d / (max + min)
+    val h = when (max) {
+        r -> ((g - b) / d + (if (g < b) 6f else 0f))
+        g -> ((b - r) / d + 2f)
+        else -> ((r - g) / d + 4f)
+    } * 60f
+    return Triple(h, s, l)
+}
+
+private fun hsl(h: Float, s: Float, l: Float) = Color.hsl(((h % 360f) + 360f) % 360f, s.coerceIn(0f, 1f), l.coerceIn(0f, 1f))
+
+/** Контраст двух цветов (1..21), как в правилах доступности. */
+private fun contrast(a: Color, b: Color): Float {
+    val la = a.luminance() + 0.05f; val lb = b.luminance() + 0.05f
+    return if (la > lb) la / lb else lb / la
+}
+
+/**
+ * Тема «Моя»: из одного основного цвета [base] подбираются остальные — фон и линии с лёгким оттенком основного,
+ * тёмный текст, надписи на заливке белые или тёмные (что читается лучше); если основной цвет слишком светлый
+ * (тёмный — в тёмном режиме) для текста, заголовки и линии берут более насыщенный его вариант.
+ */
+fun customPalette(base: Color, dark: Boolean): PalmColors {
+    val (h, s, _) = base.toHsl()
+    val tint = minOf(s, 0.35f)
+    val paper = if (dark) hsl(h, minOf(s, 0.18f), 0.08f) else hsl(h, tint, 0.965f)
+    val ink = if (dark) hsl(h, 0.12f, 0.92f) else hsl(h, 0.25f, 0.12f)
+    val inkSoft = if (dark) hsl(h, 0.08f, 0.63f) else hsl(h, 0.12f, 0.38f)
+    // Текст и линии основного цвета: сдвигаем светлоту, пока не станет читаемым на фоне
+    var (nh, ns, nl) = base.toHsl()
+    var navy = base
+    var guard = 0
+    while (contrast(navy, paper) < (if (dark) 3.5f else 4f) && guard++ < 40) {
+        nl += if (dark) 0.02f else -0.02f
+        navy = hsl(nh, ns, nl)
+    }
+    val onFill = if (contrast(Color.White, base) >= 3f) Color.White else hsl(h, 0.35f, 0.15f)
+    val redHue = h < 20f || h > 330f
+    return PalmColors(
+        paper = paper, ink = ink, inkSoft = inkSoft, navy = navy,
+        navyLight = if (dark) hsl(h, minOf(s, 0.35f), 0.18f) else hsl(h, minOf(s, 0.5f), 0.90f),
+        rule = if (dark) hsl(h, 0.1f, 0.25f) else hsl(h, 0.15f, 0.78f),
+        nowLine = if (redHue) Color(if (dark) 0xFFF0B04A else 0xFFB86E00) else Color(if (dark) 0xFFE5675A else 0xFFC0392B),
+        fill = base, onFill = onFill,
+    )
+}
+
+private fun palette(t: ColorTheme, dark: Boolean, custom: Int = 0): PalmColors = when (t) {
+    ColorTheme.CUSTOM -> customPalette(if (custom != 0) Color(custom) else DEFAULT_CUSTOM, dark)
     ColorTheme.CLASSIC -> if (dark) Dark else Light
     ColorTheme.GREEN -> if (dark) pal(0xFF151A16, 0xFFE6EBE3, 0xFF98A69B, 0xFF3F7D52, 0xFF22352A, 0xFF37443A, 0xFFE5675A)
         else pal(0xFFF5F7F0, 0xFF1A241D, 0xFF56645A, 0xFF2E5E3E, 0xFFD9E8DC, 0xFFB5C2B7, 0xFFC0392B)
@@ -93,13 +152,16 @@ object Palm {
     var dark by mutableStateOf(false)
         private set
 
-    internal fun apply(isDark: Boolean, theme: ColorTheme = ColorTheme.CLASSIC) {
+    private var custom = 0
+
+    internal fun apply(isDark: Boolean, theme: ColorTheme = ColorTheme.CLASSIC, customColor: Int = 0) {
         dark = isDark
-        colors = palette(theme, isDark)
+        custom = customColor
+        colors = palette(theme, isDark, customColor)
     }
 
     /** Образец основного цвета темы — для кружков в настройках (в текущем режиме светлая/тёмная). */
-    fun swatch(t: ColorTheme): Color = palette(t, dark).fill
+    fun swatch(t: ColorTheme): Color = palette(t, dark, custom).fill
 
     val paper get() = colors.paper
     val ink get() = colors.ink
@@ -141,7 +203,7 @@ fun PalmTheme(onMode: (ThemeMode, Boolean) -> Unit = { _, _ -> }, content: @Comp
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
-    Palm.apply(isDark, settings.colorTheme)
+    Palm.apply(isDark, settings.colorTheme, settings.customColor)
     LaunchedEffect(settings.themeMode, isDark) { onMode(settings.themeMode, isDark) }
     val scheme = if (isDark) {
         darkColorScheme(
