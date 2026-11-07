@@ -1,0 +1,80 @@
+2026-11-07 09:24:48.243 Df DateBook[22766:10b78] [com.apple.UIKit:UpdateScheduler] Target list changed: <CADisplay:LCD PurpleMain>
+2026-11-07 09:24:48.246 Df DateBook[22766:10b78] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:ru.palmdate.app-default  persistentID: DB05AB5E-82DD-4510-95F4-E4D87CF672D6
+2026-11-07 09:24:48.247 A  DateBook[22766:10b9d] (RunningBoardServices) didChangeInheritances
+2026-11-07 09:24:48.248 A  DateBook[22766:10b78] (CoreFoundation) Updating Key-Value Observers Of Preferences
+2026-11-07 09:24:48.257 A  DateBook[22766:10b9e] (RunningBoardServices) didChangeInheritances
+2026-11-07 09:24:48.270 Df DateBook[22766:10b78] [com.apple.UIKit:EventDeferring] [0x60000290e300] Scene target of event deferring environments did update: scene: 0x10690d420; current systemShellManagesKeyboardFocus: 1; systemShellManagesKeyboardFocusForScene: 1; eligibleForRecordRemoval: 1;
+2026-11-07 09:24:48.270 Df DateBook[22766:10b78] [com.apple.UIKit:KeyWindow] Scene became target of keyboard event deferring environment: UIWindowScene: 0x10690d420; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Aru.palmdate.app-default
+2026-11-07 09:24:48.275 Df DateBook[22766:10b78] [com.apple.UserNotifications:Connections] [ru.palmdate.app] Creating a user notification center
+2026-11-07 09:24:48.275 Df DateBook[22766:10b78] [com.apple.UserNotifications:Connections] [ru.palmdate.app] Removing all pending notification requests
+2026-11-07 09:24:48.278 Df DateBook[22766:10b78] [com.apple.xpc:connection] [0x1129625f0] activating connection: mach=true listener=false peer=false name=com.apple.usernotifications.listener
+2026-11-07 09:24:48.298 Df DateBook[22766:10b78] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 1, <UIWindowScene: 0x10690d420> (DB05AB5E-82DD-4510-95F4-E4D87CF672D6)
+2026-11-07 09:24:48.300 Df DateBook[22766:10b78] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:ru.palmdate.app-default  persistentID: DB05AB5E-82DD-4510-95F4-E4D87CF672D6
+2026-11-07 09:24:48.301 Df DateBook[22766:10b78] [com.apple.UIKit:Application] Deactivation reason removed: 12; deactivation reasons: 4128 -> 32; animating application lifecycle event: 1
+2026-11-07 09:24:48.301 Df DateBook[22766:10b78] [com.apple.KeyboardArbiter:Client] Send setDeactivating: N (-DeactivationReason:SuspendedEventsOnly)
+2026-11-07 09:24:48.302 Df DateBook[22766:10b78] [com.apple.UIKit:Application] Deactivation reason removed: 5; deactivation reasons: 32 -> 0; animating application lifecycle event: 0
+2026-11-07 09:24:48.303 Df DateBook[22766:10b78] [com.apple.contacts:CNTCCVersion2] CNTCCVersion2, app is coming into the foreground. reprompt? 0
+2026-11-07 09:24:48.311 Df DateBook[22766:10b78] [com.apple.KeyboardArbiter:Client] startConnection
+2026-11-07 09:24:48.313 Df DateBook[22766:10b78] [com.apple.xpc:connection] [0x1069e6070] activating connection: mach=true listener=false peer=false name=com.apple.UIKit.KeyboardManagement.hosted
+2026-11-07 09:24:48.321 Df DateBook[22766:10b78] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:ru.palmdate.app-default  persistentID: DB05AB5E-82DD-4510-95F4-E4D87CF672D6
+2026-11-07 09:24:48.369 A  DateBook[22766:10ba7] (RunningBoardServices) didChangeInheritances
+2026-11-07 09:24:48.513 A  DateBook[22766:10b9d] (EventKit) CADEventPredicate
+2026-11-07 09:24:48.516 Df DateBook[22766:10b78] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:ru.palmdate.app-default  persistentID: DB05AB5E-82DD-4510-95F4-E4D87CF672D6
+2026-11-07 09:24:48.517 Df DateBook[22766:10b78] [com.apple.KeyboardArbiter:Client] handleKeyboardChange: set currentKeyboard:N (wasKeyboard:N)
+2026-11-07 09:24:48.518 Df DateBook[22766:10b78] [com.apple.UIKit:KeyboardSceneDelegate] forceReloadInputViews
+2026-11-07 09:24:48.518 Df DateBook[22766:10b78] [com.apple.UIKit:KeyboardSceneDelegate] Reloading input views for: <Sharedandroidx.compose.ui.window.UserInputView7: 0x104f18940; frame = (0 0; 402 778); > force: 1
+2026-11-07 09:24:48.518 Df DateBook[22766:10b78] [com.apple.UIKit:KeyboardSceneDelegate] _reloadInputViewsForKeyWindowSceneResponder: 1 force: 1, fromBecomeFirstResponder: 0 (automaticKeyboard: 1, reloadIdentifier: 590839C9-EE35-4CB6-847E-05E1738AFDA4)
+2026-11-07 09:24:48.518 Df DateBook[22766:10b78] [com.apple.UIKit:KeyboardSceneDelegate] _inputViewsForResponder: <Sharedandroidx.compose.ui.window.UserInputView7: 0x104f18940; frame = (0 0; 402 778); >, automaticKeyboard: 1, force: 1
+2026-11-07 09:24:48.518 Df DateBook[22766:10b78] [com.apple.UIKit:KeyboardSceneDelegate] _inputViewsForResponder, found custom inputView: <(null): 0x0>, customInputViewController: <(null): 0x0>
+2026-11-07 09:24:48.518 Df DateBook[22766:10b78] [com.apple.UIKit:KeyboardSceneDelegate] _inputViewsForResponder, found inputAccessoryView: <(null): 0x0>
+2026-11-07 09:24:48.518 Df DateBook[22766:10b78] [com.apple.UIKit:KeyboardSceneDelegate] _inputViewsForResponder, responderRequiresKeyboard 0 (automaticKeyboardEnabled: 1, activeInstance: <(null): 0x0>, self.isOnScreen: 0, requiresKBWhenFirstResponder: 0)
+2026-11-07 09:24:48.518 Df DateBook[22766:10b78] [com.apple.UIKit:KeyboardSceneDelegate] _inputViewsForResponder, useKeyboard 0 (allowsSystemInputView: 1, !inputView <(null): 0x0>, responderRequiresKeyboard 0)
+2026-11-07 09:24:48.519 Df DateBook[22766:10b78] [com.apple.UIKit:KeyboardSceneDelegate] _inputViewsForResponder, configuring _responderWithoutAutomaticAppearanceEnabled: <(null): 0x0> (_automaticAppearEnabled: 1)
+2026-11-07 09:24:48.519 Df DateBook[22766:10b78] [com.apple.UIKit:KeyboardSceneDelegate] _inputViewsForResponder, needsIVPlaceholder: 0, needsIAVPlaceholder: 0, needsInputSetWithPlaceholder: 0
+2026-11-07 09:24:48.519 Df DateBook[22766:10b78] [com.apple.UIKit:KeyboardSceneDelegate] _inputViewsForResponder returning: <<UIInputViewSet: 0x600003500fd0>; (empty)>
+2026-11-07 09:24:48.519 Df DateBook[22766:10b78] [com.apple.UIKit:UIPeripheralHost] endPlacementForInputViewSet: <<UIInputViewSet: 0x600003500fd0>; (empty)> windowScene: <UIWindowScene: 0x10690d420; role: UIWindowSceneSessionRoleApplication; persistentIdentifier: DB05AB5E-82DD-4510-95F4-E4D87CF672D6; activationState: UISceneActivationStateForegroundActive>
+2026-11-07 09:24:48.519 Df DateBook[22766:10b78] [com.apple.UIKit:KeyboardArbiterClientLog] -[_UIRemoteKeyboards prepareToMoveKeyboard:withIAV:isIAVRelevant:showing:notifyRemote:forScene:] position: {{0, 0}, {0, 0}} visible: 0; notifyRemote: 0; isMinimized: NO
+2026-11-07 09:24:48.519 Df DateBook[22766:10b78] [com.apple.UIKit:KeyboardVisualMode] Show keyboard with visual mode windowed (0)
+2026-11-07 09:24:48.554 Df tccd[19951:1089a] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=20930.54, attribution={accessing={TCCDProcess: identifier=DateBook, pid=22766, auid=501, euid=501, binary_path=/Users/runner/Library/Developer/CoreSimulator/Devices/4A57FB15-6E7C-49CC-BE93-450B18BD286E/data/Containers/Bundle/Application/CA8275DD-DD93-4887-9A59-36C6AC89418B/DateBook.app/DateBook}, requesting={TCCDProcess: identifier=com.apple.calaccessd, pid=20930, auid=501, euid=501, binary_path=/Library/Developer/CoreSimulator/Volumes/iOS_22F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 18.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd}, },
+2026-11-07 09:24:48.555 Df tccd[19951:1089a] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.calaccessd, pid=20930, auid=501, euid=501, binary_path=/Library/Developer/CoreSimulator/Volumes/iOS_22F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 18.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd is checking access for accessor TCCDProcess: identifier=DateBook, pid=22766, auid=501, euid=501, binary_path=/Users/runner/Library/Developer/CoreSimulator/Devices/4A57FB15-6E7C-49CC-BE93-450B18BD286E/data/Containers/Bundle/Application/CA8275DD-DD93-4887-9A59-36C6AC89418B/DateBook.app/DateBook
+2026-11-07 09:24:48.566 Df tccd[19951:102c4] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=20930.55, attribution={accessing={TCCDProcess: identifier=DateBook, pid=22766, auid=501, euid=501, binary_path=/Users/runner/Library/Developer/CoreSimulator/Devices/4A57FB15-6E7C-49CC-BE93-450B18BD286E/data/Containers/Bundle/Application/CA8275DD-DD93-4887-9A59-36C6AC89418B/DateBook.app/DateBook}, requesting={TCCDProcess: identifier=com.apple.calaccessd, pid=20930, auid=501, euid=501, binary_path=/Library/Developer/CoreSimulator/Volumes/iOS_22F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 18.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd}, },
+2026-11-07 09:24:48.567 Df tccd[19951:102c4] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.calaccessd, pid=20930, auid=501, euid=501, binary_path=/Library/Developer/CoreSimulator/Volumes/iOS_22F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 18.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd is checking access for accessor TCCDProcess: identifier=DateBook, pid=22766, auid=501, euid=501, binary_path=/Users/runner/Library/Developer/CoreSimulator/Devices/4A57FB15-6E7C-49CC-BE93-450B18BD286E/data/Containers/Bundle/Application/CA8275DD-DD93-4887-9A59-36C6AC89418B/DateBook.app/DateBook
+2026-11-07 09:24:48.583 Df DateBook[22766:10b9d] [com.apple.CoreAnalytics:client] No XPC connection in Simulator
+2026-11-07 09:24:48.586 Df DateBook[22766:10b78] [com.apple.network:activity] <nw_activity 50:1 [1B5A1EB9-2C2E-4B30-A74A-B1CD5D551EC2] (global parent) (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 5312ms
+2026-11-07 09:24:48.587 Df DateBook[22766:10b78] [com.apple.network:activity] <nw_activity 50:2 [47FA9386-196D-43AB-8322-1EE8EB6BB2FD] (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 5311ms
+2026-11-07 09:24:48.587 Df DateBook[22766:10b78] [com.apple.network:activity] Unsetting the global parent activity <nw_activity 50:1 [1B5A1EB9-2C2E-4B30-A74A-B1CD5D551EC2] (global parent) (reporting strategy default) complete (reason success)>
+2026-11-07 09:24:48.587 Df DateBook[22766:10b78] [com.apple.network:activity] Unset the global parent activity
+2026-11-07 09:24:50.781 A  DateBook[22766:10b78] (EventKit) CADEventPredicate
+2026-11-07 09:24:50.861 A  DateBook[22766:10b78] (CoreFoundation) Loading Preferences From User Session CFPrefsD
+2026-11-07 09:24:50.882 Df calaccessd[20930:10b8f] [com.apple.calendar.database:CalendarDatabase] Commencing database save for client with identifier [calaccessd], name [DateBook].  Commit: [YES]
+2026-11-07 09:24:50.904 Df DateBook[22766:10b78] [com.apple.eventkit:EventKit] Committed successfully
+2026-11-07 09:24:50.917 Df calaccessd[20930:10b8f] [com.apple.calendar.database:CalendarDatabase] Commencing database save for client with identifier [calaccessd], name [DateBook].  Commit: [YES]
+2026-11-07 09:24:50.919 Df DateBook[22766:10b78] [com.apple.eventkit:EventKit] Committed successfully
+2026-11-07 09:24:50.924 Df calaccessd[20930:10cbc] [com.apple.calendar.database:CalendarDatabase] Commencing database save for client with identifier [calaccessd], name [DateBook].  Commit: [YES]
+2026-11-07 09:24:50.928 Df DateBook[22766:10b78] [com.apple.eventkit:EventKit] Committed successfully
+2026-11-07 09:24:50.931 A  DateBook[22766:10ba5] (EventKit) CADEventPredicate
+2026-11-07 09:24:51.071 A  DateBook[22766:10b78] (Metal) compiling shader
+2026-11-07 09:24:51.077 Df MTLCompilerService[22797:10c27] (MTLCompiler) Compilation BEGIN (ParentProcessName=DateBook_22766) Build request: MTLBuildLibraryFromSourceToArchive - source
+2026-11-07 09:24:51.101 Df MTLCompilerService[22797:10c27] (MTLCompiler) Compilation SUCCESS (ParentProcessName=DateBook_22766) (TYPE=MTLBuildLibraryFromSourceToArchive - source): Time 23.099833 ms
+2026-11-07 09:24:51.102 A  DateBook[22766:10b78] (Metal) compiling shader
+2026-11-07 09:24:51.102 Df MTLCompilerService[22797:10c31] (MTLCompiler) Compilation BEGIN (ParentProcessName=DateBook_22766) Build request: MTLBuildLibraryFromSourceToArchive - source
+2026-11-07 09:24:51.122 Df MTLCompilerService[22797:10c31] (MTLCompiler) Compilation SUCCESS (ParentProcessName=DateBook_22766) (TYPE=MTLBuildLibraryFromSourceToArchive - source): Time 19.591083 ms
+2026-11-07 09:24:51.122 A  DateBook[22766:10b78] (Metal) compiling shader
+2026-11-07 09:24:51.123 Df MTLCompilerService[22797:10c27] (MTLCompiler) Compilation BEGIN (ParentProcessName=DateBook_22766) Build request: MTLBuildFunctions - pipeline
+2026-11-07 09:24:51.125 Df MTLCompilerService[22797:10c27] (MTLCompiler) Compilation SUCCESS (ParentProcessName=DateBook_22766) (TYPE=MTLBuildFunctions - pipeline): Time 1.985875 ms
+2026-11-07 09:24:51.125 A  DateBook[22766:10b78] (Metal) compiling shader
+2026-11-07 09:24:51.126 Df MTLCompilerService[22797:10c31] (MTLCompiler) Compilation BEGIN (ParentProcessName=DateBook_22766) Build request: MTLBuildFunctions - pipeline
+2026-11-07 09:24:51.128 Df MTLCompilerService[22797:10c31] (MTLCompiler) Compilation SUCCESS (ParentProcessName=DateBook_22766) (TYPE=MTLBuildFunctions - pipeline): Time 2.277625 ms
+2026-11-07 09:24:51.144 A  DateBook[22766:10b78] (Metal) compiling shader
+2026-11-07 09:24:51.144 Df MTLCompilerService[22797:10c27] (MTLCompiler) Compilation BEGIN (ParentProcessName=DateBook_22766) Build request: MTLBuildLibraryFromSourceToArchive - source
+2026-11-07 09:24:51.159 Df MTLCompilerService[22797:10c27] (MTLCompiler) Compilation SUCCESS (ParentProcessName=DateBook_22766) (TYPE=MTLBuildLibraryFromSourceToArchive - source): Time 14.630375 ms
+2026-11-07 09:24:51.159 A  DateBook[22766:10b78] (Metal) compiling shader
+2026-11-07 09:24:51.160 Df MTLCompilerService[22797:10c27] (MTLCompiler) Compilation BEGIN (ParentProcessName=DateBook_22766) Build request: MTLBuildLibraryFromSourceToArchive - source
+2026-11-07 09:24:51.170 Df MTLCompilerService[22797:10c27] (MTLCompiler) Compilation SUCCESS (ParentProcessName=DateBook_22766) (TYPE=MTLBuildLibraryFromSourceToArchive - source): Time 10.524666 ms
+2026-11-07 09:24:51.171 A  DateBook[22766:10b78] (Metal) compiling shader
+2026-11-07 09:24:51.171 Df MTLCompilerService[22797:10c31] (MTLCompiler) Compilation BEGIN (ParentProcessName=DateBook_22766) Build request: MTLBuildFunctions - pipeline
+2026-11-07 09:24:51.172 Df MTLCompilerService[22797:10c31] (MTLCompiler) Compilation SUCCESS (ParentProcessName=DateBook_22766) (TYPE=MTLBuildFunctions - pipeline): Time 1.366875 ms
+2026-11-07 09:24:51.173 A  DateBook[22766:10b78] (Metal) compiling shader
+2026-11-07 09:24:51.173 Df MTLCompilerService[22797:10c27] (MTLCompiler) Compilation BEGIN (ParentProcessName=DateBook_22766) Build request: MTLBuildFunctions - pipeline
+2026-11-07 09:24:51.174 Df MTLCompilerService[22797:10c27] (MTLCompiler) Compilation SUCCESS (ParentProcessName=DateBook_22766) (TYPE=MTLBuildFunctions - pipeline): Time 0.807333 ms
+2026-11-07 09:25:48.972 Df log[24740:0] [com.apple.log:] log run noninteractively, parent: 19690 (launchd_sim), args: 'log' 'show' '--last' '2m' '--style' 'compact' '--predicate' 'process == "DateBook" OR eventMessage CONTAINS "DateBook"'
