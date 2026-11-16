@@ -3,6 +3,10 @@ name: Build APK
 on:
   push:
     branches: [ main ]
+    # Файлы-кнопки (iOS-сборки, TestFlight, ASC) не должны тянуть за собой эти сборки.
+    paths-ignore:
+      - '.github/*-trigger.txt'
+      - '.github/testers-change.txt'
   pull_request:
   workflow_dispatch:
 

@@ -3,6 +3,10 @@ name: Emulator
 on:
   push:
     branches: [ main ]
+    # Файлы-кнопки (iOS-сборки, TestFlight, ASC) не должны тянуть за собой эти сборки.
+    paths-ignore:
+      - '.github/*-trigger.txt'
+      - '.github/testers-change.txt'
   workflow_dispatch:
 
 permissions:
