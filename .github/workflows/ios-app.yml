@@ -1,9 +1,9 @@
 name: iOS app (simulator)
 
 # Собирает iPhone-приложение на macOS-раннере, запускает в симуляторе и делает скриншот.
+# Минуты macOS у приватного репозитория считаются ×10, поэтому запуск только вручную:
+# Actions → «iOS app (simulator)» → Run workflow.
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:

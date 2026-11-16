@@ -42,6 +42,7 @@ jobs:
         with:
           name: DateBook-debug-${{ github.run_number }}
           path: DateBook.apk
+          retention-days: 7
 
       # Релиз с APK: прямая ссылка на файл, без zip.
       # Постоянная ссылка на последнюю версию:

@@ -1,9 +1,9 @@
 name: iOS check
 
 # Проверка, что общий код (shared) собирается под iOS. Идёт на macOS-раннере GitHub.
+# Минуты macOS у приватного репозитория считаются ×10, поэтому запуск только вручную:
+# Actions → «iOS check» → Run workflow.
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
