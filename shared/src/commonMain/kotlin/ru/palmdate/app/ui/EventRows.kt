@@ -59,11 +59,11 @@ import ru.palmdate.app.time.*
 import ru.palmdate.app.ui.theme.Palm
 
 @Composable
-fun TimeLabel(text: String, highlight: Boolean) {
+fun TimeLabel(text: String, highlight: Boolean, color: Color = Palm.inkSoft) {
     Text(
         text,
         style = Palm.time,
-        color = if (highlight) Palm.nowLine else Palm.inkSoft,
+        color = if (highlight) Palm.nowLine else color,
         textAlign = TextAlign.End,
         maxLines = 1,
         softWrap = false,
@@ -138,7 +138,8 @@ fun EventLine(
         Modifier.fillMaxWidth().heightIn(min = 44.dp).laneDraw(decor, timeLabelWidth()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TimeLabel(timeLabel, highlight)
+        // Время начала — цветом темы, конец («до …») во второй строке — обычный серый
+        TimeLabel(timeLabel, highlight, Palm.navy)
         decor?.let { Spacer(Modifier.width(it.gutter)) }
         Row(
             Modifier
