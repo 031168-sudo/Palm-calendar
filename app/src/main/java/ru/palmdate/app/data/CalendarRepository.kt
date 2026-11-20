@@ -410,7 +410,10 @@ class CalendarRepository(
             put(Events.STATUS, Events.STATUS_CONFIRMED)
             if (start != null && lengthMs != null && allDay != null) {
                 put(Events.DTSTART, start)
-                put(Events.DTEND, start + lengthMs)
+                // Исключению нельзя передавать DTEND — провайдер отвечает
+                // «Exceptions can't overwrite dtend». Длительность — только DURATION,
+                // конец провайдер считает сам (DTSTART + DURATION).
+                put(Events.DURATION, if (allDay) "P${maxOf(1L, lengthMs / 86_400_000L)}D" else secDuration(lengthMs))
                 put(Events.ALL_DAY, if (allDay) 1 else 0)
                 put(Events.EVENT_TIMEZONE, if (allDay) "UTC" else TimeZone.getDefault().id)
             }
