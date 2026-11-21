@@ -74,7 +74,8 @@ jobs:
           name: screenshots-${{ github.run_number }}
           path: app/screenshots
           if-no-files-found: warn
-          retention-days: 7
+          # Скриншоты дублируются в ветку screenshots, артефакт нужен только на пару дней
+          retention-days: 2
 
       # Скриншоты — ещё и в ветку screenshots: их видно прямо на GitHub, без скачивания
       - name: Publish screenshots branch
@@ -102,4 +103,4 @@ jobs:
         with:
           name: test-report-${{ github.run_number }}
           path: app/build/reports/tests
-          retention-days: 7
+          retention-days: 3
