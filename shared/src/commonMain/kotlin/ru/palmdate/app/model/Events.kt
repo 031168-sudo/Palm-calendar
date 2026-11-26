@@ -65,6 +65,13 @@ data class PalmEvent(
     val typeLabel: String?
         get() = if (fromContacts) L10n.str("type_birthday") else type?.label
 
+    /**
+     * Тап по иконке отмечает «выполнено» (и повторный — снимает): задачи, наши «События»
+     * и события из чужих календарей (без нашего типа). Остальные типы выполняют своё действие.
+     */
+    val iconTogglesDone: Boolean
+        get() = !fromContacts && (type == null || type == EventType.TASK || type == EventType.OTHER)
+
     /** Дни, которые занимает событие (для недели, месяца, года). */
     fun days(): List<LocalDate> {
         val first = start.toLocalDate()

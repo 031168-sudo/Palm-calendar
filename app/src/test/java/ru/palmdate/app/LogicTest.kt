@@ -135,6 +135,19 @@ class LogicTest {
         allDay = false, type = type, contact = null, note = null, color = 0, mail = mail,
     )
 
+    @Test fun iconTogglesDone() {
+        // Задачи, наши «События» и чужие события из других календарей отмечаются галочкой с иконки
+        assertTrue(event("Задача: тест", EventType.TASK).iconTogglesDone)
+        assertTrue(event("Событие: тест", EventType.OTHER).iconTogglesDone)
+        assertTrue(event("Чужое событие", null).iconTogglesDone)
+        // Остальные типы выполняют своё действие
+        listOf(EventType.CALL, EventType.MEETING, EventType.TRIP, EventType.MAIL).forEach {
+            assertTrue("${it.name}: иконка не должна отмечать выполнение", !event("тест", it).iconTogglesDone)
+        }
+        // День рождения из контактов — поздравить, а не отметить
+        assertTrue(!event("Иван", EventType.BIRTHDAY).copy(fromContacts = true).iconTogglesDone)
+    }
+
     @Test fun shortTitles() {
         assertEquals("Иван", event("Звонок: Иван", EventType.CALL).shortTitle)
         assertEquals("", event("Задача", EventType.TASK).shortTitle)

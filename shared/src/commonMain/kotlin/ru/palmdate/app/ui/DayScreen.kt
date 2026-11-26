@@ -214,8 +214,8 @@ fun DayScreen(model: DayModel, settings: SettingsPlatform) {
             onShiftPeriod = model::shiftPeriod,
             onTitle = { pickDate = true },
             onSlot = { date, hour -> newAt = date.atTime(hour, 0) },
-            // Задача — отметить выполненной; остальное — позвонить / маршрут / письмо
-            onIcon = { if (it.type == EventType.TASK) model.toggleTask(it) else platform.runPrimaryAction(it, call, mailer.open) },
+            // Задача, «Событие» и чужие события — отметить выполненной; остальное — позвонить / маршрут / письмо
+            onIcon = { if (it.iconTogglesDone) model.toggleTask(it) else platform.runPrimaryAction(it, call, mailer.open) },
             onEvent = { details = it },
             onDay = { model.setMode(ViewMode.DAY, it) },
             onMonth = { model.setMode(ViewMode.MONTH, it) },
